@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Результат синхронизации: {{ cloud_storage.name }}</h2>
+{% if result.error %}
+    <div style="background-color: #f8d7da; color: #721c24; padding: 15px; border: 1px solid #f5c6cb; border-radius: 4px; margin-bottom: 20px;">
+        Ошибка: {{ result.error }}
+    </div>
+{% else %}
+    <h3>Новые файлы ({{ result.new_files|length }}):</h3>
+    <ul>
+    {% for path in result.new_files %}
+        <li>{{ path }}</li>
+    {% empty %}
+        <li>Нет новых файлов</li>
+    {% endfor %}
+    </ul>
+    <h3>Обновлённые файлы ({{ result.updated_files|length }}):</h3>
+    <ul>
+    {% for path in result.updated_files %}
+        <li>{{ path }}</li>
+    {% empty %}
+        <li>Нет обновлённых файлов</li>
+    {% endfor %}
+    </ul>
+    <h3>Удалённые файлы ({{ result.deleted_files|length }}):</h3>
+    <ul>
+    {% for path in result.deleted_files %}
+        <li>{{ path }}</li>
+    {% empty %}
+        <li>Нет удалённых файлов</li>
+    {% endfor %}
+    </ul>
+{% endif %}
+<a href="{% url 'sources:cloud_storage_detail' pk=cloud_storage.id %}">Вернуться к хранилищу</a>
+{% endblock %}

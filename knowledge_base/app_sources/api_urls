@@ -1,0 +1,77 @@
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.http import HttpResponse
+import csv
+from io import StringIO
+from .models import URL, CloudStorage, Document
+from .serializers import URLSerializer, CloudStorageSerializer, DocumentSerializer
+from .tasks import parse_url_task, sync_document_task
+
+class URLViewSet(viewsets.ModelViewSet):
+    """API для управления URL."""
+    queryset = URL.objects.all()
+    serializer_class = URLSerializer
+
+    @action(detail=False, methods=['post'])
+    def parse(self, request):
+        """Запускает парсинг всех или одного URL."""
+        url_id = request.data.get('url_id')
+        if url_id:
+            parse_url_task.delay(url_id)
+        else:
+            for url in URL.objects.filter(status='created'):
+                parse_url_task.delay(url.id)
+        return Response({"status": "Parsing started"}, status=status.HTTP_202_ACCEPTED)
+
+    @action(detail=False, methods=['post'])
+    def upload_csv(self, request):
+        """Массовое добавление URL из CSV."""
+        csv_file = request.FILES['file']
+        data = csv_file.read().decode('utf-8')
+        reader = csv.DictReader(StringIO(data))
+        for row in reader:
+            URL.objects.create(
+                url=row['url'],
+                categories=eval(row['categories'])
+            )
+        return Response({"status": "URLs uploaded"}, status=status.HTTP_201_CREATED)
+
+class CloudStorageViewSet(viewsets.ModelViewSet):
+    """API для управления облачными дисками."""
+    queryset = CloudStorage.objects.all()
+    serializer_class = CloudStorageSerializer
+
+class DocumentViewSet(viewsets.ModelViewSet):
+    """API для управления документами."""
+    queryset = Document.objects.all()
+    serializer_class = DocumentSerializer
+
+    @action(detail=False, methods=['post'])
+    def sync(self, request):
+        """Запускает синхронизацию всех или одного документа."""
+        document_id = request.data.get('document_id')
+        if document_id:
+            sync_document_task.delay(document_id)
+        else:
+            for doc in Document.objects.filter(status='created'):
+                sync_document_task.delay(doc.id)
+        return Response({"status": "Sync started"}, status=status.HTTP_202_ACCEPTED)
+
+    @action(detail=False, methods=['post'])
+    def upload_csv(self, request):
+        """Массовое добавление документов из CSV."""
+        csv_file = request.FILES['file']
+        data = csv_file.read().decode('utf-8')
+        reader = csv.DictReader(StringIO(data))
+        for row in reader:
+            Document.objects.create(
+                cloud_storage_id=row['cloud_storage_id'],
+                file_id=row['file_id'],
+                file_name=row['file_name'],
+                file_path=row['file_path'],
+                file_type=row['file_type'],
+                description=row.get('description', ''),
+                categories=eval(row['categories'])
+            )
+        return Response({"status": "Documents uploaded"}, status=status.HTTP_201_CREATED)

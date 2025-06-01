@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <p>{{ cloudstorage.pk }}</p>
+    <p>{{ cloudstorage.name }}</p>
+    <p>{{ cloudstorage.api_type }}</p>
+    <p>{{ cloudstorage.credentials }}</p>
+    <p>
+        <form action="{% url 'sources:cloud_storage_sync' cloudstorage.pk %}" method="POST">
+            {% csrf_token %}
+            <button type="submit">Полное сканирование облака</button>
+        </form>
+    </p>
+    
+
+</body>
+</html>
