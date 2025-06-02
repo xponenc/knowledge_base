@@ -192,7 +192,6 @@ class DocumentSourceType(Enum):
         return display_names.get(self.value, self.value)
 
 
-
 class OutputDataType(Enum):
     """Тип передачи документа в базу знаний"""
     text = "t"
@@ -255,7 +254,6 @@ class Document(AbstractSource):
 
 def get_raw_file_path(instance, filename):
     """Генерирует путь и имя файла для RawContent и CleanedContent."""
-    source = instance.source
     timestamp = datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
     if instance.url:
         base_path = 'source_content/url_content'
@@ -264,13 +262,13 @@ def get_raw_file_path(instance, filename):
         base_path = 'source_content/document_content'
         original_filename = filename or 'document'
         sanitized_filename = slugify(os.path.splitext(original_filename)[0]) + os.path.splitext(original_filename)[1]
+        print(f'{base_path}/document_{instance.document.id}_{timestamp}_{sanitized_filename}')
         return f'{base_path}/document_{instance.document.id}_{timestamp}_{sanitized_filename}'
     return None
 
 
 def get_cleaned_file_path(instance, filename):
     """Генерирует путь и имя файла для RawContent и CleanedContent."""
-    source = instance.source
     timestamp = datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
     if instance.url:
         base_path = 'source_content/url_content'

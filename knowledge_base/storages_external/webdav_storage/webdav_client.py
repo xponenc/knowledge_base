@@ -1,10 +1,15 @@
 # storages_external/webdav_storage/webdav_client.py
+import os
+import tempfile
+
+import aiohttp
 import requests
 from urllib.parse import urljoin, unquote, urlparse
 import xml.etree.ElementTree as ET
 
 from django.core.signing import Signer, BadSignature
 
+from knowledge_base.settings import TEMP_DIR
 from utils.setup_logger import setup_logger
 
 logger = setup_logger(__name__, log_dir="logs/documents_parsing", log_file="webdav_client.log")
@@ -252,3 +257,24 @@ class WebDavStorage:
             else:
                 all_files.append(item)
         return all_files
+
+    def download_file_to_disk_sync(self, file_url):
+        print(file_url)
+        response = requests.get(file_url, stream=True, auth=self.auth)
+        print(response.status_code)
+        response.raise_for_status()
+
+        temp_dir = TEMP_DIR
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
+
+        original_filename = os.path.basename(file_url)
+
+        tmp_file = tempfile.NamedTemporaryFile(delete=False, dir=temp_dir)
+        temp_path = tmp_file.name
+
+        with open(temp_path, 'wb') as f:
+            for chunk in response.iter_content(1024 * 1024):
+                f.write(chunk)
+
+        return temp_path, original_filename

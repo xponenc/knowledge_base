@@ -9,7 +9,7 @@ from django.views import View
 from django.views.generic import DetailView, ListView, CreateView
 
 from app_sources.forms import CloudStorageForm
-from app_sources.tasks import process_cloud_files
+from app_sources.tasks import process_cloud_files, download_and_create_raw_content_parallel
 from app_sources.models import CloudStorage, Document, StorageUpdateReport, DocumentSourceType
 
 logger = logging.getLogger(__name__)
@@ -190,14 +190,14 @@ class DocumentsMassCreateView(View):
             if new_file["url"] in duplicated_urls:
                 new_file["create_status"] = "always_exist"
                 continue
-            test = {'file_id': '"bb1f033d0bd79d63c0a7515d50f65f3d"',
-                    'file_name': 'Устав.pdf',
-                    'is_dir': False,
-                    'last_modified': 'Thu, 29 May 2025 05:54:28 GMT',
-                    'path': 'documents/Устав.pdf',
-                    'size': 12897578,
-                    'url': 'https://cloud.academydpo.org/public.php/webdav/documents/Устав.pdf'
-                    }
+            # test = {'file_id': '"bb1f033d0bd79d63c0a7515d50f65f3d"',
+            #         'file_name': 'Устав.pdf',
+            #         'is_dir': False,
+            #         'last_modified': 'Thu, 29 May 2025 05:54:28 GMT',
+            #         'path': 'documents/Устав.pdf',
+            #         'size': 12897578,
+            #         'url': 'https://cloud.academydpo.org/public.php/webdav/documents/Устав.pdf'
+            #         }
             try:
                 remote_updated = parse(new_file.get('last_modified', ''))
             except Exception as e:
@@ -221,6 +221,11 @@ class DocumentsMassCreateView(View):
                     new_file["create_status"] = "created"
             update_report.content["status"] = "Documents successfully created, download content in progress..."
             update_report.save()
+            # Запуск фоновой задачи скачивания контента и создания RawContent для созданных Document
+            print("# Запуск фоновой задачи скачивания контента и создания RawContent для созданных Document")
+            download_and_create_raw_content_parallel.delay(
+                document_ids=created_ids, update_report_id=update_report.pk
+            )
 
         return redirect(reverse_lazy("sources:storageupdatereport_detail", args=[pk, ]))
 

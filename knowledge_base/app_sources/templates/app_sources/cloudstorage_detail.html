@@ -1,22 +1,45 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    <p>{{ cloudstorage.pk }}</p>
-    <p>{{ cloudstorage.name }}</p>
-    <p>{{ cloudstorage.api_type }}</p>
-    <p>{{ cloudstorage.credentials }}</p>
-    <p>
-        <form action="{% url 'sources:cloud_storage_sync' cloudstorage.pk %}" method="POST">
-            {% csrf_token %}
-            <button type="submit">Полное сканирование облака</button>
-        </form>
-    </p>
-    
+{% extends 'base.html' %}
+{% block title %}{{ cloudstorage.name }}{% endblock %}
 
-</body>
-</html>
+{% block content %}
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">Детали хранилища: {{ cloudstorage.name }}</h5>
+    </div>
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">ID</dt>
+            <dd class="col-sm-9">{{ cloudstorage.pk }}</dd>
+
+            <dt class="col-sm-3">Название</dt>
+            <dd class="col-sm-9">{{ cloudstorage.name }}</dd>
+
+            <dt class="col-sm-3">Тип API</dt>
+            <dd class="col-sm-9">{{ cloudstorage.api_type }}</dd>
+
+            <dt class="col-sm-3">Учетные данные</dt>
+            <dd class="col-sm-9">
+                <pre class="bg-light p-2 rounded">{{ cloudstorage.credentials|default:"—" }}</pre>
+            </dd>
+        </dl>
+    </div>
+</div>
+
+<form action="{% url 'sources:cloud_storage_sync' cloudstorage.pk %}" method="POST">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-success">🔄 Полное сканирование облака</button>
+</form>
+
+{% for document in cloudstorage.documents.all %}
+    <div>
+        <p>{{ document.url }}</p>
+        <p>{{ document.status }}</p>
+        <p>{{ document.errors }}</p>
+        {% for raw_content in document.rawcontent_set.all %}
+            <p>{{ raw_content.url }}</p>
+            <p>{{ raw_content.hash_content }}</p>
+        {% endfor %}
+        <p>{{ document.ra }}</p>
+    </div>
+{% endfor %}
+{% endblock %}
