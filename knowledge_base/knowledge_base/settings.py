@@ -67,6 +67,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.media',
             ],
         },
     },
@@ -122,6 +123,12 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+
+print(STATICFILES_DIRS)
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -130,8 +137,26 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
 
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+# CELERY_BROKER_URL = 'redis://localhost:6379/0'
+# CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+
+# REDIS+CELERY
+REDIS_HOST = '127.0.0.1'
+REDIS_PORT = '6379'
+CELERY_BROKER_URL = 'redis://' + REDIS_HOST + ':' + REDIS_PORT + '/0'
+# CELERY_BROKER_TRANSPORT_OPTION = {'visibility_timeout': 3600}
+CELERY_RESULT_BACKEND = 'redis://' + REDIS_HOST + ':' + REDIS_PORT + '/0'
+CELERY_TASK_SERIALIZER = 'pickle'
+CELERY_RESULT_SERIALIZER = 'pickle'
+CELERY_ACCEPT_CONTENT = ['pickle', 'json']
+# CELERY_ACCEPT_CONTENT = ['application_json']
+# CELERY_TASK_SERIALIZER = 'json'
+# CELERY_RESULT_SERIALIZER = 'json'
+# Celery Configuration Options
+CELERY_TIMEZONE = "Europe/Samara"
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
+
 
 LOGGING = {
     'version': 1,
@@ -146,15 +171,10 @@ LOGGING = {
         'file': {
             'level': 'INFO',
             'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs/documents_parsing/views.log'),
+            'filename': os.path.join(BASE_DIR, 'logs/general.log'),
             'formatter': 'verbose',
         },
-        'storage_file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs/documents_parsing/storage_client.log'),
-            'formatter': 'verbose',
-        },
+
         'console': {
             'level': 'DEBUG',
             'class': 'logging.StreamHandler',
@@ -167,10 +187,10 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
-        'storages_external.webdav_storage.webdav_client': {
-            'handlers': ['storage_file', 'console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
+        # 'storages_external.webdav_storage.webdav_client': {
+        #     'handlers': ['storage_file', 'console'],
+        #     'level': 'INFO',
+        #     'propagate': False,
+        # },
     },
 }

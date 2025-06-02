@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Отчет по синхронизации{% endblock %}
+
+{% block content %}
+<div class="sync-report">
+    <h1 class="sync-report__title mb-4">Отчет по синхронизации</h1>
+
+    <div class="sync-report__meta text-muted mb-3">
+        {{ storageupdatereport.created_at|date:"F j, Y, H:i" }}<br>
+        <strong>{{ storageupdatereport.storage.name }}</strong>
+        <p>Тип синхронизации: {{ storageupdatereport.content.sync_type }}</p>
+        <p>Статус обработки: {{ storageupdatereport.content.status }}</p>
+    </div>
+    {% with storageupdatereport.content.result as result %}
+
+    {% if result.new_files %}
+    <div class="sync-report__section mb-5">
+        <h3 class="sync-report__heading text-success">Новые файлы ({{ result.new_files|length }})</h3>
+        {% if not storageupdatereport.content.created_docs %}
+        <form action="{% url 'sources:documents-mass-create' storageupdatereport.pk %}" method="post" class="sync-report__form mb-4 p-3 border rounded bg-light">
+            {% csrf_token %}
+            <p class="form-text mb-2">Будут созданы новые документы из файлов, полученных при синхронизации.</p>
+            <button type="submit" class="btn btn-success">Создать новые документы</button>
+        </form>
+        {% endif %}
+        <table class="table table-bordered table-hover">
+            <thead class="table-success">
+                <tr>
+                    <th>Имя</th>
+                    <th>Путь</th>
+                    <th>Размер</th>
+                    <th>Статус</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for file in result.new_files %}
+                <tr>
+                    <td>{{ file.file_name }}</td>
+                    <td><a href="">{{ file.path }}</a></td>
+                    <td>{{ file.size|filesizeformat }}</td>
+                    <td>{{ file.create_status|default:"готов к созданию" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if result.updated_files %}
+    <div class="sync-report__section mb-5">
+        <h3 class="sync-report__heading text-warning">Обновленные файлы ({{ result.updated_files|length }})</h3>
+        <table class="table table-bordered table-hover">
+            <thead class="table-warning">
+                <tr>
+                    <th>Имя</th>
+                    <th>Путь</th>
+                    <th>Размер</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for file in result.updated_files %}
+                <tr>
+                    <td>{{ file.file_name }}</td>
+                    <td>{{ file.path }}</td>
+                    <td>{{ file.size|filesizeformat }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if result.deleted_files %}
+    <div class="sync-report__section mb-5">
+        <h3 class="sync-report__heading text-danger">Удаленные файлы ({{ result.deleted_files|length }})</h3>
+        <table class="table table-bordered table-hover">
+            <thead class="table-danger">
+                <tr>
+                    <th>Название</th>
+                    <th>Путь</th>
+                    <th>ID</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for file in result.deleted_files %}
+                <tr>
+                    <td>{{ file.title }}</td>
+                    <td>{{ file.path }}</td>
+                    <td>{{ file.id }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if not result.new_files and not result.updated_files and not result.deleted_files %}
+    <p class="text-muted">Изменений не обнаружено.</p>
+    {% endif %}
+
+    {% endwith %}
+</div>
+{% endblock %}

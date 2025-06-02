@@ -114,7 +114,6 @@ class WebDavStorage:
                     <d:getcontentlength/>
                     <d:resourcetype/>
                     <d:getetag/>
-                    <oc:fileid/>
                   </d:prop>
                 </d:propfind>
         """
@@ -124,24 +123,6 @@ class WebDavStorage:
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
             logger.error(f"Ошибка PROPFIND для {url}: {e}")
-            logger.debug(f"Тело ответа: {response.text}")
-            xml_fallback = """<?xml version="1.0" encoding="utf-8" ?>
-                            <d:propfind xmlns:d="DAV:">
-                              <d:prop>
-                                <d:getlastmodified/>
-                                <d:getcontentlength/>
-                                <d:resourcetype/>
-                                <d:getetag/>
-                              </d:prop>
-                            </d:propfind>
-            """
-            logger.info(f"Повторный PROPFIND без oc:fileid к {url}")
-            try:
-                response = requests.request("PROPFIND", url, data=xml_fallback, headers=headers, auth=self.auth)
-                response.raise_for_status()
-            except requests.exceptions.HTTPError as e:
-                logger.error(f"Повторная ошибка PROPFIND: {e}")
-                raise
 
         ns = {'d': 'DAV:', 'oc': 'http://owncloud.org/ns'}
         try:
@@ -170,118 +151,104 @@ class WebDavStorage:
 
             resourcetype = resp.find('d:propstat/d:prop/d:resourcetype', ns)
             is_dir = resourcetype is not None and resourcetype.find('d:collection', ns) is not None
+            if not is_dir:
+                item = {
+                    'url': urljoin(self.base_url, rel_path.lstrip('/')),
+                    'path': rel_path,
+                    'file_name': file_name,
+                    'is_dir': is_dir,
+                    'last_modified': resp.findtext('d:propstat/d:prop/d:getlastmodified', default=None, namespaces=ns),
+                    'size': int(resp.findtext('d:propstat/d:prop/d:getcontentlength', default="0",
+                                              namespaces=ns)) if not is_dir else 0,
+                    'file_id': resp.findtext('d:propstat/d:prop/d:getetag', default=None, namespaces=ns),
+                }
+                items.append(item)
+        return items
+
+    def propfind(self, path):
+        url = urljoin(self.base_url, path)
+        headers = {"Depth": "1", "Content-Type": "application/xml"}
+        xml = """<?xml version="1.0" encoding="utf-8" ?>
+                    <d:propfind xmlns:d="DAV:">
+                      <d:prop>
+                        <d:getlastmodified/>
+                        <d:getcontentlength/>
+                        <d:resourcetype/>
+                        <d:getetag/>
+                      </d:prop>
+                    </d:propfind>
+        """
+        logger.info(f"PROPFIND запрос к {url}")
+        try:
+            response = requests.request("PROPFIND", url, data=xml, headers=headers, auth=self.auth)
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"Ошибка PROPFIND для {url}: {e}")
+            raise
+        return response.text
+
+    def parse_propfind(self, xml_response, base_url):
+        ns = {'d': 'DAV:'}
+        root = ET.fromstring(xml_response)
+        items = []
+
+        for resp in root.findall('d:response', ns):
+            print(resp)
+            href_elem = resp.find('d:href', ns)
+            if href_elem is None:
+                continue
+
+            href = unquote(href_elem.text)
+            if href.rstrip('/') == base_url.rstrip('/'):
+                continue
+
+            if href.startswith('/'):
+                rel_path = href.lstrip('/')
+            else:
+                rel_path = href
+            if rel_path.startswith('public.php/webdav/'):
+                rel_path = rel_path[len('public.php/webdav/'):]
+
+            parsed = urlparse(href)
+            file_name = parsed.path.rstrip('/').split('/')[-1]
+
+            resourcetype = resp.find('d:propstat/d:prop/d:resourcetype', ns)
+            is_dir = resourcetype is not None and resourcetype.find('d:collection', ns) is not None
 
             item = {
                 'path': rel_path,
                 'file_name': file_name,
                 'is_dir': is_dir,
                 'last_modified': resp.findtext('d:propstat/d:prop/d:getlastmodified', default=None, namespaces=ns),
-                'size': int(resp.findtext('d:propstat/d:prop/d:getcontentlength', default="0",
-                                          namespaces=ns)) if not is_dir else 0,
+                'size': int(
+                    resp.findtext('d:propstat/d:prop/d:getcontentlength', default="0",
+                                  namespaces=ns)) if not is_dir else 0,
                 'etag': resp.findtext('d:propstat/d:prop/d:getetag', default=None, namespaces=ns),
-                'url': urljoin(self.base_url, rel_path.lstrip('/')),
-                'fileid': resp.findtext('d:propstat/d:prop/oc:fileid', default=None, namespaces=ns)
+                'url': urljoin(self.base_url, rel_path.lstrip('/'))
             }
 
-            if item['fileid']:
-                logger.debug(f"Найден file_id: {item['fileid']} для {item['path']}")
+            if is_dir:
+                logger.info(f"Найдена папка: {file_name}")
             else:
-                logger.debug(f"file_id отсутствует для {item['path']}")
+                logger.info(
+                    f"Найден файл: {file_name}, размер: {item['size']} байт, изменен {item['last_modified']}, ETag: {item['etag']}")
 
             items.append(item)
         return items
 
-    def download_file(self, path):
-        url = urljoin(self.base_url, path.lstrip('/'))
-        logger.info(f"Скачивание файла: {url}")
-        try:
-            response = requests.get(url, auth=self.auth)
-            response.raise_for_status()
-            return response.content
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"Ошибка скачивания {url}: {e}")
-            raise
+    def list_files_recursive(self, path):
+        xml_response = self.propfind(path)
+        base_url = urljoin(self.base_url, path)
+        items = self.parse_propfind(xml_response, base_url)
 
-    def sync_all(self):
         all_files = []
-
-        def recursive_list(path):
-            try:
-                items = self.list_directory(path)
-            except Exception as e:
-                logger.error(f"Ошибка чтения директории {path}: {e}")
-                return
-
-            for item in items:
-                if item['is_dir']:
-                    sub_path = item['path']
-                    if sub_path.rstrip('/') == path.rstrip('/'):
-                        continue
-                    logger.info(f"Обработка поддиректории: {sub_path}")
-                    recursive_list(sub_path)
-                else:
-                    all_files.append(item)
-
-        logger.info(f"Сбор всех файлов из {self.root_path}")
-        recursive_list(self.root_path)
+        for item in items:
+            if item['is_dir']:
+                sub_path = item['path']
+                if sub_path.rstrip('/') == path.rstrip('/'):
+                    continue
+                logger.info(f"Рекурсивный вызов для поддиректории: {sub_path}")
+                all_files.extend(self.list_files_recursive(sub_path))
+            else:
+                all_files.append(item)
         return all_files
-
-    def sync_selected(self, file_paths):
-        selected_files = []
-        for path in file_paths:
-            try:
-                url = urljoin(self.base_url, path.lstrip('/'))
-                headers = {"Depth": "0", "Content-Type": "application/xml"}
-                xml = """<?xml version="1.0" encoding="utf-8" ?>
-                        <d:propfind xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">
-                          <d:prop>
-                            <d:getlastmodified/>
-                            <d:getcontentlength/>
-                            <d:resourcetype/>
-                            <d:getetag/>
-                            <oc:fileid/>
-                          </d:prop>
-                        </d:propfind>
-                """
-                response = requests.request("PROPFIND", url, data=xml, headers=headers, auth=self.auth)
-                response.raise_for_status()
-
-                ns = {'d': 'DAV:', 'oc': 'http://owncloud.org/ns'}
-                root = ET.fromstring(response.text)
-                resp = root.find('d:response', ns)
-                if not resp:
-                    logger.warning(f"Файл не найден: {path}")
-                    continue
-
-                href_elem = resp.find('d:href', ns)
-                href = unquote(href_elem.text)
-                rel_path = href.lstrip('/')
-                if rel_path.startswith('public.php/webdav/'):
-                    rel_path = rel_path[len('public.php/webdav/'):]
-
-                parsed = urlparse(href)
-                file_name = parsed.path.rstrip('/').split('/')[-1]
-
-                resourcetype = resp.find('d:propstat/d:prop/d:resourcetype', ns)
-                is_dir = resourcetype is not None and resourcetype.find('d:collection', ns) is not None
-                if is_dir:
-                    logger.warning(f"Путь {path} — директория, пропущена")
-                    continue
-
-                item = {
-                    'path': rel_path,
-                    'file_name': file_name,
-                    'is_dir': False,
-                    'last_modified': resp.findtext('d:propstat/d:prop/d:getlastmodified', default=None, namespaces=ns),
-                    'size': int(resp.findtext('d:propstat/d:prop/d:getcontentlength', default="0", namespaces=ns)),
-                    'etag': resp.findtext('d:propstat/d:prop/d:getetag', default=None, namespaces=ns),
-                    'url': urljoin(self.base_url, rel_path.lstrip('/')),
-                    'fileid': resp.findtext('d:propstat/d:prop/oc:fileid', default=None, namespaces=ns)
-                }
-
-                selected_files.append(item)
-                logger.info(f"Добавлен файл для синхронизации: {path}")
-            except Exception as e:
-                logger.error(f"Ошибка обработки файла {path}: {e}")
-
-        return selected_files

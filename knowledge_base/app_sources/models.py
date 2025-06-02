@@ -8,6 +8,7 @@ from django.contrib.postgres.indexes import GinIndex
 from enum import Enum
 import hashlib
 
+from django.db.models import UniqueConstraint, Q
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from django.urls import reverse
@@ -44,7 +45,7 @@ class AbstractSource(models.Model):
     """
     Абстрактная базовая модель для источников данных (URL, Document).
     """
-    url = models.URLField(verbose_name="путь к источнику", unique=True, max_length=500)
+    url = models.URLField(verbose_name="путь к источнику", max_length=500)
 
     status = models.CharField(
         verbose_name="статус обработки",
@@ -168,6 +169,30 @@ class CloudStorage(models.Model):
         raise ValueError(f"Неподдерживаемый api_type: {self.api_type}")
 
 
+class StorageUpdateReport(models.Model):
+    """Отчет по обновлению файлов Облачного хранилища"""
+
+    storage = models.ForeignKey(CloudStorage, on_delete=models.CASCADE, )
+    content = models.JSONField(verbose_name="отчет", default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class DocumentSourceType(Enum):
+    """Тип размещения источника исходного документа"""
+    network = "n"
+    local = "l"
+
+    @property
+    def display_name(self):
+        """Русское название статуса для отображения."""
+        display_names = {
+            "n": "Источник документа - сетевой диск",
+            "l": "Источник документа - локальный файл",
+        }
+        return display_names.get(self.value, self.value)
+
+
+
 class OutputDataType(Enum):
     """Тип передачи документа в базу знаний"""
     text = "t"
@@ -188,7 +213,7 @@ class Document(AbstractSource):
     Хранит данные о документах с облачных дисков.
     """
     cloud_storage = models.ForeignKey(CloudStorage, on_delete=models.CASCADE, related_name="documents")
-    path = models.URLField(verbose_name="путь к источнику", unique=True, max_length=500)
+    path = models.URLField(verbose_name="путь к источнику", max_length=500)
     file_id = models.CharField(verbose_name="id файла в облаке", max_length=200, blank=True, null=True)
     size = models.PositiveBigIntegerField(verbose_name="размер файла")
     output_format = models.CharField(
@@ -197,15 +222,35 @@ class Document(AbstractSource):
         choices=[(status.value, status.display_name) for status in OutputDataType],
         default=OutputDataType.file.value,
     )
+    source_type = models.CharField(
+        verbose_name="тип исходного источника документа",
+        max_length=1,
+        choices=[(status.value, status.display_name) for status in DocumentSourceType],
+        default=DocumentSourceType.network.value,
+    )
 
     description = models.TextField(null=True, blank=True, help_text="Краткое описание")
 
     def __str__(self):
         return f"[Document] {super().__str__()}"
 
+    def clean(self):
+        # Только если оба поля не None — проверка на уникальность
+        if self.cloud_storage and self.url:
+            if Document.objects.filter(cloud_storage=self.cloud_storage, url=self.url).exclude(pk=self.pk).exists():
+                raise ValidationError("Документ с таким cloud_storage и url уже существует.")
+
     class Meta:
         verbose_name = "Document"
         verbose_name_plural = "Documents"
+        # Раскомментировать для PostgreSQL и убрать из clean
+        # constraints = [
+        #     UniqueConstraint(
+        #         fields=['cloud_storage', 'path'],
+        #         condition=Q(cloud_storage__isnull=False, path__isnull=False),
+        #         name='unique_cloudstorage_path_not_null'
+        #     )
+        # ]
 
 
 def get_raw_file_path(instance, filename):
@@ -220,6 +265,7 @@ def get_raw_file_path(instance, filename):
         original_filename = filename or 'document'
         sanitized_filename = slugify(os.path.splitext(original_filename)[0]) + os.path.splitext(original_filename)[1]
         return f'{base_path}/document_{instance.document.id}_{timestamp}_{sanitized_filename}'
+    return None
 
 
 def get_cleaned_file_path(instance, filename):
@@ -232,11 +278,7 @@ def get_cleaned_file_path(instance, filename):
     elif instance.document:
         base_path = 'source_content/document_content'
         return f'{base_path}/document_{instance.document.id}_{timestamp}_cleaned_content.txt'
-
-    def clean(self):
-        """Проверяет, что ровно одно из полей url или document заполнено."""
-        if (self.url and self.document) or (not self.url and not self.document):
-            raise ValidationError("Должно быть заполнено ровно одно из полей: url или document.")
+    return None
 
 
 class RawContent(models.Model):
