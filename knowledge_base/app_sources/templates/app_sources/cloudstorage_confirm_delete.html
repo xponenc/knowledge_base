@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Удалить облачный диск{% endblock %}
+
+{% block content %}
+<h2>Подтвердите удаление</h2>
+<p>Вы уверены, что хотите удалить облачный диск <strong>{{ object.title }}</strong>?</p>
+<p><strong>Тут надо добавить объем информации связанной с Облачным диском - документы, чанки</strong></p>
+
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Удалить</button>
+    <a href="{% url 'sources:cloudstorage_detail' object.pk %}" class="btn btn-secondary">Отмена</a>
+</form>
+{% endblock %}

@@ -21,7 +21,7 @@ urlpatterns = [
     path('api/', include(router.urls)),
     path('admin/', admin.site.urls),
     path('accounts/', include('django.contrib.auth.urls')),
-    path('', RedirectView.as_view(pattern_name="core:knowledge_base_list", permanent=False)),
+    path('', RedirectView.as_view(pattern_name="core:knowledgebase_list", permanent=False)),
     re_path(r'^celery-progress/', include('celery_progress.urls')),
     path('', include('app_core.urls')),
     path('sources/', include('app_sources.urls')),

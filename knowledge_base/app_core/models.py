@@ -17,7 +17,6 @@ class KnowledgeBase(TrackableModel):
     updated_at = models.DateTimeField(auto_now=True)
     soft_deleted_at = models.DateTimeField(blank=True, null=True, verbose_name="мягко удалена")
 
-
     def get_absolute_url(self):
         return reverse('core:knowledgebase_detail', args=[str(self.id)])
 

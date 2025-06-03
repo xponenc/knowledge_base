@@ -8,15 +8,15 @@ from django.contrib.postgres.indexes import GinIndex
 from enum import Enum
 import hashlib
 
-from django.db.models import UniqueConstraint, Q
+from django.db.models import UniqueConstraint, Q, CheckConstraint
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from django.urls import reverse
 from django.utils.text import slugify
+from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport, LocalStorage
 from django.contrib.auth import get_user_model
-User = get_user_model()
 
-from app_sources.storage_models import Storage, CloudStorage, CloudStorageUpdateReport
+User = get_user_model()
 
 
 class Status(Enum):
@@ -89,9 +89,9 @@ class AbstractSource(models.Model):
                                          blank=True,
                                          )
     synchronized_at = models.DateTimeField(verbose_name="дата синхронизации",
-                                                null=True,
-                                                blank=True,
-                                                )
+                                           null=True,
+                                           blank=True,
+                                           )
     created_at = models.DateTimeField(verbose_name="дата создания",
                                       auto_now_add=True)
     updated_at = models.DateTimeField(verbose_name="дата обновления", auto_now=True)
@@ -102,8 +102,10 @@ class AbstractSource(models.Model):
     class Meta:
         abstract = True
 
+    objects = models.Manager()
+
     def __str__(self):
-        return self.title if self.title else self.path
+        return self.title if self.title else self.url
 
 
 class URL(AbstractSource):
@@ -137,7 +139,7 @@ class OutputDataType(Enum):
 class NetworkDocument(AbstractSource):
     """Документ связанный с сетевым хранилищем"""
 
-    storage = models.ForeignKey(CloudStorage, on_delete=models.CASCADE, related_name="documents")
+    storage = models.ForeignKey(CloudStorage, on_delete=models.CASCADE, related_name="network_documents")
 
     path = models.URLField(verbose_name="путь к источнику", max_length=500)
     file_id = models.CharField(verbose_name="id файла в облаке", max_length=200, blank=True, null=True)
@@ -150,18 +152,9 @@ class NetworkDocument(AbstractSource):
     )
     description = models.CharField(verbose_name="краткое описание", max_length=1000, null=True, blank=True)
 
-    def __str__(self):
-        return f"[Document] {super().__str__()}"
-
-    def clean(self):
-        # Только если оба поля не None — проверка на уникальность
-        if self.storage and self.url:
-            if NetworkDocument.objects.filter(storage=self.storage, url=self.url).exclude(pk=self.pk).exists():
-                raise ValidationError("Документ с таким storage и url уже существует.")
-
     class Meta:
-        verbose_name = "Document"
-        verbose_name_plural = "Documents"
+        verbose_name = "Network Document"
+        verbose_name_plural = "Network Documents"
         # Раскомментировать для PostgreSQL и убрать из clean
         # constraints = [
         #     UniqueConstraint(
@@ -171,12 +164,20 @@ class NetworkDocument(AbstractSource):
         #     )
         # ]
 
+    def __str__(self):
+        return f"[Document] {super().__str__()}"
+
+    def clean(self):
+        # Только если оба поля не None — проверка на уникальность
+        if self.storage and self.url:
+            if NetworkDocument.objects.filter(storage=self.storage, url=self.url).exclude(pk=self.pk).exists():
+                raise ValidationError("Документ с таким storage и url уже существует.")
 
 
 class LocalDocument(AbstractSource):
     """Модель документа привязанного к локальному хранилищу документов"""
 
-    storage = models.ForeignKey(Storage, on_delete=models.CASCADE, related_name="documents")
+    storage = models.ForeignKey(LocalStorage, on_delete=models.CASCADE, related_name="documents")
 
     name = models.CharField(max_length=200, unique=True, help_text="название")
     description = models.CharField(verbose_name="описание", max_length=1000, null=True, blank=True)
@@ -187,10 +188,8 @@ class LocalDocument(AbstractSource):
     author = models.ForeignKey(User, on_delete=models.CASCADE)
 
     class Meta:
-        verbose_name = "Local Storage"
-        verbose_name_plural = "Local Storages"
-
-    objects = models.Manager()
+        verbose_name = "Local Document"
+        verbose_name_plural = "Local Documents"
 
     def __str__(self):
         return self.name
@@ -225,32 +224,61 @@ def get_cleaned_file_path(instance, filename):
     return None
 
 
-class RawContent(models.Model):
-    """Файл с грязным контентом источника"""
+class Content(models.Model):
+    """Абстрактная модель объекта файла с данными из источника"""
     url = models.ForeignKey(URL, on_delete=models.CASCADE, null=True, blank=True)
-    document = models.ForeignKey(Document, on_delete=models.CASCADE, null=True, blank=True)
-    file = models.FileField(verbose_name="файл с грязным контентом источника", upload_to=get_raw_file_path)
+    network_document = models.ForeignKey(NetworkDocument, on_delete=models.CASCADE, null=True, blank=True)
+    local_document = models.ForeignKey(LocalDocument, on_delete=models.CASCADE, null=True, blank=True)
+
     hash_content = models.CharField(max_length=64, null=True, blank=True)
 
-    created_at = models.DateTimeField(verbose_name="дата создания",
-                                      auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    class Meta:
+        abstract = True
+        # Раскомментировать для PostgreSQL и убрать из clean
+        # constraints = [
+        #     CheckConstraint(
+        #         check=(
+        #             (
+        #                     Q(url__isnull=False, network_document__isnull=True, local_document__isnull=True) |
+        #                     Q(url__isnull=True, network_document__isnull=False, local_document__isnull=True) |
+        #                     Q(url__isnull=True, network_document__isnull=True, local_document__isnull=False)
+        #             )
+        #         ),
+        #         name='only_one_source_not_null'
+        #     )
+        # ]
+
+    objects = models.Manager()
 
     def clean(self):
-        """Проверяет, что ровно одно из полей url или document заполнено."""
-        if (self.url and self.document) or (not self.url and not self.document):
-            raise ValidationError("Должно быть заполнено ровно одно из полей: url или document.")
+        """Ровно одно из полей должно быть заполнено."""
+        sources = [self.url, self.network_document, self.local_document]
+        if sum(bool(s) for s in sources) != 1:
+            raise ValidationError(
+                "Должно быть заполнено ровно одно из полей: url, network_document, local_document.")
+
+
+class RawContent(Content):
+    """Файл с грязным контентом источника"""
+    file = models.FileField(verbose_name="файл с грязным контентом источника", upload_to=get_raw_file_path)
+
+    class Meta:
+        verbose_name = "Raw Content"
+        verbose_name_plural = "Raw Contents"
 
 
 class CleanedContent(models.Model):
-    """Файл с чистым контентом источника"""
-    url = models.ForeignKey(URL, on_delete=models.CASCADE, null=True, blank=True)
-    document = models.ForeignKey(Document, on_delete=models.CASCADE, null=True, blank=True)
-    file = models.FileField(verbose_name="файл с чистым контентом источника", upload_to=get_cleaned_file_path)
-    hash_content = models.CharField(max_length=64, null=True, blank=True)
+    """Файл с очищенным контентом источника"""
+    file = models.FileField(verbose_name="файл с грязным контентом источника", upload_to=get_cleaned_file_path)
 
-    created_at = models.DateTimeField(verbose_name="дата создания",
-                                      auto_now_add=True)
-    updated_at = models.DateTimeField(verbose_name="дата обновления", auto_now=True)
+    class Meta:
+        verbose_name = "Cleaned Content"
+        verbose_name_plural = "Cleaned Contents"
 
 
 @receiver(post_delete, sender=RawContent)

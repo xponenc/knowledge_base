@@ -1,31 +1,33 @@
 {% extends 'base.html' %}
-{% block title %}Список баз знаний{% endblock %}
+{% block title %}Список облачных хранилищ{% endblock %}
 
 {% block content %}
-<h2>Список баз знаний</h2>
+<h2>Список облачных хранилищ</h2>
 
-<div class="mb-3">
-    <a href="{% url 'knowledgebase_create' %}" class="btn btn-primary">Создать новую базу знаний</a>
-</div>
 
 {% if object_list %}
     <ul class="list-group">
-        {% for kb in object_list %}
+        {% for cloudstorage in object_list %}
             <li class="list-group-item d-flex justify-content-between align-items-center">
                 <div>
-                    <a href="{{ kb.get_absolute_url }}" class="text-decoration-none">
-                        {{ kb.title }}
+                    <a href="{{ cloudstorage.get_absolute_url }}" class="text-decoration-none">
+                        {{ cloudstorage.name }}
                     </a>
                 </div>
                 <div>
-                    <a href="{% url 'knowledgebase_update' kb.pk %}" class="btn btn-sm btn-outline-secondary">Редактировать</a>
-                    <a href="{% url 'knowledgebase_delete' kb.pk %}" class="btn btn-sm btn-outline-danger">Удалить</a>
+                    <a href="{{ cloudstorage.kb.get_absolute_url }}" class="text-decoration-none">
+                        База знаний {{ cloudstorage.kb.title }}
+                    </a>
+                </div>
+                <div>
+                    <a href="{% url 'sources:cloudstorage_update' cloudstorage.pk %}" class="btn btn-sm btn-outline-secondary">Редактировать</a>
+                    <a href="{% url 'sources:cloudstorage_delete' cloudstorage.pk %}" class="btn btn-sm btn-outline-danger">Удалить</a>
                 </div>
             </li>
         {% endfor %}
     </ul>
 {% else %}
-    <p>Базы знаний не найдены.</p>
+    <p>Облачные хранилища не найдены.</p>
 {% endif %}
 
 {% endblock %}

@@ -23,8 +23,14 @@ class Storage(models.Model):
 
     author = models.ForeignKey(User, on_delete=models.CASCADE)
 
-
     objects = models.Manager()
+
+    class Meta:
+        abstract = True
+
+
+class LocalStorage(Storage):
+    """Модель локального хранилища"""
 
     class Meta:
         verbose_name = "Local Storage"
@@ -38,19 +44,17 @@ class Storage(models.Model):
         #     )
         # ]
 
+    def get_absolute_url(self):
+        return reverse("sources:localstorage_detail", kwargs={"pk": self.id, })
 
     def __str__(self):
         return f"{self.name}(local)"
 
-    def get_absolute_url(self):
-        return reverse("sources:storage_detail", kwargs={"pk": self.id, })
-
     def clean(self):
         # Только если оба поля не None — проверка на уникальность
         if self.kb and self.name:
-            if Storage.objects.filter(kb=self.kb, url=self.name).exclude(pk=self.pk).exists():
+            if Storage.objects.filter(kb=self.kb, name=self.name).exclude(pk=self.pk).exists():
                 raise ValidationError(f"Storage с именем {self.name} в базе знаний {self.kb.name} уже существует.")
-
 
 
 class CloudStorage(Storage):
@@ -84,11 +88,11 @@ class CloudStorage(Storage):
     def clean(self):
         # Только если оба поля не None — проверка на уникальность
         if self.kb and self.name:
-            if CloudStorage.objects.filter(kb=self.kb, url=self.name).exclude(pk=self.pk).exists():
+            if CloudStorage.objects.filter(kb=self.kb, name=self.name).exclude(pk=self.pk).exists():
                 raise ValidationError(f"CloudStorage с именем {self.name} в базе знаний {self.kb.name} уже существует.")
 
     def get_absolute_url(self):
-        return reverse("sources:cloud_storage_detail", kwargs={"pk": self.id, })
+        return reverse("sources:cloudstorage_detail", kwargs={"pk": self.id, })
 
     def get_storage(self):
         """

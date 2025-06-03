@@ -25,7 +25,7 @@
     </div>
 </div>
 
-<form action="{% url 'sources:cloud_storage_sync' cloudstorage.pk %}" method="POST">
+<form action="{% url 'sources:cloudstorage_sync' cloudstorage.pk %}" method="POST">
     {% csrf_token %}
     <button type="submit" class="btn btn-success">🔄 Полное сканирование облака</button>
 </form>

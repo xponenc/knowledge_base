@@ -14,7 +14,8 @@ from django.core.files import File
 from django.core.files.base import ContentFile
 from django.utils import timezone
 
-from app_sources.models import Document, CloudStorage, DocumentSourceType, StorageUpdateReport, RawContent
+from app_sources.models import NetworkDocument, RawContent
+from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport
 from utils.process_files import compute_sha512
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True)
-def process_cloud_files(self, files: list[dict], cloud_storage: CloudStorage, update_report:StorageUpdateReport):
+def process_cloud_files(self, files: list[dict], cloud_storage: CloudStorage, update_report:CloudStorageUpdateReport):
     total_counter = len(files)
 
     if total_counter == 0:
@@ -74,9 +75,8 @@ def process_cloud_files(self, files: list[dict], cloud_storage: CloudStorage, up
     result = {'new_files': [], 'updated_files': [], 'deleted_files': [], 'error': None}
 
     # Все документы из базы для данного хранилища
-    db_documents = Document.objects.filter(
+    db_documents = NetworkDocument.objects.filter(
         cloud_storage=cloud_storage,
-        source_type=DocumentSourceType.network.value
     )
     db_urls_set = set(db_documents.values_list("url", flat=True))
 
@@ -157,9 +157,9 @@ def download_and_process_file(doc, cloud_storage):
 
 @shared_task
 def download_and_create_raw_content_parallel(document_ids: list[int], update_report_id: int, max_workers: int = 5):
-    update_report = StorageUpdateReport.objects.select_related("storage").get(pk=update_report_id)
+    update_report = CloudStorageUpdateReport.objects.select_related("storage").get(pk=update_report_id)
     cloud_storage = update_report.storage
-    documents = Document.objects.filter(pk__in=document_ids)
+    documents = NetworkDocument.objects.filter(pk__in=document_ids)
     print(documents)
 
     results = []
@@ -179,9 +179,9 @@ def download_and_create_raw_content_parallel(document_ids: list[int], update_rep
 
 @shared_task
 def download_and_create_raw_content(document_ids: list[int], update_report_id: int, max_workers: int = 5):
-    update_report = StorageUpdateReport.objects.select_related("storage").get(pk=update_report_id)
+    update_report = CloudStorageUpdateReport.objects.select_related("storage").get(pk=update_report_id)
     cloud_storage = update_report.storage
-    documents = Document.objects.filter(pk__in=document_ids)
+    documents = NetworkDocument.objects.filter(pk__in=document_ids)
     print(documents)
 
     results = []

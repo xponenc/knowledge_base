@@ -20,8 +20,6 @@ class KnowledgeBaseListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        print(queryset)
-        print(self.request.user.is_superuser)
         if self.request.user.is_superuser:
             return queryset
         queryset = queryset.filter(soft_deleted_at__isnull=True).filter(owners=self.request.user)

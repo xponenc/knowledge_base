@@ -9,6 +9,64 @@
 
 <hr>
 <h3>История изменений</h3>
+<hr>
+<h3>Облачные хранилища</h3>
+<a href="{% url 'sources:cloudstorage_create' knowledgebase.pk %}" class="btn btn-sm btn-success mb-2">+ Добавить облачное хранилище</a>
+{% if knowledgebase.cloudstorage_set.count %}
+    <table class="table table-sm table-striped">
+        <thead>
+            <tr>
+                <th>Название</th>
+                <th>Путь</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for storage in knowledgebase.cloudstorage_set.all %}
+                <tr>
+                    <td><a href="{% url 'sources:cloudstorage_detail' storage.id %}">{{ storage }}</a></td>
+                    <td>{{ storage.root_path }}</td>
+                    <td>
+                        <a href="{% url 'sources:cloudstorage_update' storage.id %}" class="btn btn-sm btn-warning">✏</a>
+                        <a href="{% url 'sources:cloudstorage_delete' storage.id %}" class="btn btn-sm btn-danger">🗑</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p class="text-muted">Нет подключенных облачных хранилищ.</p>
+{% endif %}
+
+<hr>
+<h3>Локальные хранилища</h3>
+<a href="{% url 'sources:localstorage_create' %}" class="btn btn-sm btn-success mb-2">+ Добавить локальное хранилище</a>
+{% if knowledgebase.localstorage_set.count %}
+    <table class="table table-sm table-striped">
+        <thead>
+            <tr>
+                <th>Название</th>
+                <th>Автор</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for storage in knowledgebase.localstorage_set.all %}
+                <tr>
+                    <td><a href="{% url 'sources:localstorage_detail' storage.id %}">{{ storage.name }}</a></td>
+                    <td>{{ storage.author }}</td>
+                    <td>
+                        <a href="{% url 'sources:localstorage_update' storage.id %}" class="btn btn-sm btn-warning">✏</a>
+                        <a href="{% url 'sources:localstorage_delete' storage.id %}" class="btn btn-sm btn-danger">🗑</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p class="text-muted">Нет локальных хранилищ.</p>
+{% endif %}
+
 {% if object.history %}
     <table class="table table-sm table-bordered">
         <thead>

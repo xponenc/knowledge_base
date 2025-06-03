@@ -10,12 +10,13 @@ import xml.etree.ElementTree as ET
 from django.core.signing import Signer, BadSignature
 
 from knowledge_base.settings import TEMP_DIR
+from storages_external.webdav_storage.base import BaseNetworkStorage
 from utils.setup_logger import setup_logger
 
 logger = setup_logger(__name__, log_dir="logs/documents_parsing", log_file="webdav_client.log")
 
 
-class WebDavStorage:
+class WebDavStorage(BaseNetworkStorage):
     """Класс для работы с WebDAV-хранилищем."""
 
     def __init__(self, credentials, check_connection=False):
@@ -259,9 +260,7 @@ class WebDavStorage:
         return all_files
 
     def download_file_to_disk_sync(self, file_url):
-        print(file_url)
         response = requests.get(file_url, stream=True, auth=self.auth)
-        print(response.status_code)
         response.raise_for_status()
 
         temp_dir = TEMP_DIR
