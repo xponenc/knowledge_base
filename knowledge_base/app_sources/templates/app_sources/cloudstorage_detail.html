@@ -30,13 +30,19 @@
     <button type="submit" class="btn btn-success">🔄 Полное сканирование облака</button>
 </form>
 
+{% for report in cloudstorage.reports.all %}
+    {{ report }}
+{% endfor %}
+
+<h3>Контент хранилища</h3>
+
 {% for document in cloudstorage.documents.all %}
     <div>
         <p>{{ document.url }}</p>
-        <p>{{ document.status }}</p>
+        <p>{{ document.get_status_display }}</p>
         <p>{{ document.errors }}</p>
         {% for raw_content in document.rawcontent_set.all %}
-            <p>{{ raw_content.url }}</p>
+            <p>{{ raw_content.file.url }}</p>
             <p>{{ raw_content.hash_content }}</p>
         {% endfor %}
         <p>{{ document.ra }}</p>

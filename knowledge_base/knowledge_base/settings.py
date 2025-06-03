@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     # 'app_parsers',
+    'app_core',
     'app_sources',
     # 'app_chunks',
     # 'app_embeddings',

@@ -2,7 +2,7 @@
 import os
 import tempfile
 
-import aiohttp
+# import aiohttp
 import requests
 from urllib.parse import urljoin, unquote, urlparse
 import xml.etree.ElementTree as ET

@@ -9,7 +9,8 @@ from django.views import View
 from django.views.generic import DetailView, ListView, CreateView
 
 from app_sources.forms import CloudStorageForm
-from app_sources.tasks import process_cloud_files, download_and_create_raw_content_parallel
+from app_sources.tasks import process_cloud_files, download_and_create_raw_content_parallel, \
+    download_and_create_raw_content
 from app_sources.models import CloudStorage, Document, StorageUpdateReport, DocumentSourceType
 
 logger = logging.getLogger(__name__)
@@ -223,7 +224,7 @@ class DocumentsMassCreateView(View):
             update_report.save()
             # Запуск фоновой задачи скачивания контента и создания RawContent для созданных Document
             print("# Запуск фоновой задачи скачивания контента и создания RawContent для созданных Document")
-            download_and_create_raw_content_parallel.delay(
+            download_and_create_raw_content.delay(
                 document_ids=created_ids, update_report_id=update_report.pk
             )
 

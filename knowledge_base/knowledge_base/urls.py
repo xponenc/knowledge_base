@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.conf import settings
 from django.urls import path, include, re_path
 from django.conf.urls.static import static
+from django.views.generic import RedirectView
 from rest_framework.routers import DefaultRouter
 
 
@@ -19,7 +20,10 @@ router = DefaultRouter()
 urlpatterns = [
     path('api/', include(router.urls)),
     path('admin/', admin.site.urls),
+    path('accounts/', include('django.contrib.auth.urls')),
+    path('', RedirectView.as_view(pattern_name="core:knowledge_base_list", permanent=False)),
     re_path(r'^celery-progress/', include('celery_progress.urls')),
+    path('', include('app_core.urls')),
     path('sources/', include('app_sources.urls')),
 ]
 

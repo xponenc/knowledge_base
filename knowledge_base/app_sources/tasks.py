@@ -4,12 +4,14 @@ import os
 import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from io import BytesIO
 from math import ceil
 
 from asgiref.sync import sync_to_async
 from celery import shared_task
 from celery_progress.backend import ProgressRecorder
 from django.core.files import File
+from django.core.files.base import ContentFile
 from django.utils import timezone
 
 from app_sources.models import Document, CloudStorage, DocumentSourceType, StorageUpdateReport, RawContent
@@ -108,7 +110,7 @@ def process_cloud_files(self, files: list[dict], cloud_storage: CloudStorage, up
 def download_and_process_file(doc, cloud_storage):
     temp_path = None
     file_name = None
-
+    print(f"{doc.url=}")
     try:
         # Получаем API для скачивания
         cloud_storage_api = cloud_storage.get_storage()
@@ -116,7 +118,7 @@ def download_and_process_file(doc, cloud_storage):
         # Скачиваем файл на диск
         temp_path, file_name = cloud_storage_api.download_file_to_disk_sync(doc.url)
     except Exception as e:
-        doc.errors.append(f"Ошибка при загрузке файла: {e}")
+        doc.error_message=f"Ошибка при загрузке файла: {e}"
         doc.status = "er"
         doc.save()
         logger.error(f"[Document {doc.pk}] Ошибка при загрузке: {e}")
@@ -124,10 +126,14 @@ def download_and_process_file(doc, cloud_storage):
 
     try:
         # Сохраняем файл в базу данных
-        raw_content = RawContent.objects.create(url=doc.url, document=doc)
+        raw_content = RawContent.objects.create(document=doc)
+
+        # with open(temp_path, 'rb') as f:
+        #     raw_content.file.save(file_name, File(f), save=False)
 
         with open(temp_path, 'rb') as f:
-            raw_content.file.save(file_name, File(f), save=False)
+            content = f.read()
+        raw_content.file.save(file_name, BytesIO(content), save=False)
 
         raw_content.hash_content = compute_sha512(temp_path)
         raw_content.save()
@@ -137,7 +143,7 @@ def download_and_process_file(doc, cloud_storage):
         doc.status = "sy"  # synced
         doc.save()
     except Exception as e:
-        doc.errors.append(f"Ошибка при сохранении файла в БД: {e}")
+        doc.error_message = f"Ошибка при сохранении файла в БД: {e}"
         doc.status = "er"  # failed to save
         doc.save()
         logger.error(f"[Document {doc.pk}] Ошибка при сохранении: {e}")
@@ -164,6 +170,23 @@ def download_and_create_raw_content_parallel(document_ids: list[int], update_rep
         ]
         for future in as_completed(futures):
             results.append(future.result())
+
+    success = [pk for pk, status in results if status == "success"]
+    failed = [pk for pk, status in results if status == "fail"]
+
+    logger.info(f"Обработка завершена. Успешно: {len(success)}, Ошибки: {len(failed)}")
+
+
+@shared_task
+def download_and_create_raw_content(document_ids: list[int], update_report_id: int, max_workers: int = 5):
+    update_report = StorageUpdateReport.objects.select_related("storage").get(pk=update_report_id)
+    cloud_storage = update_report.storage
+    documents = Document.objects.filter(pk__in=document_ids)
+    print(documents)
+
+    results = []
+    for doc in documents:
+        download_and_process_file(doc=doc, cloud_storage=cloud_storage)
 
     success = [pk for pk, status in results if status == "success"]
     failed = [pk for pk, status in results if status == "fail"]
