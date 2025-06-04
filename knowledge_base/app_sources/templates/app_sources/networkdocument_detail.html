@@ -2,15 +2,38 @@
 {% block title %}{{ object.title }}{% endblock %}
 {% block content %}
 
-<h2>{{ object.title }}</h2>
-<p>{{ object.description }}</p>
+<h2>{{ object.title|default:"" }}</h2>
 
-<a href="{% url 'core:knowledgebase_update' object.id %}" class="btn btn-warning">Редактировать</a>
+<a href="{% url 'sources:networkdocument_update' object.id %}" class="btn btn-warning">Редактировать</a>
+
+<div>
+    <h3>Информация о сетевом документе</h3>
+    <p><strong> Статус {{ object.get_status_display }}</strong></p>
+    <p>Документ из сетевого хранилища <a href="{{ object.storage.get_absolute_url }}">{{ object.storage.title }}</a> </p>
+    <p>Тэги документа {{ object.categories }}</p>
+    <p>Дата создания {{ object.created_at }}</p>
+    <p> {{ object.path }}</p>
+    <p> {{ object.file_id }}</p>
+    <p> {{ object.size }}</p>
+    <p> {{ object.output_format }}</p>
+    <p> {{ object.description }}</p>
+    <p> {{ object.url }}</p>
+    <p> {{ object.language }}</p>
+    <p> {{ object.title }}</p>
+    <p> {{ object.error_message }}</p>
+    <p> {{ object.metadata }}</p>
+    <p> {{ object.remote_updated }}</p>
+    <p> {{ object.local_updated }}</p>
+    <p> {{ object.synchronized_at }}</p>
+    <p> {{ object.updated_at }}</p>
+    <p> {{ object.soft_deleted_at }}</p>
+</div>
+
 
 
 <hr>
 <h3>Облачные хранилища</h3>
-<a href="{% url 'sources:cloudstorage_create' knowledgebase.pk %}" class="btn btn-sm btn-success mb-2">+ Добавить облачное хранилище</a>
+<a href="" class="btn btn-sm btn-success mb-2">+ Добавить облачное хранилище</a>
 {% if knowledgebase.cloudstorage_set.count %}
     <table class="table table-sm table-striped">
         <thead>
@@ -38,34 +61,6 @@
     <p class="text-muted">Нет подключенных облачных хранилищ.</p>
 {% endif %}
 
-<hr>
-<h3>Локальные хранилища</h3>
-<a href="{% url 'sources:localstorage_create' %}" class="btn btn-sm btn-success mb-2">+ Добавить локальное хранилище</a>
-{% if knowledgebase.localstorage_set.count %}
-    <table class="table table-sm table-striped">
-        <thead>
-            <tr>
-                <th>Название</th>
-                <th>Автор</th>
-                <th>Действия</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for storage in knowledgebase.localstorage_set.all %}
-                <tr>
-                    <td><a href="{% url 'sources:localstorage_detail' storage.id %}">{{ storage.name }}</a></td>
-                    <td>{{ storage.author }}</td>
-                    <td>
-                        <a href="{% url 'sources:localstorage_update' storage.id %}" class="btn btn-sm btn-warning">✏</a>
-                        <a href="{% url 'sources:localstorage_delete' storage.id %}" class="btn btn-sm btn-danger">🗑</a>
-                    </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-{% else %}
-    <p class="text-muted">Нет локальных хранилищ.</p>
-{% endif %}
 
 <hr>
 <h3>История изменений</h3>

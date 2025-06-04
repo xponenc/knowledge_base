@@ -5,6 +5,7 @@ from django.conf.urls.static import static
 from django.views.generic import RedirectView
 from rest_framework.routers import DefaultRouter
 
+from knowledge_base.views import get_celery_task_progress
 
 router = DefaultRouter()
 # router.register(r'parsers', ParserViewSet)
@@ -23,6 +24,8 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
     path('', RedirectView.as_view(pattern_name="core:knowledgebase_list", permanent=False)),
     re_path(r'^celery-progress/', include('celery_progress.urls')),
+    path('celery-progress/<str:parent_type>/<int:parent_pk>/task/<str:task_pk>/',
+         get_celery_task_progress, name='celery_progress_info'),
     path('', include('app_core.urls')),
     path('sources/', include('app_sources.urls')),
 ]

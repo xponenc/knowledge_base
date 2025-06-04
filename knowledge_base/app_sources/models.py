@@ -27,6 +27,7 @@ class Status(Enum):
     EMBEDDED = "em"
     ADDED_TO_KB = "ad"
     DELETED = "de"
+    EXCLUDED = "ex"
     ERROR = "er"
 
     @property
@@ -40,6 +41,7 @@ class Status(Enum):
             "em": "Эмбеддинг выполнен",
             "ad": "Добавлен в базу знаний",
             "de": "Удален",
+            "ex": "Исключен из базы знаний",
             "er": "Ошибка"
         }
         return display_names.get(self.value, self.value)
@@ -204,11 +206,16 @@ def get_raw_file_path(instance, filename):
     if instance.url:
         base_path = 'source_content/url_content'
         return f'{base_path}/url_{instance.url.id}_{timestamp}_raw_content.txt'
-    elif instance.document:
+    elif instance.local_document:
         base_path = 'source_content/document_content'
         original_filename = filename or 'document'
         sanitized_filename = slugify(os.path.splitext(original_filename)[0]) + os.path.splitext(original_filename)[1]
-        return f'{base_path}/document_{instance.document.id}_{timestamp}_{sanitized_filename}'
+        return f'{base_path}/local_document_{instance.local_document.pk}_{timestamp}_{sanitized_filename}'
+    elif instance.network_document:
+        base_path = 'source_content/document_content'
+        original_filename = filename or 'document'
+        sanitized_filename = slugify(os.path.splitext(original_filename)[0]) + os.path.splitext(original_filename)[1]
+        return f'{base_path}/network_document_{instance.network_document.pk}_{timestamp}_{sanitized_filename}'
     return None
 
 
@@ -218,9 +225,10 @@ def get_cleaned_file_path(instance, filename):
     if instance.url:
         base_path = 'source_content/url_content'
         return f'{base_path}/url_{instance.url.id}_{timestamp}_cleaned_content.txt'
-    elif instance.document:
+    elif instance.local_document or instance.network_document:
+        document = instance.local_document if instance.local_document else instance.network_document
         base_path = 'source_content/document_content'
-        return f'{base_path}/document_{instance.document.id}_{timestamp}_cleaned_content.txt'
+        return f'{base_path}/document_{document.id}_{timestamp}_cleaned_content.txt'
     return None
 
 

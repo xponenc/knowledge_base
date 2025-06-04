@@ -31,21 +31,53 @@
 </form>
 
 {% for report in cloudstorage.reports.all %}
-    {{ report }}
+    <a href="{% url 'sources:cloudstorageupdatereport_detail' report.pk %}">{{ report }}</a>
 {% endfor %}
 
-<h3>Контент хранилища</h3>
+<h3 class="mb-4">Контент хранилища</h3>
 
-{% for document in cloudstorage.documents.all %}
-    <div>
-        <p>{{ document.url }}</p>
-        <p>{{ document.get_status_display }}</p>
-        <p>{{ document.errors }}</p>
-        {% for raw_content in document.rawcontent_set.all %}
-            <p>{{ raw_content.file.url }}</p>
-            <p>{{ raw_content.hash_content }}</p>
-        {% endfor %}
-        <p>{{ document.ra }}</p>
-    </div>
-{% endfor %}
+<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
+    {% for document in cloudstorage.network_documents.all %}
+        <div class="col">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <a href="{% url 'sources:networkdocument_detail' document.pk %}" class="text-decoration-none text-primary">
+                            {{ document.title|default:"Без имени" }}
+                        </a>
+                    </h5>
+                    <p class="mb-1"><strong>Статус:</strong> {{ document.get_status_display }}</p>
+                    <p class="mb-1"><strong>Размер:</strong> {{ document.size|filesizeformat }}</p>
+                    
+                    {% with raw=document.rawcontent_set.first %}
+                        {% if raw %}
+                            <p class="mb-1">
+                                <strong>Исходный файл:</strong>
+                                <a href="{{ raw.file.url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                    Скачать
+                                </a>
+                            </p>
+                        {% else %}
+                            <p class="text-muted">Исходный файл: отсутствует</p>
+                        {% endif %}
+                    {% endwith %}
+
+                    {% with cleaned=document.cleanedcontent_set.first %}
+                        {% if cleaned %}
+                            <p class="mb-1">
+                                <strong>Очищенный контент:</strong>
+                                <a href="{{ cleaned.file.url }}" target="_blank" class="btn btn-sm btn-outline-success">
+                                    Скачать
+                                </a>
+                            </p>
+                        {% else %}
+                            <p class="text-muted">Очищенный контент: отсутствует</p>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
 {% endblock %}

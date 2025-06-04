@@ -22,6 +22,17 @@ class CloudStorageForm(forms.ModelForm):
     #         'credentials': forms.Textarea(attrs={'rows': 4}),
     #     }
 
+    def __init__(self, *args, **kwargs):
+        super(CloudStorageForm, self).__init__(*args, **kwargs)
+        for field in self.fields:
+            self.fields[field].widget.attrs.update({
+                "autocomplete": "off",
+                "autocorrect": "off",
+                "autocapitalize": "off",
+                "spellcheck": "false",
+            })
+
+
     def clean(self):
         cleaned_data = super().clean()
         signer = Signer()
@@ -54,5 +65,4 @@ class CloudStorageForm(forms.ModelForm):
             except ValueError as e:
                 raise forms.ValidationError(f"Ошибка в credentials: {e}")
         cleaned_data['credentials'] = credentials
-        print(cleaned_data)
         return cleaned_data

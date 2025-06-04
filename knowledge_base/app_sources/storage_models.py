@@ -20,6 +20,7 @@ class Storage(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    soft_deleted_at = models.DateTimeField(blank=True, null=True, verbose_name="мягко удалена")
 
     author = models.ForeignKey(User, on_delete=models.CASCADE)
 
@@ -121,8 +122,16 @@ class CloudStorageUpdateReport(models.Model):
     storage = models.ForeignKey(CloudStorage, on_delete=models.CASCADE, related_name="reports")
 
     content = models.JSONField(verbose_name="отчет", default=dict)
+    running_background_tasks = models.JSONField(verbose_name="выполняемые фоновые задачи по обработке отчета",
+                                                default=dict)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     author = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"Отчет об обновлении облачного хранилища {self.storage}"
+
+    def get_absolute_url(self):
+        return reverse("sources:cloudstorageupdatereport_detail", kwargs={"pk": self.pk, })

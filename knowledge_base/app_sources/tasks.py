@@ -14,9 +14,13 @@ from django.core.files import File
 from django.core.files.base import ContentFile
 from django.utils import timezone
 
-from app_sources.models import NetworkDocument, RawContent
+from app_sources.models import NetworkDocument, RawContent, Status
 from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport
 from utils.process_files import compute_sha512
+from django.contrib.auth import get_user_model
+from django.urls import reverse
+
+User = get_user_model()
 
 logger = logging.getLogger(__name__)
 
@@ -49,65 +53,88 @@ logger = logging.getLogger(__name__)
 #         document.error_message = result.get('error')
 #         document.update_status('error')
 
-
 @shared_task(bind=True)
-def process_cloud_files(self, files: list[dict], cloud_storage: CloudStorage, update_report:CloudStorageUpdateReport):
-    total_counter = len(files)
+def process_cloud_files(
+    self,
+    files: list[dict],
+    cloud_storage: CloudStorage,
+    update_report_pk: int
+):
+    """
+    Синхронизирует список файлов из облачного хранилища с локальной базой данных.
 
+    Производится предварительная категоризация файлов для последующей обработки:
+    - `new_files`: файлы, которых ещё нет в БД
+    - `updated_files`: файлы, уже существующие в БД и не имеющие особого статуса
+    - `deleted_files`: файлы, которые были в БД, но больше не существуют в облаке
+    - `restored_files`: файлы, ранее помеченные как DELETED, но снова появившиеся в облаке
+    - `excluded_files`: файлы со статусом EXCLUDED, которые есть в облаке
+
+    :param self: Контекст Celery-задачи
+    :param files: Список словарей с метаинформацией по файлам из облачного хранилища
+    :param cloud_storage: Объект CloudStorage, с которым идёт синхронизация
+    :param update_report: Объект CloudStorageUpdateReport для хранения результата синхронизации
+    :return: Строка статуса завершения
+    :raises: None
+    """
+    total_counter = len(files)
     if total_counter == 0:
         return "Обработка завершена"
 
-    errors_list = []
     progress_recorder = ProgressRecorder(self)
     progress_now, current = 0, 0
     progress_step = ceil(total_counter / 100)
-    progress_description = f' Обрабатывается {total_counter} объектов'
+    progress_description = f'Обрабатывается {total_counter} объектов'
 
-    # test = {'file_id': '"bb1f033d0bd79d63c0a7515d50f65f3d"',
-    #  'file_name': 'Устав.pdf',
-    #  'is_dir': False,
-    #  'last_modified': 'Thu, 29 May 2025 05:54:28 GMT',
-    #  'path': 'documents/Устав.pdf',
-    #  'size': 12897578,
-    #  'url': 'https://cloud.academydpo.org/public.php/webdav/documents/Устав.pdf'
-    #  }
+    result = {
+        'new_files': [],
+        'updated_files': [],
+        'deleted_files': [],
+        'restored_files': [],
+        'excluded_files': [],
+        'error': None
+    }
 
-    result = {'new_files': [], 'updated_files': [], 'deleted_files': [], 'error': None}
+    db_documents = NetworkDocument.objects.filter(storage=cloud_storage)
+    db_documents_by_url = {doc.url: doc for doc in db_documents}
+    db_urls_set = set(db_documents_by_url.keys())
 
-    # Все документы из базы для данного хранилища
-    db_documents = NetworkDocument.objects.filter(
-        cloud_storage=cloud_storage,
-    )
-    db_urls_set = set(db_documents.values_list("url", flat=True))
-
-    # Все urls, пришедшие из облака
     incoming_urls_set = set(file["url"] for file in files)
 
-    # удалены в облаке
     deleted_urls_set = db_urls_set - incoming_urls_set
     result["deleted_files"] = list(
         db_documents.filter(url__in=deleted_urls_set).values_list("id", flat=True)
     )
 
     for file in files:
+        # time.sleep(10)
         current += 1
         url = file.get('url')
-        if url in db_urls_set:
-            result['updated_files'].append(file)
-        else:
+        doc = db_documents_by_url.get(url)
+
+        if url not in db_urls_set:
             result['new_files'].append(file)
+        else:
+            if doc.status == Status.DELETED.value:
+                result['restored_files'].append(file)
+            elif doc.status == Status.EXCLUDED.value:
+                result['excluded_files'].append(file)
+            else:
+                result['updated_files'].append(file)
 
         if current == (progress_now + 1) * progress_step:
             progress_now += 1
             progress_recorder.set_progress(progress_now, 100, description=progress_description)
-
+    # print(result)
+    update_report = CloudStorageUpdateReport.objects.get(pk=update_report_pk)
     update_report.content["result"] = result
-    update_report.content["status"] = "Sorting of synchronization files completed successfully"
-    update_report.save()
+    update_report.content["current_status"] = "Sorting of synchronization files completed successfully"
+    update_report.save(update_fields=["content"])
     return "Обработка завершена"
 
 
-def download_and_process_file(doc, cloud_storage):
+
+def download_and_process_file(doc, cloud_storage, author):
     temp_path = None
     file_name = None
     print(f"{doc.url=}")
@@ -126,18 +153,17 @@ def download_and_process_file(doc, cloud_storage):
 
     try:
         # Сохраняем файл в базу данных
-        raw_content = RawContent.objects.create(document=doc)
-
-        # with open(temp_path, 'rb') as f:
-        #     raw_content.file.save(file_name, File(f), save=False)
+        raw_content = RawContent.objects.create(network_document=doc, author=author)
 
         with open(temp_path, 'rb') as f:
-            content = f.read()
-        raw_content.file.save(file_name, BytesIO(content), save=False)
+            raw_content.file.save(file_name, File(f), save=False)
+
+        # with open(temp_path, 'rb') as f:
+        #     content = f.read()
+        # raw_content.file.save(file_name, BytesIO(content), save=False)
 
         raw_content.hash_content = compute_sha512(temp_path)
         raw_content.save()
-        print(raw_content.url)
         doc.size = raw_content.file.size
         doc.synchronized_at = timezone.now()
         doc.status = "sy"  # synced
@@ -156,16 +182,18 @@ def download_and_process_file(doc, cloud_storage):
 
 
 @shared_task
-def download_and_create_raw_content_parallel(document_ids: list[int], update_report_id: int, max_workers: int = 5):
+def download_and_create_raw_content_parallel(document_ids: list[int],
+                                             update_report_id: int,
+                                             author: User,
+                                             max_workers: int = 5):
     update_report = CloudStorageUpdateReport.objects.select_related("storage").get(pk=update_report_id)
     cloud_storage = update_report.storage
     documents = NetworkDocument.objects.filter(pk__in=document_ids)
-    print(documents)
 
     results = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [
-            executor.submit(download_and_process_file, doc, cloud_storage)
+            executor.submit(download_and_process_file, doc, cloud_storage, author)
             for doc in documents
         ]
         for future in as_completed(futures):
@@ -182,7 +210,6 @@ def download_and_create_raw_content(document_ids: list[int], update_report_id: i
     update_report = CloudStorageUpdateReport.objects.select_related("storage").get(pk=update_report_id)
     cloud_storage = update_report.storage
     documents = NetworkDocument.objects.filter(pk__in=document_ids)
-    print(documents)
 
     results = []
     for doc in documents:

@@ -2,7 +2,7 @@ import logging
 from pprint import pprint
 
 from dateutil.parser import parse
-from django.contrib.auth.mixins import UserPassesTestMixin
+from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -10,10 +10,13 @@ from django.views import View
 from django.views.generic import DetailView, ListView, CreateView, UpdateView, DeleteView
 
 from app_core.models import KnowledgeBase
+from app_core.views import KBPermissionMixin
 from app_sources.forms import CloudStorageForm
 from app_sources.models import NetworkDocument
-from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport, Storage
-from app_sources.tasks import process_cloud_files, download_and_create_raw_content
+from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport, Storage, LocalStorage
+from app_sources.tasks import process_cloud_files, download_and_create_raw_content, \
+    download_and_create_raw_content_parallel
+from utils.tasks import get_task_status
 
 logger = logging.getLogger(__name__)
 
@@ -25,22 +28,49 @@ class StoragePermissionMixin(UserPassesTestMixin):
     """
 
     def test_func(self):
+        if self.request.user.is_superuser:
+            return True
         storage = self.get_object()
         kb = getattr(storage, "knowledge_base", None)
-        return kb and (kb.owner == self.request.user or self.request.user.is_superuser)
+        return kb and kb.owner == self.request.user
 
 
-class CloudStorageDetailView(DetailView):
+
+class DocumentPermissionMixin(UserPassesTestMixin):
+    """
+    Mixin для проверки прав доступа к Документу:
+    доступ разрешён только владельцу связанной базы знаний (KnowledgeBase) или суперпользователю.
+    """
+
+    def test_func(self):
+        if self.request.user.is_superuser:
+            return True
+        document = self.get_object()
+        storage = getattr(document, "storage", None)
+        if not storage:
+            return False
+        kb = getattr(storage, "knowledge_base", None)
+        return kb and kb.owner == self.request.user
+
+
+class CloudStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
     """Детальный просмотр объекта модели Облачное хранилище"""
     model = CloudStorage
 
 
-class CloudStorageListView(ListView):
+class CloudStorageListView(LoginRequiredMixin, ListView):
     """Списковый просмотр объектов модели Облачное хранилище"""
     model = CloudStorage
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.request.user.is_superuser:
+            return queryset
+        queryset = queryset.filter(soft_deleted_at__isnull=True).filter(owners=self.request.user)
+        return queryset
 
-class CloudStorageCreateView(CreateView):
+
+class CloudStorageCreateView(LoginRequiredMixin, KBPermissionMixin, CreateView):
     """Создание объекта модели Облачное хранилище"""
     model = CloudStorage
     form_class = CloudStorageForm
@@ -48,6 +78,8 @@ class CloudStorageCreateView(CreateView):
     def get_initial(self):
         """Предзаполненные значения для удобства при тестировании"""
         return {
+            "name": "Облако Академии ДПО",
+            "api_type": "webdav",
             "url": "https://cloud.academydpo.org/public.php/webdav/",
             "root_path": "documents/",
             "auth_type": "token",
@@ -102,7 +134,7 @@ class CloudStorageSyncView(View):
     def post(self, request, pk):
         cloud_storage = get_object_or_404(CloudStorage, pk=pk)
         synced_documents = request.POST.getlist("synced_documents")
-        storage_update_report = CloudStorageUpdateReport.objects.create(storage=cloud_storage)
+        storage_update_report = CloudStorageUpdateReport.objects.create(storage=cloud_storage, author=self.request.user)
 
         try:
             cloud_storage_api = cloud_storage.get_storage()
@@ -126,23 +158,31 @@ class CloudStorageSyncView(View):
                 storage_files = []  # cloud_storage_api.sync_selected(synced_documents)
             else:
                 storage_update_report.content["sync_type"] = "all"
+                # TODO надо выводить процесс в фон
                 storage_files = cloud_storage_api.list_directory(path=cloud_storage_api.root_path)
+                for file in storage_files:
+                    file["process_status"] = "awaiting processing"
                 pprint(storage_files)
 
             storage_update_report.content["current_status"] = "file list retrieved"
             storage_update_report.save()
+            storage_update_report.save(update_fields=["content", ])
 
             task = process_cloud_files.delay(
                 files=storage_files,
                 cloud_storage=cloud_storage,
-                update_report=storage_update_report
+                update_report_pk=storage_update_report.pk
             )
+
+            storage_update_report.running_background_tasks[task.id] = "Сортировка полученных файлов"
+            storage_update_report.save(update_fields=["running_background_tasks", ])
 
             return render(request, 'app_sources/cloudstorage_progress_report.html', {
                 'task_id': task.task_id,
                 'cloudstorage': cloud_storage,
-                "next_step_url": reverse_lazy("sources:storageupdatereport_detail", args=[storage_update_report.id])
+                "next_step_url": storage_update_report.get_absolute_url()
             })
+
 
         except Exception as e:
             logger.exception("Ошибка синхронизации файлов")
@@ -155,9 +195,27 @@ class CloudStorageSyncView(View):
             })
 
 
-class StorageUpdateReportDetailView(DetailView):
+class CloudStorageUpdateReportDetailView(DetailView):
     """Детальный просмотр отчёта о синхронизации облачного хранилища"""
     model = CloudStorageUpdateReport
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        report = self.object
+        # Добавление контекста по исполняемым фоновым задачам Celery
+        running_background_tasks = report.running_background_tasks
+        task_context = []
+        for task_id, task_name in running_background_tasks.items():
+            task_context.append(
+                {
+                    "task_name": task_name,
+                    "task_id": task_id,
+                    "report": get_task_status(task_id)
+                }
+            )
+        context['task_context'] = task_context
+        return context
+
 
 
 class NetworkDocumentsMassCreateView(View):
@@ -169,7 +227,7 @@ class NetworkDocumentsMassCreateView(View):
         update_report = get_object_or_404(CloudStorageUpdateReport, pk=pk)
         new_files = update_report.content.get("result", {}).get("new_files", [])
 
-        db_documents = NetworkDocument.objects.filter(cloud_storage=update_report.storage)
+        db_documents = NetworkDocument.objects.filter(storage=update_report.storage)
         existing_urls = set(db_documents.values_list("url", flat=True))
         new_urls = {f["url"] for f in new_files}
         duplicates = existing_urls & new_urls
@@ -177,14 +235,15 @@ class NetworkDocumentsMassCreateView(View):
         bulk_container = []
         for f in new_files:
             if f["url"] in duplicates:
-                f["create_status"] = "already_exists"
+                f["process_status"] = "already_exists"
                 continue
             try:
                 remote_updated = parse(f.get("last_modified", ''))
             except Exception:
                 remote_updated = None
             bulk_container.append(NetworkDocument(
-                cloud_storage=update_report.storage,
+                storage=update_report.storage,
+                title=f["file_name"],
                 path=f["path"],
                 file_id=f["file_id"],
                 size=f["size"],
@@ -198,30 +257,60 @@ class NetworkDocumentsMassCreateView(View):
             created_ids = [doc.id for doc in created_docs]
             update_report.content["created_docs"] = created_ids
             for f in new_files:
-                if f.get("create_status") != "already_exists":
-                    f["create_status"] = "created"
-            update_report.content["status"] = "Documents successfully created, download content in progress..."
-            update_report.save()
+                if f.get("process_status") != "already_exists":
+                    f["process_status"] = "created"
+            update_report.content["current_status"] = "Documents successfully created, download content in progress..."
+            update_report.save(update_fields=["content", ])
 
-            download_and_create_raw_content.delay(
+            task = download_and_create_raw_content_parallel.delay(
                 document_ids=created_ids,
-                update_report_id=update_report.pk
+                update_report_id=update_report.pk,
+                author=request.user
             )
+            update_report.running_background_tasks[task.id] = "Загрузка контента файлов с облачного хранилища"
+            update_report.save(update_fields=["running_background_tasks", ])
 
-        return redirect(reverse_lazy("sources:storageupdatereport_detail", args=[pk]))
+        return redirect(reverse_lazy("sources:cloudstorageupdatereport_detail", args=[pk]))
 
 
-class LocalStorageListView(ListView):
+class NetworkDocumentListView(LoginRequiredMixin, ListView):
+    """Списковый просмотр объектов модели Сетевой документ NetworkDocument"""
+    model = NetworkDocument
+
+
+class NetworkDocumentDetailView(LoginRequiredMixin, DocumentPermissionMixin, DetailView):
+    """Детальный просмотр объекта модели Сетевой документ NetworkDocument (с проверкой прав доступа)"""
+    model = NetworkDocument
+
+class NetworkDocumentUpdateView(LoginRequiredMixin, DocumentPermissionMixin, UpdateView):
+    """Редактирование объекта модели Сетевой документ NetworkDocument (с проверкой прав доступа)"""
+    model = NetworkDocument
+
+
+
+
+class LocalStorageListView(LoginRequiredMixin, ListView):
     """Списковый просмотр объектов модели Локальное хранилище"""
-    model = Storage
+    model = LocalStorage
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.request.user.is_superuser:
+            return queryset
+        queryset = queryset.filter(soft_deleted_at__isnull=True).filter(owners=self.request.user)
+        return queryset
 
 
-class LocalStorageDetailView(StoragePermissionMixin, DetailView):
+class LocalStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
     """Детальный просмотр объекта модели Локальное хранилище (с проверкой прав доступа)"""
-    model = Storage
+    model = LocalStorage
 
 
-class LocalStorageCreateView(CreateView):
+class LocalStorageCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateView):
     """Создание объекта модели Локальное хранилище"""
     model = Storage
     fields = "__all__"
+
+
+
+

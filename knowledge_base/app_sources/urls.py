@@ -1,8 +1,9 @@
 from django.urls import path
 from . import views
 from .views import CloudStorageListView, CloudStorageCreateView, CloudStorageDetailView, CloudStorageSyncView, \
-    StorageUpdateReportDetailView, NetworkDocumentsMassCreateView, LocalStorageListView, LocalStorageCreateView, \
-    LocalStorageDetailView, CloudStorageUpdateView, CloudStorageDeleteView
+    NetworkDocumentsMassCreateView, LocalStorageListView, LocalStorageCreateView, \
+    LocalStorageDetailView, CloudStorageUpdateView, CloudStorageDeleteView, CloudStorageUpdateReportDetailView, \
+    NetworkDocumentDetailView, NetworkDocumentListView, NetworkDocumentUpdateView
 
 app_name = 'sources'
 
@@ -19,9 +20,13 @@ urlpatterns = [
     path('local_storage/<int:pk>', LocalStorageDetailView.as_view(), name='localstorage_detail'),
     path('local_storage/create/', LocalStorageCreateView.as_view(), name='localstorage_create'),
 
+    path('storage-update-report/<int:pk>/', CloudStorageUpdateReportDetailView.as_view(),
+         name='cloudstorageupdatereport_detail'),
 
-    path('storage-update-report/<int:pk>/', StorageUpdateReportDetailView.as_view(),
-         name='storageupdatereport_detail'),
     path('storage-update-report/<int:pk>/create-new-docs', NetworkDocumentsMassCreateView.as_view(),
          name='documents-mass-create'),
+
+    path('network-document/<int:pk>', NetworkDocumentDetailView.as_view(), name='networkdocument_detail'),
+    path('network-document/', NetworkDocumentListView.as_view(), name='networkdocument_list'),
+    path('network-document/<int:pk>/update', NetworkDocumentUpdateView.as_view(), name='networkdocument_update'),
 ]

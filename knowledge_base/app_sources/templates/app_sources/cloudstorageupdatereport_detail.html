@@ -6,19 +6,52 @@
 <div class="sync-report">
     <h1 class="sync-report__title mb-4">Отчет по синхронизации</h1>
 
-    <div class="sync-report__meta text-muted mb-3">
-        {{ storageupdatereport.created_at|date:"F j, Y, H:i" }}<br>
-        <strong>{{ storageupdatereport.storage.name }}</strong>
-        <p>Тип синхронизации: {{ storageupdatereport.content.sync_type }}</p>
-        <p>Статус обработки: {{ storageupdatereport.content.status }}</p>
+    <div class="sync-report__meta text-muted mb-3 d-flex justify-content-between">
+        
+        <div class="sync-report__info text-start" style="flex:1;">
+            {{ cloudstorageupdatereport.created_at|date:"F j, Y, H:i" }}<br>
+            <a href="{% url 'sources:cloudstorage_detail' cloudstorageupdatereport.storage.pk %}" class="link-primary fw-semibold">
+                {{ cloudstorageupdatereport.storage.name }}
+            </a>
+
+            <p>Тип синхронизации: {{ cloudstorageupdatereport.content.sync_type }}</p>
+            <p>Статус обработки: {{ cloudstorageupdatereport.content.current_status }}</p>
+        </div>
+        
+        <div class="sync-report__tasks me-3" style="flex:1;">
+            <h5>Обрабатываемые фоновые задачи</h5>
+            <ul class="list-unstyled">
+            {% for task_data in task_context %}
+                <li class="d-flex align-items-center mb-2">
+                    <a href="{% url 'celery_progress_info' 'cloudstorageupdatereport' cloudstorageupdatereport.pk task_data.task_id %}" class="me-2">{{ task_data.task_name }}</a>
+                    {% if task_data.report.status == "PENDING" %}
+                        <span class="badge bg-secondary" title="Ожидает">⏳</span>
+                    {% elif task_data.report.status == "STARTED" %}
+                        <span class="badge bg-info text-dark" title="Выполняется">⚙️</span>
+                    {% elif task_data.report.status == "SUCCESS" %}
+                        <span class="badge bg-success" title="Успешно">✔️</span>
+                    {% elif task_data.report.status == "FAILURE" %}
+                        <span class="badge bg-danger" title="Ошибка">❌</span>
+                    {% elif task_data.report.status == "RETRY" %}
+                        <span class="badge bg-warning text-dark" title="Повтор">🔄</span>
+                    {% else %}
+                        <span class="badge bg-light text-dark" title="{{ task_data.report.status }}">{{ task_data.report.status }}</span>
+                    {% endif %}
+                </li>
+            {% empty %}
+                <li>Фоновых задач нет</li>
+            {% endfor %}
+            </ul>
+        </div>
+
     </div>
-    {% with storageupdatereport.content.result as result %}
+    {% with cloudstorageupdatereport.content.result as result %}
 
     {% if result.new_files %}
     <div class="sync-report__section mb-5">
         <h3 class="sync-report__heading text-success">Новые файлы ({{ result.new_files|length }})</h3>
-        {% if not storageupdatereport.content.created_docs %}
-        <form action="{% url 'sources:documents-mass-create' storageupdatereport.pk %}" method="post" class="sync-report__form mb-4 p-3 border rounded bg-light">
+        {% if not cloudstorageupdatereport.content.created_docs %}
+        <form action="{% url 'sources:documents-mass-create' cloudstorageupdatereport.pk %}" method="post" class="sync-report__form mb-4 p-3 border rounded bg-light">
             {% csrf_token %}
             <p class="form-text mb-2">Будут созданы новые документы из файлов, полученных при синхронизации.</p>
             <button type="submit" class="btn btn-success">Создать новые документы</button>
@@ -39,7 +72,7 @@
                     <td>{{ file.file_name }}</td>
                     <td><a href="">{{ file.path }}</a></td>
                     <td>{{ file.size|filesizeformat }}</td>
-                    <td>{{ file.create_status|default:"готов к созданию" }}</td>
+                    <td>{{ file.process_status|default:"готов к созданию" }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
