@@ -140,11 +140,11 @@
                     <tbody>
                         {% for file in result.new_files %}
                             <tr>
-                                {% if created_count != result.new_files|length and not file.doc_id %}
                                 <td>
-                                    <input type="checkbox" name="file_ids" value="{{ file.file_id }}" class="form-check-input new_files-checkbox">
+                                    {% if created_count != result.new_files|length and not file.doc_id %}
+                                        <input type="checkbox" name="file_ids" value="{{ file.file_id }}" class="form-check-input new_files-checkbox">
+                                    {% endif %}
                                 </td>
-                                {% endif %}
                                 <td>{{ file.file_name }}</td>
                                 <td>{{ file.path }}</td>
                                 <td>{{ file.size|filesizeformat }}</td>
@@ -418,61 +418,55 @@
 
 {% block script %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const submitButtons = document.querySelectorAll.querySelector('button[type="submit"]');
-        submitButtons.forEach(btn => {
-            btn.diabled = true;
-            let form = btn.closest("form")
-            console.log(form)
-            
-
-        })
-
-        // Функция для обновления состояния кнопки submit
-        function updateSubmitButton(form, checkboxClass) {
-            const submitButton = form.querySelector('button[type="submit"]');
-            const checkboxes = form.querySelectorAll(`.${checkboxClass}-checkbox`);
-            const anyChecked = Array.from(checkboxes).some(checkbox => checkbox.checked);
-            submitButton.disabled = !anyChecked;
-            console.log(submitButton)
-            console.log(checkboxes)
-            console.log(anyChecked)
-        }
-    
-        // Функция для инициализации слушателей на форму
-        function initializeFormListeners(form, checkboxClass) {
-            const checkboxes = form.querySelectorAll(`.${checkboxClass}-checkbox`);
-            checkboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', () => updateSubmitButton(form, checkboxClass));
-            });
-            // Инициализация состояния кнопки при загрузке
-            updateSubmitButton(form, checkboxClass);
-        }
-    
-        // Привязка слушателей к каждой форме
-        const sections = ['new_files', 'updated_files', 'deleted_files', 'restored_files', 'excluded_files'];
-        sections.forEach(section => {
-            const form = document.querySelector(`form[action*="${section}"]`);
-            if (form) {
-                initializeFormListeners(form, section);
-            }
-        });
-    
-        // Существующая функция toggleAllCheckboxes
-        window.toggleAllCheckboxes = function(section, checked = true) {
-            const form = document.querySelector(`form[action*="${section}"]`);
-            if (form) {
-                document.querySelectorAll(`.${section}-checkbox`).forEach(cb => {
-                    cb.checked = checked;
-                    // Вызов события change для обновления состояния кнопки
-                    cb.dispatchEvent(new Event('change'));
-                });
-            }
-        };
-    });
-
-    {% comment %} function toggleAllCheckboxes(section, checked = true) {
+    function toggleAllCheckboxes(section, checked = true) {
         document.querySelectorAll(`.${section}-checkbox`).forEach(cb => cb.checked = checked);
-    } {% endcomment %}
+        console.log(`toggleAllCheckboxes: set all checkboxes in ${section} to ${checked}`);
+        updateButtonState(section);
+    }
+    
+    function updateButtonState(section) {
+        console.log(`.${section}-checkbox`)
+        const checkboxes = document.querySelectorAll(`.${section}-checkbox`);
+        console.log(checkboxes)
+        console.log(document.querySelector(`.${section}-checkbox`)?.closest('form'))
+        const submitButton = document.querySelector(`.${section}-checkbox`)?.closest('form')?.querySelector('button[type="submit"]');
+    
+        if (!submitButton) {
+            console.log(`updateButtonState: submit button for section ${section} not found`);
+            return;
+        }
+    
+        const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+        console.log(`updateButtonState: anyChecked = ${anyChecked}`);
+    
+        submitButton.disabled = !anyChecked;
+        console.log(`updateButtonState: submitButton.disabled = ${submitButton.disabled}`);
+    }
+    
+    // Добавляем слушатели на все чекбоксы при загрузке страницы
+    document.addEventListener('DOMContentLoaded', () => {
+        ['new_files', 'updated_files', 'deleted_files', 'restored_files', 'excluded_files'].forEach(section => {
+            const checkboxes = document.querySelectorAll(`.${section}-checkbox`);
+            checkboxes.forEach(cb => {
+                cb.addEventListener('change', () => {
+                    console.log(`Checkbox changed in section ${section}`);
+                    updateButtonState(section);
+                });
+            });
+            // Изначально установим состояние кнопки
+            updateButtonState(section);
+        });
+    });
+    
+
+    function toggleAllCheckboxes(section, checked = true) {
+        document.querySelectorAll(`.${section}-checkbox`).forEach(cb => {
+            cb.checked = checked;
+    
+            // Создаём и триггерим событие change
+            const event = new Event('change', { bubbles: true });
+            cb.dispatchEvent(event);
+        });
+    }
 </script>
 {% endblock %}

@@ -272,8 +272,9 @@ class NetworkDocumentsMassCreateView(View):
     #     return redirect(reverse_lazy("sources:cloudstorageupdatereport_detail", args=[pk]))
 
     def post(self, request, pk):
-        selected_ids = request.POST.getlist("selected_file_ids")
-        selected_ids = [i for i in request.POST.getlist("selected_file_ids") if i.strip()]
+        print(request.POST)
+        selected_ids = request.POST.getlist("file_ids")
+        selected_ids = [i for i in request.POST.getlist("file_ids") if i.strip()]
         print(selected_ids)
         if not selected_ids:
             # TODO message
