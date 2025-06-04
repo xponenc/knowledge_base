@@ -2,8 +2,25 @@
 {% block title %}{{ object.title }}{% endblock %}
 {% block content %}
 
-<h2>{{ object.title }}</h2>
-<p>{{ object.description }}</p>
+<div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-3">
+    <div>
+        <h2 class="mb-1">{{ object.title }}</h2>
+        <p class="mb-0">{{ object.description }}</p>
+    </div>
+    
+    {% if object.owners.exists %}
+        <div class="mt-3 mt-md-0">
+            <strong class="d-block d-md-inline mb-1 me-2">Владельцы:</strong>
+            <div class="d-inline-flex flex-wrap gap-1">
+                {% for user in object.owners.all %}
+                    <span class="badge bg-secondary">
+                        {{ user.get_full_name|default:user.username }}
+                    </span>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+</div>
 
 <a href="{% url 'core:knowledgebase_update' object.id %}" class="btn btn-warning">Редактировать</a>
 

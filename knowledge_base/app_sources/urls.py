@@ -3,7 +3,7 @@ from . import views
 from .views import CloudStorageListView, CloudStorageCreateView, CloudStorageDetailView, CloudStorageSyncView, \
     NetworkDocumentsMassCreateView, LocalStorageListView, LocalStorageCreateView, \
     LocalStorageDetailView, CloudStorageUpdateView, CloudStorageDeleteView, CloudStorageUpdateReportDetailView, \
-    NetworkDocumentDetailView, NetworkDocumentListView, NetworkDocumentUpdateView
+    NetworkDocumentDetailView, NetworkDocumentListView, NetworkDocumentUpdateView, RawContentRecognizeCreateView
 
 app_name = 'sources'
 
@@ -29,4 +29,8 @@ urlpatterns = [
     path('network-document/<int:pk>', NetworkDocumentDetailView.as_view(), name='networkdocument_detail'),
     path('network-document/', NetworkDocumentListView.as_view(), name='networkdocument_list'),
     path('network-document/<int:pk>/update', NetworkDocumentUpdateView.as_view(), name='networkdocument_update'),
+
+    path('network-document/<int:pk>/process-raw-content', RawContentRecognizeCreateView.as_view(),
+         name='process_raw_content'),
+
 ]

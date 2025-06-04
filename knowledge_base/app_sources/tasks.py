@@ -133,76 +133,239 @@ def process_cloud_files(
     return "Обработка завершена"
 
 
+# def download_and_process_file(doc, cloud_storage, author):
+#     temp_path = None
+#     file_name = None
+#     print(f"{doc.url=}")
+#     try:
+#         # Получаем API для скачивания
+#         cloud_storage_api = cloud_storage.get_storage()
+#
+#         # Скачиваем файл на диск
+#         temp_path, file_name = cloud_storage_api.download_file_to_disk_sync(doc.url)
+#     except Exception as e:
+#         doc.error_message=f"Ошибка при загрузке файла: {e}"
+#         doc.status = "er"
+#         doc.save()
+#         logger.error(f"[Document {doc.pk}] Ошибка при загрузке: {e}")
+#         return doc.pk, "fail"
+#
+#     try:
+#         # Сохраняем файл в базу данных
+#         raw_content = RawContent.objects.create(network_document=doc, author=author)
+#
+#         with open(temp_path, 'rb') as f:
+#             raw_content.file.save(file_name, File(f), save=False)
+#
+#         # with open(temp_path, 'rb') as f:
+#         #     content = f.read()
+#         # raw_content.file.save(file_name, BytesIO(content), save=False)
+#
+#         raw_content.hash_content = compute_sha512(temp_path)
+#         raw_content.save()
+#         doc.size = raw_content.file.size
+#         doc.synchronized_at = timezone.now()
+#         doc.status = "sy"  # synced
+#         doc.save()
+#     except Exception as e:
+#         doc.error_message = f"Ошибка при сохранении файла в БД: {e}"
+#         doc.status = "er"  # failed to save
+#         doc.save()
+#         logger.error(f"[Document {doc.pk}] Ошибка при сохранении: {e}")
+#         return doc.pk, "fail"
+#     finally:
+#         if temp_path and os.path.exists(temp_path):
+#             os.remove(temp_path)
+#
+#     return doc.pk, "success"
+
 
 def download_and_process_file(doc, cloud_storage, author):
+    """
+    Загружает файл из облачного хранилища и сохраняет его как RawContent в базу данных.
+
+    Args:
+        doc (NetworkDocument): документ, содержащий информацию об исходном файле.
+        cloud_storage (CloudStorage): объект облачного хранилища с методом get_storage().
+        author (User): пользователь, связанный с загруженным контентом.
+
+    Returns:
+        tuple: (document_id, "success" | "fail")
+    """
     temp_path = None
     file_name = None
-    print(f"{doc.url=}")
+
+    logger.info(f"[Document {doc.pk}] Начинаем обработку. URL: {doc.url}")
+
     try:
-        # Получаем API для скачивания
+        # Получаем объект API облачного хранилища (например, S3, WebDAV и т.д.)
         cloud_storage_api = cloud_storage.get_storage()
 
-        # Скачиваем файл на диск
+        # Скачиваем файл во временное хранилище на диск
         temp_path, file_name = cloud_storage_api.download_file_to_disk_sync(doc.url)
+        logger.info(f"[Document {doc.pk}] Файл успешно загружен во временное хранилище: {temp_path}")
     except Exception as e:
-        doc.error_message=f"Ошибка при загрузке файла: {e}"
-        doc.status = "er"
+        doc.error_message = f"Ошибка при загрузке файла: {e}"
+        doc.status = "er"  # error
         doc.save()
         logger.error(f"[Document {doc.pk}] Ошибка при загрузке: {e}")
         return doc.pk, "fail"
 
     try:
-        # Сохраняем файл в базу данных
+        # Создаём объект RawContent, связанный с этим документом
         raw_content = RawContent.objects.create(network_document=doc, author=author)
 
+        # Сохраняем файл в поле FileField модели RawContent
         with open(temp_path, 'rb') as f:
             raw_content.file.save(file_name, File(f), save=False)
 
+        # Альтернативный способ — если нужно прочитать файл в память
         # with open(temp_path, 'rb') as f:
         #     content = f.read()
         # raw_content.file.save(file_name, BytesIO(content), save=False)
 
+        # Вычисляем и сохраняем хеш
         raw_content.hash_content = compute_sha512(temp_path)
         raw_content.save()
+
+        # Обновляем поля документа
         doc.size = raw_content.file.size
         doc.synchronized_at = timezone.now()
         doc.status = "sy"  # synced
         doc.save()
+
+        logger.info(f"[Document {doc.pk}] Файл успешно обработан и сохранён.")
     except Exception as e:
         doc.error_message = f"Ошибка при сохранении файла в БД: {e}"
-        doc.status = "er"  # failed to save
+        doc.status = "er"
         doc.save()
-        logger.error(f"[Document {doc.pk}] Ошибка при сохранении: {e}")
+        logger.error(f"[Document {doc.pk}] Ошибка при сохранении в БД: {e}")
         return doc.pk, "fail"
     finally:
+        # Удаляем временный файл после обработки
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
+            logger.debug(f"[Document {doc.pk}] Временный файл удалён: {temp_path}")
 
     return doc.pk, "success"
 
+#
+# @shared_task(bind=True)
+# def download_and_create_raw_content_parallel(self,
+#                                              document_ids: list[int],
+#                                              update_report_id: int,
+#                                              author: User,
+#                                              max_workers: int = 5):
+#     update_report = CloudStorageUpdateReport.objects.select_related("storage").get(pk=update_report_id)
+#     cloud_storage = update_report.storage
+#     documents = NetworkDocument.objects.filter(pk__in=document_ids)
+#
+#     total_counter = len(documents)
+#     if total_counter == 0:
+#         return "Обработка завершена"
+#
+#     progress_recorder = ProgressRecorder(self)
+#     progress_now, current = 0, 0
+#     progress_step = ceil(total_counter / 100)
+#     progress_description = f'Обрабатывается {total_counter} объектов'
+#
+#     results = []
+#     with ThreadPoolExecutor(max_workers=max_workers) as executor:
+#         futures = [
+#             executor.submit(download_and_process_file, doc, cloud_storage, author)
+#             for doc in documents
+#         ]
+#         for future in as_completed(futures):
+#             current += 1
+#             results.append(future.result())
+#
+#             if current == (progress_now + 1) * progress_step:
+#                 progress_now += 1
+#                 progress_recorder.set_progress(progress_now, 100, description=progress_description)
+#
+#     success = [pk for pk, status in results if status == "success"]
+#     failed = [pk for pk, status in results if status == "fail"]
+#     if not failed:
+#         update_report.content["current_status"] = "Content loading completed successfully"
+#     else:
+#         update_report.content["current_status"] = "Content loading failed"
+#     update_report.save(update_fields=["content"])
+#     logger.info(f"Обработка завершена. Успешно: {len(success)}, Ошибки: {len(failed)}")
+#     return "Обработка завершена"
 
-@shared_task
-def download_and_create_raw_content_parallel(document_ids: list[int],
+
+@shared_task(bind=True)
+def download_and_create_raw_content_parallel(self,
+                                             document_ids: list[int],
                                              update_report_id: int,
                                              author: User,
                                              max_workers: int = 5):
+    """
+    Задача для параллельной загрузки и обработки файлов из облачного хранилища.
+
+    Args:
+        self: ссылка на текущую задачу Celery.
+        document_ids (list[int]): список ID документов для обработки.
+        update_report_id (int): ID отчета обновления облака.
+        author (User): пользователь, запустивший задачу.
+        max_workers (int): максимальное количество потоков для обработки.
+
+    Returns:
+        str: сообщение об окончании задачи.
+    """
     update_report = CloudStorageUpdateReport.objects.select_related("storage").get(pk=update_report_id)
     cloud_storage = update_report.storage
     documents = NetworkDocument.objects.filter(pk__in=document_ids)
 
+    total_counter = len(documents)
+    if total_counter == 0:
+        return "Обработка завершена: документы не найдены"
+
+    # Инициализация прогресса
+    progress_recorder = ProgressRecorder(self)
+    progress_description = f'Обрабатывается {total_counter} объектов'
+    progress_percent = 0
+
+    current = 0
     results = []
+
+    # Параллельная загрузка и обработка
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [
             executor.submit(download_and_process_file, doc, cloud_storage, author)
             for doc in documents
         ]
-        for future in as_completed(futures):
-            results.append(future.result())
 
+        for future in as_completed(futures):
+            current += 1
+            try:
+                result = future.result()
+            except Exception as e:
+                logger.exception(f"Ошибка обработки документа: {e}")
+                result = (None, "fail")
+
+            results.append(result)
+
+            # Обновление прогресса по процентам
+            new_percent = int((current / total_counter) * 100)
+            if new_percent > progress_percent:
+                progress_percent = new_percent
+                progress_recorder.set_progress(progress_percent, 100, description=progress_description)
+
+    # Разделение результатов на успешные и неудачные
     success = [pk for pk, status in results if status == "success"]
     failed = [pk for pk, status in results if status == "fail"]
 
+    # Обновление отчета
+    if not failed:
+        update_report.content["current_status"] = "Content loading completed successfully"
+    else:
+        update_report.content["current_status"] = "Content loading failed"
+
+    update_report.save(update_fields=["content"])
     logger.info(f"Обработка завершена. Успешно: {len(success)}, Ошибки: {len(failed)}")
+
+    return "Обработка завершена"
 
 
 @shared_task

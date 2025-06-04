@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     # 'app_chunks',
     # 'app_embeddings',
     # 'app_retriever',
+    "django.contrib.humanize",
 ]
 
 MIDDLEWARE = [

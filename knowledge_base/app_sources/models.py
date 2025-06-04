@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 from importlib import import_module
+from pathlib import Path
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -279,14 +280,43 @@ class RawContent(Content):
         verbose_name = "Raw Content"
         verbose_name_plural = "Raw Contents"
 
+    def file_extension(self):
+        """Возвращает расширение файла (в нижнем регистре)"""
+        if self.file:
+            return Path(self.file.name).suffix.lower()
+        return ''
+
+    def is_image(self):
+        """Проверяет, является ли файл изображением"""
+        return self.file_extension() in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
+
+    def get_icon_class(self):
+        ext = self.file_extension()
+        icon_map = {
+            '.pdf': 'bi-filetype-pdf',
+            '.doc': 'bi-filetype-doc',
+            '.docx': 'bi-filetype-docx',
+            '.xls': 'bi-filetype-xls',
+            '.xlsx': 'bi-filetype-xlsx',
+            '.txt': 'bi-filetype-txt',
+            '.csv': 'bi-filetype-csv',
+            '.zip': 'bi-file-earmark-zip',
+        }
+        return icon_map.get(ext, 'bi-file-earmark')
+
 
 class CleanedContent(models.Model):
     """Файл с очищенным контентом источника"""
+    raw_content = models.OneToOneField(RawContent, verbose_name="исходный документ", on_delete=models.CASCADE)
     file = models.FileField(verbose_name="файл с грязным контентом источника", upload_to=get_cleaned_file_path)
 
     class Meta:
         verbose_name = "Cleaned Content"
         verbose_name_plural = "Cleaned Contents"
+
+    @staticmethod
+    def get_icon_class(self):
+        return 'bi-filetype-txt'
 
 
 @receiver(post_delete, sender=RawContent)
