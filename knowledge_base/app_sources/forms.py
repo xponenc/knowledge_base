@@ -60,7 +60,6 @@ class CloudStorageForm(forms.ModelForm):
                 module = import_module(module_path)
                 storage_class = getattr(module, class_name)
                 is_create = not self.instance.pk
-                print(is_create)
                 storage = storage_class(credentials, check_connection=is_create)
             except ValueError as e:
                 raise forms.ValidationError(f"Ошибка в credentials: {e}")
@@ -89,3 +88,8 @@ class ContentRecognizerForm(forms.Form):
         module = __import__(module_name, fromlist=[class_name])
         cls = getattr(module, class_name)
         return cls
+
+
+class CleanedContentEditorForm(forms.Form):
+    """Форма для редактирования содержимого файла CleanedContent аттрибут файл через онлайн маркдаун редактор"""
+    content = forms.CharField(widget=forms.HiddenInput())  # Поле для Markdown

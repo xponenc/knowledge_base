@@ -12,7 +12,7 @@ import hashlib
 from django.db.models import UniqueConstraint, Q, CheckConstraint
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.utils.text import slugify
 from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport, LocalStorage
 from django.contrib.auth import get_user_model
@@ -69,9 +69,9 @@ class AbstractSource(models.Model):
                              max_length=500,
                              blank=True,
                              null=True)
-    categories = models.JSONField(verbose_name="список тегов",
-                                  default=list,
-                                  help_text="Категории в формате JSON, например ['news', 'tech', ]")
+    tags = models.JSONField(verbose_name="список тегов",
+                            default=list,
+                            help_text="Категории в формате JSON, например ['news', 'tech', ]")
     error_message = models.CharField(verbose_name="ошибка при обрабоотке",
                                      max_length=1000,
                                      null=True,
@@ -170,6 +170,9 @@ class NetworkDocument(AbstractSource):
     def __str__(self):
         return f"[NetworkDocument] {super().__str__()}"
 
+    def get_absolute_url(self):
+        return reverse_lazy("sources:networkdocument_detail", kwargs={"pk": self.pk, })
+
     def clean(self):
         # Только если оба поля не None — проверка на уникальность
         if self.storage and self.url:
@@ -197,10 +200,8 @@ class LocalDocument(AbstractSource):
     def __str__(self):
         return f"[LocalDocument] {super().__str__()}"
 
-
-
-
-
+    def get_absolute_url(self):
+        return reverse_lazy("sources:localdocument_detail", kwargs={"pk": self.pk, })
 
 
 class Content(models.Model):
@@ -214,7 +215,7 @@ class Content(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    author = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
 
     class Meta:
         abstract = True
@@ -311,6 +312,9 @@ class CleanedContent(Content):
     """Файл с очищенным контентом источника"""
     raw_content = models.OneToOneField(RawContent, verbose_name="исходный документ", on_delete=models.CASCADE)
     file = models.FileField(verbose_name="файл с чистым контентом источника", upload_to=get_cleaned_file_path)
+    recognition_method = models.CharField(verbose_name="метод распознавания контента", max_length=200,
+                                          null=True, blank=True)
+    recognition_quality = models.JSONField(verbose_name="отчет о качестве распознавания", default=dict)
 
     class Meta:
         verbose_name = "Cleaned Content"

@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css">
+{% endblock %}
+
+
+{% block title %}Редактировать чистый контент{% endblock %}
+
+
+{% block content %}
+<h2>Редактировать чистый контент</h2>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.content }}
+    <div id="editor"></div>
+
+    <button type="submit" class="btn btn-primary mt-3">Сохранить</button>
+</form>
+{% endblock %}
+
+{% block script %}
+    <script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+
+    <script>
+        const editor = new toastui.Editor({
+            el: document.querySelector('#editor'),
+            height: '400px',
+            initialEditType: 'markdown',
+            previewStyle: 'vertical',
+            initialValue: `{{ form.initial.content|default:""|escapejs }}`
+        });
+    
+        // При отправке формы запишем текст в скрытое поле
+        document.querySelector('form').addEventListener('submit', function () {
+        document.querySelector('#id_content').value = editor.getMarkdown();
+        });
+    </script>
+
+{% endblock script %}

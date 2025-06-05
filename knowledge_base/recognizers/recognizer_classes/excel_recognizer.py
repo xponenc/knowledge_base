@@ -17,13 +17,13 @@ class ExcelRecognizer(ContentRecognizer):
             logger.info(f"Текст извлечён из Excel: {self.file_path}")
             return {
                 "text": text,
-                "method": "excel",
+                "method": f"{self.__class__.__name__}:success",
                 "quality_report": evaluate_text_quality(text=text)
             }
         except Exception as e:
             logger.error(f"Ошибка при обработке Excel: {e}")
             return {
                 "text": "",
-                "method": "excel_failed",
+                "method": f"{self.__class__.__name__}:failed",
                 "quality_report": {}
             }

@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     # 'app_embeddings',
     # 'app_retriever',
     "django.contrib.humanize",
+    # "ckeditor",
+    # "app_editor",
 ]
 
 MIDDLEWARE = [

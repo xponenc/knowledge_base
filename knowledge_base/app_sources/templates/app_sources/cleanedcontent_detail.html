@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Очищенный контент{% endblock %}
+
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="mt-5">
+    <ol class="breadcrumb container">
+        {% if cleanedcontent.url %}
+            <li class="breadcrumb-item">
+                <a href="{{ object.storage.kb.get_absolute_url }}">База знаний {{ object.storage.kb.title }}</a>
+            </li>
+        {% elif cleanedcontent.network_document %}
+            <li class="breadcrumb-item">
+                <a href="{{ cleanedcontent.network_document.storage.kb.get_absolute_url }}">База знаний {{ cleanedcontent.network_document.storage.kb.title }}</a>
+            </li>
+        {% elif cleanedcontent.local_document %}
+            <li class="breadcrumb-item">
+                <a href="{{ cleanedcontent.local_document.storage.kb.get_absolute_url }}">База знаний {{ cleanedcontent.local_document.storage.kb.title }}</a>
+            </li>
+        {% endif %}
+
+        {% if cleanedcontent.url %}
+            <li class="breadcrumb-item">
+                <a href="">
+                    Сайт
+                </a>
+            </li>
+        {% elif cleanedcontent.network_document %}
+            <li class="breadcrumb-item">
+                <a href="{% url 'sources:cloudstorage_detail' cleanedcontent.network_document.storage.pk %}">
+                    Облачное хранилище {{ cleanedcontent.network_document.storage.name }}
+                </a>
+            </li>
+        {% elif cleanedcontent.local_document %}
+            <li class="breadcrumb-item">
+                <a href="{% url 'sources:cloudstorage_detail' cleanedcontent.local_document.storage.pk %}">
+                    Лоальное хранилище {{ cleanedcontent.local_document.storage.name }}
+                </a>
+            </li>
+        {% endif %}
+        {% if cleanedcontent.url %}
+            <li class="breadcrumb-item active" aria-current="page">
+                <a href="{{ cleanedcontent.url.get_absolute_url }}">Страница сайта {{ cleanedcontent.url.title }}</a></li>
+        {% elif cleanedcontent.network_document %}
+            <li class="breadcrumb-item active" aria-current="page">
+                <a href="{{ cleanedcontent.network_document.get_absolute_url }}">Сетевой документ {{ cleanedcontent.network_document.title }}</a></li>
+        {% elif cleanedcontent.local_document %}
+            <li class="breadcrumb-item active" aria-current="page">
+                <a href="{{ cleanedcontent.local_document.get_absolute_url }}">Локальный документ {{ cleanedcontent.local_document.title }}</a></li>
+        {% endif %}
+        <li class="breadcrumb-item">
+            <a href="{% url 'sources:rawcontent_detail' cleanedcontent.raw_content.pk %}">
+                Грязный контент {{ cleanedcontent.raw_content.pk }}
+            </a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">Очищенный контент</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <h2>Очищенный контент</h2>
+
+    <div class="card shadow-sm rounded-4 border-0 my-4">
+        <div class="card-body">
+            <h5 class="card-title">Файл</h5>
+            <p>
+                <i class="bi bi-filetype-txt {{ cleanedcontent.get_icon_class }} fs-1 text-secondary"></i><br>
+                <a href="{{ cleanedcontent.file.url }}" target="_blank" download class="btn btn-outline-primary btn-sm mt-2">
+                    Скачать очищенный файл
+                </a>
+                <a href="{% url 'sources:cleanedcontent_update' object.id %}" class="btn btn-sm btn-outline-secondary mt-2">
+                    <i class="bi bi-pencil-square"></i> Редактировать очищенный контент
+                </a>
+            </p>
+
+            <h5 class="mt-4">Метод распознавания</h5>
+            <p>{{ cleanedcontent.recognition_method|default:"Не указан" }}</p>
+
+            <h5 class="mt-4">Отчет о качестве распознавания</h5>
+            {% if cleanedcontent.recognition_quality %}
+                <ul class="list-group mb-3">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Доля корректных слов:</span>
+                        <strong>{{ cleanedcontent.recognition_quality.valid_words_ratio|floatformat:2 }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Всего символов:</span>
+                        <strong>{{ cleanedcontent.recognition_quality.total_chars }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Всего слов:</span>
+                        <strong>{{ cleanedcontent.recognition_quality.total_words }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Корректных слов:</span>
+                        <strong>{{ cleanedcontent.recognition_quality.valid_words_count }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Некорректных слов:</span>
+                        <strong>{{ cleanedcontent.recognition_quality.invalid_words_count }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Доля "мусорных" символов:</span>
+                        <strong>{{ cleanedcontent.recognition_quality.trash_chars_ratio|floatformat:2 }}</strong>
+                    </li>
+                </ul>
+
+                <div class="mb-3">
+                    <h6>Некорректные слова:</h6>
+                    <p>{{ cleanedcontent.recognition_quality.invalid_words|join:", " }}</p>
+                </div>
+
+                <div>
+                    <h6>Наиболее частые слова:</h6>
+                    <ul>
+                        {% for word_pair in cleanedcontent.recognition_quality.most_common_words %}
+                            <li>{{ word_pair.0 }} — {{ word_pair.1 }} раз</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% else %}
+                <p class="text-muted">Отчет отсутствует</p>
+            {% endif %}
+
+            <h5 class="mt-4">Исходный файл</h5>
+            <p>
+                <a href="{% url 'sources:rawcontent_detail' cleanedcontent.raw_content.pk %}">
+                    Перейти к RawContent {{ cleanedcontent.raw_content.pk }}
+                </a>
+            </p>
+
+            <h5 class="mt-4">Содержимое файла (размер {{ file_content|length }}/{{ file_content|escape|length }} символов)</h5>
+            <pre class="bg-light p-3 rounded-3 border">{{ file_content|escape }}</pre>
+            {% comment %} <pre class="bg-light p-3 rounded-3 border">{{ file_content }}</pre> {% endcomment %}
+        </div>
+    </div>
+</div>
+{% endblock %}

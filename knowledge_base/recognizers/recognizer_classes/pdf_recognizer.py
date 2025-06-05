@@ -17,7 +17,7 @@ OCR_LANGUAGES = 'rus+eng'
 
 pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
 
-POPPLER_PATH = r'C:\poppler-24.08.0\Library\bin'
+POPPLER_PATH = r'D:\poppler-24.08.0\Library\bin'
 """Путь к библиотеке Poppler для pdf2image."""
 
 
@@ -36,7 +36,7 @@ class PDFRecognizer(ContentRecognizer):
                     logger.info(f"Текст извлечён pdfplumber: {self.file_path}")
                     return {
                         "text": all_text,
-                        "method": "pdfplumber",
+                        "method": f"{self.__class__.__name__}(pdfplumber):failed",
                         "quality_report": evaluate_text_quality(text=all_text)
                     }
         except Exception as e:
@@ -48,13 +48,13 @@ class PDFRecognizer(ContentRecognizer):
             logger.info(f"Текст извлечён OCR: {self.file_path}")
             return {
                 "text": ocr_text,
-                "method": "ocr",
+                "method": f"{self.__class__.__name__}(pytesseract):success",
                 "quality_report": evaluate_text_quality(text=ocr_text)
             }
         except Exception as e:
             logger.error(f"OCR не справился: {e}")
             return {
                 "text": "",
-                "method": "ocr_failed",
+                "method": f"{self.__class__.__name__}(pytesseract):failed",
                 "quality_report": {}
             }

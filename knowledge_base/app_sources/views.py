@@ -4,6 +4,7 @@ from pprint import pprint
 from dateutil.parser import parse
 from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 from django.core.files.base import ContentFile
+from django.http import Http404
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -12,7 +13,7 @@ from django.contrib import messages
 from django.views.generic import DetailView, ListView, CreateView, UpdateView, DeleteView
 
 from app_core.models import KnowledgeBase
-from app_sources.forms import CloudStorageForm, ContentRecognizerForm
+from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedContentEditorForm
 from app_sources.models import NetworkDocument, RawContent, CleanedContent
 from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport, Storage, LocalStorage
 from app_sources.tasks import process_cloud_files, download_and_create_raw_content, \
@@ -425,12 +426,16 @@ class RawContentRecognizeCreateView(LoginRequiredMixin, View):
                 recognizer = recognizer_class(file_path)
                 recognizer_report = recognizer.recognize()
                 recognized_text = recognizer_report.get("text", "")
+                recognition_method = recognizer_report.get("method", "")
+                recognition_quality_report = recognizer_report.get("quality_report", {})
                 if not recognized_text.strip():
                     raise ValueError("Не удалось распознать текст.")
 
                 # Создаём CleanedContent без файла
                 cleaned_content = CleanedContent.objects.create(
                     raw_content=raw_content,
+                    recognition_method=recognition_method,
+                    recognition_quality=recognition_quality_report,
                     author=request.user,
                 )
                 raw_content_source = next(
@@ -441,10 +446,10 @@ class RawContentRecognizeCreateView(LoginRequiredMixin, View):
                 source_name, source_value = raw_content_source
                 setattr(cleaned_content, source_name, source_value)
                 cleaned_content.save()
-                cleaned_content.file.save("ignored.txt", ContentFile(recognized_text))
+                cleaned_content.file.save("ignored.txt", ContentFile(recognized_text.encode('utf-8')))
 
                 messages.success(request, "Очищенный контент успешно создан.")
-                return redirect("sources:rawcontent_detail", pk=raw_content.pk)
+                return redirect("sources:cleanedcontent_detail", pk=cleaned_content.pk)
             except Exception as e:
                 messages.error(request, f"Ошибка при обработке файла: {e}")
         print(form.errors)
@@ -457,8 +462,55 @@ class RawContentRecognizeCreateView(LoginRequiredMixin, View):
 class RawContentDetailView(LoginRequiredMixin, DetailView):
     model = RawContent
 
+
 class CleanedContentDetailView(LoginRequiredMixin, DetailView):
     model = CleanedContent
 
-class CleanedContentUpdateView(LoginRequiredMixin, UpdateView):
-    model = CleanedContent
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.object.file:
+            try:
+                with self.object.file.open('rb') as f:  # Открываем в бинарном режиме
+                    raw_content = f.read()  # Читаем как байты
+                    content = raw_content.decode('utf-8')  # Декодируем в строку
+                    context['file_content'] = content
+            except UnicodeDecodeError:
+                context['file_content'] = "Не удалось прочитать содержимое файла: неподдерживаемая кодировка."
+
+            except Exception as e:
+                context['file_content'] = f"Ошибка при чтении файла: {e}"
+        return context
+
+
+class CleanedContentUpdateView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        cleaned_content = CleanedContent.objects.get(pk=pk)
+        editor_content = ""
+        if cleaned_content.file:
+            try:
+                with cleaned_content.file.open('rb') as f:  # Открываем в бинарном режиме
+                    raw_content = f.read()  # Читаем как байты
+                    editor_content = raw_content.decode('utf-8')  # Декодируем в строку
+            except UnicodeDecodeError:
+                raise Http404("Не удалось прочитать содержимое файла: неподдерживаемая кодировка.")
+            except Exception as e:
+                Http404("Ошибка при чтении файла")
+
+        form = CleanedContentEditorForm(initial={"content": editor_content})
+        context = {
+            "form": form,
+        }
+        return render(request=request, template_name="app_sources/cleanedcontent_form.html", context=context)
+
+    def post(self, request, pk):
+        cleaned_content = CleanedContent.objects.get(pk=pk)
+        form = CleanedContentEditorForm(request.POST)
+        if form.is_valid():
+            content = form.cleaned_data.get("content")
+            cleaned_content.file.save("ignored.txt", ContentFile(content.encode('utf-8')))
+            return redirect(reverse_lazy("sources:cleanedcontent_detail", args=[cleaned_content.pk]))
+        context = {
+            "form": form,
+        }
+        return render(request=request, template_name="app_sources/cleanedcontent_form.html", context=context)
+

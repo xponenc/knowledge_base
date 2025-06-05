@@ -30,8 +30,6 @@ from collections import Counter
 #     # положить в .venv/Lib/site-packages/enchant/data/mingw64/share/enchant/hunspell
 
 
-
-
 # Инициализируем анализаторы
 morph = pymorphy2.MorphAnalyzer()
 # print(enchant.list_languages())

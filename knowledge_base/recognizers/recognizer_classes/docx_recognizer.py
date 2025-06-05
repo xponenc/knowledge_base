@@ -35,13 +35,13 @@ class DOCXRecognizer(ContentRecognizer):
             logger.info(f"Текст извлечён из DOCX: {self.file_path}")
             return {
                 "text": result,
-                "method": "docx",
+                "method": f"{self.__class__.__name__}:success",
                 "quality_report": evaluate_text_quality(text=result)
             }
         except Exception as e:
             logger.error(f"Ошибка при обработке DOCX: {e}")
             return {
                 "text": "",
-                "method": "docx_failed",
+                "method": f"{self.__class__.__name__}:failed",
                 "quality_report": {}
             }

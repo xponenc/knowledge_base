@@ -130,12 +130,15 @@
                     <dt class="col-sm-4">Файл:</dt>
                     <dd class="col-sm-8">
                     <i class="bi {{ object.cleanedcontent.get_icon_class }} fs-4 text-secondary"></i>
-                    <a href="{{ object.cleanedcontent.file.url }}" target="_blank">Скачать очищенный файл</a>
+                    <a href="{{ object.cleanedcontent.file.url }}" target="_blank" download>Скачать очищенный файл</a>
                     </dd>
                     <dt class="col-sm-4">Создан:</dt><dd class="col-sm-8">{{ object.cleanedcontent.created_at|date:"d.m.Y H:i" }}</dd>
                     <dt class="col-sm-4">Обновлен:</dt><dd class="col-sm-8">{{ object.cleanedcontent.updated_at|date:"d.m.Y H:i" }}</dd>
                     <dt class="col-sm-4">Автор:</dt><dd class="col-sm-8">{{ object.cleanedcontent.author }}</dd>
                 </dl>
+                <a href="{% url 'sources:cleanedcontent_detail' object.cleanedcontent.id %}" class="btn btn-sm btn-outline-secondary mt-2 pe-3 pe-lg-4">
+                    <i class="bi bi-file-earmark-text"></i> Посмотреть очищенный контент
+                </a>
                 <a href="{% url 'sources:cleanedcontent_update' object.cleanedcontent.id %}" class="btn btn-sm btn-outline-secondary mt-2">
                     <i class="bi bi-pencil-square"></i> Редактировать очищенный контент
                 </a>

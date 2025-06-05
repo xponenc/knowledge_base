@@ -24,13 +24,13 @@ class ImageRecognizer(ContentRecognizer):
             logger.info(f"Текст распознан OCR из изображения: {self.file_path}")
             return {
                 "text": text,
-                "method": "image_ocr",
+                "method": f"{self.__class__.__name__}:success",
                 "quality_report": evaluate_text_quality(text=text)
             }
         except Exception as e:
             logger.error(f"Ошибка OCR при обработке изображения: {e}")
             return {
                 "text": "",
-                "method": "image_ocr_failed",
+                "method": f"{self.__class__.__name__}:failed",
                 "quality_report": {}
             }

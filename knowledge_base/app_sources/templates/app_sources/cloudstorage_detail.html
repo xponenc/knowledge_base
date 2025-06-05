@@ -70,8 +70,8 @@
                     {% endif %}
                     <div class="card-body d-flex flex-column">
                         <h5 class="card-title">
-                            <a href="{% url 'sources:networkdocument_detail' document.pk %}" class="text-decoration-none text-primary">
-                                <i class="bi {{ raw.get_icon_class }}"></i> {{ document.title|default:"Без имени" }}
+                            <a href="{% url 'sources:networkdocument_detail' document.pk %}" class="text-decoration-none text-primary d-flex flex-column align-items-center">
+                                <i class="bi {{ raw.get_icon_class }} fs-3 mb-4"></i><span class="mb-2">{{ document.title|default:"Без имени" }}</span> 
                             </a>
                         </h5>
                         <p class="mb-1"><strong>📌 Статус:</strong> {{ document.get_status_display }}</p>
