@@ -1,4 +1,5 @@
 from .recognizer_classes.docx_recognizer import DOCXRecognizer
+from .recognizer_classes.excel_recognizer import ExcelRecognizer
 from .recognizer_classes.image_recognizer import ImageRecognizer
 from .recognizer_classes.pdf_recognizer import PDFRecognizer
 from .registry import register_recognizer
@@ -7,3 +8,4 @@ from .registry import register_recognizer
 register_recognizer(PDFRecognizer)
 register_recognizer(DOCXRecognizer)
 register_recognizer(ImageRecognizer)
+register_recognizer(ExcelRecognizer)
