@@ -168,7 +168,7 @@ class NetworkDocument(AbstractSource):
         # ]
 
     def __str__(self):
-        return f"[Document] {super().__str__()}"
+        return f"[NetworkDocument] {super().__str__()}"
 
     def clean(self):
         # Только если оба поля не None — проверка на уникальность
@@ -195,42 +195,12 @@ class LocalDocument(AbstractSource):
         verbose_name_plural = "Local Documents"
 
     def __str__(self):
-        return self.name
-
-    def get_absolute_url(self):
-        return reverse("sources:local_storage_detail", kwargs={"pk": self.id, })
+        return f"[LocalDocument] {super().__str__()}"
 
 
-def get_raw_file_path(instance, filename):
-    """Генерирует путь и имя файла для RawContent и CleanedContent."""
-    timestamp = datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
-    if instance.url:
-        base_path = 'source_content/url_content'
-        return f'{base_path}/url_{instance.url.id}_{timestamp}_raw_content.txt'
-    elif instance.local_document:
-        base_path = 'source_content/document_content'
-        original_filename = filename or 'document'
-        sanitized_filename = slugify(os.path.splitext(original_filename)[0]) + os.path.splitext(original_filename)[1]
-        return f'{base_path}/local_document_{instance.local_document.pk}_{timestamp}_{sanitized_filename}'
-    elif instance.network_document:
-        base_path = 'source_content/document_content'
-        original_filename = filename or 'document'
-        sanitized_filename = slugify(os.path.splitext(original_filename)[0]) + os.path.splitext(original_filename)[1]
-        return f'{base_path}/network_document_{instance.network_document.pk}_{timestamp}_{sanitized_filename}'
-    return None
 
 
-def get_cleaned_file_path(instance, filename):
-    """Генерирует путь и имя файла для RawContent и CleanedContent."""
-    timestamp = datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
-    if instance.url:
-        base_path = 'source_content/url_content'
-        return f'{base_path}/url_{instance.url.id}_{timestamp}_cleaned_content.txt'
-    elif instance.local_document or instance.network_document:
-        document = instance.local_document if instance.local_document else instance.network_document
-        base_path = 'source_content/document_content'
-        return f'{base_path}/document_{document.id}_{timestamp}_cleaned_content.txt'
-    return None
+
 
 
 class Content(models.Model):
@@ -272,6 +242,25 @@ class Content(models.Model):
                 "Должно быть заполнено ровно одно из полей: url, network_document, local_document.")
 
 
+def get_raw_file_path(instance, filename):
+    """Генерирует путь и имя файла для RawContent"""
+    timestamp = datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
+    if instance.url:
+        base_path = 'source_content/url_content'
+        return f'{base_path}/url_{instance.url.id}_{timestamp}_raw_content.txt'
+    elif instance.local_document:
+        base_path = 'source_content/document_content'
+        original_filename = filename or 'document'
+        sanitized_filename = slugify(os.path.splitext(original_filename)[0]) + os.path.splitext(original_filename)[1]
+        return f'{base_path}/local_document_{instance.local_document.pk}_{timestamp}_{sanitized_filename}'
+    elif instance.network_document:
+        base_path = 'source_content/document_content'
+        original_filename = filename or 'document'
+        sanitized_filename = slugify(os.path.splitext(original_filename)[0]) + os.path.splitext(original_filename)[1]
+        return f'{base_path}/network_document_{instance.network_document.pk}_{timestamp}_{sanitized_filename}'
+    return None
+
+
 class RawContent(Content):
     """Файл с грязным контентом источника"""
     file = models.FileField(verbose_name="файл с грязным контентом источника", upload_to=get_raw_file_path)
@@ -305,10 +294,23 @@ class RawContent(Content):
         return icon_map.get(ext, 'bi-file-earmark')
 
 
-class CleanedContent(models.Model):
+def get_cleaned_file_path(instance, filename):
+    """Генерирует путь и имя файла для CleanedContent"""
+    timestamp = datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
+    if instance.url:
+        base_path = 'source_content/url_content'
+        return f'{base_path}/url_{instance.url.id}_{timestamp}_cleaned_content.txt'
+    elif instance.local_document or instance.network_document:
+        document = instance.local_document if instance.local_document else instance.network_document
+        base_path = 'source_content/document_content'
+        return f'{base_path}/document_{document.id}_{timestamp}_cleaned_content.txt'
+    return None
+
+
+class CleanedContent(Content):
     """Файл с очищенным контентом источника"""
     raw_content = models.OneToOneField(RawContent, verbose_name="исходный документ", on_delete=models.CASCADE)
-    file = models.FileField(verbose_name="файл с грязным контентом источника", upload_to=get_cleaned_file_path)
+    file = models.FileField(verbose_name="файл с чистым контентом источника", upload_to=get_cleaned_file_path)
 
     class Meta:
         verbose_name = "Cleaned Content"

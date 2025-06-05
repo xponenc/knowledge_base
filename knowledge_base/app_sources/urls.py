@@ -1,9 +1,11 @@
 from django.urls import path
 from . import views
+from .models import CleanedContent
 from .views import CloudStorageListView, CloudStorageCreateView, CloudStorageDetailView, CloudStorageSyncView, \
     NetworkDocumentsMassCreateView, LocalStorageListView, LocalStorageCreateView, \
     LocalStorageDetailView, CloudStorageUpdateView, CloudStorageDeleteView, CloudStorageUpdateReportDetailView, \
-    NetworkDocumentDetailView, NetworkDocumentListView, NetworkDocumentUpdateView, RawContentRecognizeCreateView
+    NetworkDocumentDetailView, NetworkDocumentListView, NetworkDocumentUpdateView, RawContentRecognizeCreateView, \
+    RawContentDetailView, CleanedContentDetailView, CleanedContentUpdateView
 
 app_name = 'sources'
 
@@ -32,5 +34,9 @@ urlpatterns = [
 
     path('network-document/<int:pk>/process-raw-content', RawContentRecognizeCreateView.as_view(),
          name='process_raw_content'),
+    path('raw-content/<int:pk>/', RawContentDetailView.as_view(), name='rawcontent_detail'),
+
+    path('cleaned-content/<int:pk>', CleanedContentDetailView.as_view(), name='cleanedcontent_detail'),
+    path('cleaned-content/<int:pk>/update', CleanedContentUpdateView.as_view(), name='cleanedcontent_update'),
 
 ]

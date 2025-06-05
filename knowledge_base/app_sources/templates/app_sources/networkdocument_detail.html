@@ -136,7 +136,7 @@
                     <dt class="col-sm-4">Обновлен:</dt><dd class="col-sm-8">{{ object.cleanedcontent.updated_at|date:"d.m.Y H:i" }}</dd>
                     <dt class="col-sm-4">Автор:</dt><dd class="col-sm-8">{{ object.cleanedcontent.author }}</dd>
                 </dl>
-                <a href="{% url 'edit_cleaned_content' object.cleanedcontent.id %}" class="btn btn-sm btn-outline-secondary mt-2">
+                <a href="{% url 'sources:cleanedcontent_update' object.cleanedcontent.id %}" class="btn btn-sm btn-outline-secondary mt-2">
                     <i class="bi bi-pencil-square"></i> Редактировать очищенный контент
                 </a>
                 </div>

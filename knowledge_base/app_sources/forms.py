@@ -66,3 +66,26 @@ class CloudStorageForm(forms.ModelForm):
                 raise forms.ValidationError(f"Ошибка в credentials: {e}")
         cleaned_data['credentials'] = credentials
         return cleaned_data
+
+
+class ContentRecognizerForm(forms.Form):
+    recognizer = forms.ChoiceField(label="Распознаватель", choices=[],
+                                   widget=forms.Select(attrs={"class": "form-select"}))
+
+    def __init__(self, *args, recognizers=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        choices = [
+            (f"{cls.__module__}.{cls.__name__}", cls.__name__)
+            for cls in (recognizers or [])
+        ]
+        self.fields["recognizer"].choices = choices
+        self.fields["recognizer"].widget.attrs.update({
+                    "class": "form-select",
+                })
+
+    def clean_recognizer(self):
+        value = self.cleaned_data["recognizer"]
+        module_name, class_name = value.rsplit(".", 1)
+        module = __import__(module_name, fromlist=[class_name])
+        cls = getattr(module, class_name)
+        return cls

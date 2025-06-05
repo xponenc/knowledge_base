@@ -3,18 +3,21 @@ from pprint import pprint
 
 from dateutil.parser import parse
 from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
+from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views import View
+from django.contrib import messages
 from django.views.generic import DetailView, ListView, CreateView, UpdateView, DeleteView
 
 from app_core.models import KnowledgeBase
-from app_sources.forms import CloudStorageForm
-from app_sources.models import NetworkDocument
+from app_sources.forms import CloudStorageForm, ContentRecognizerForm
+from app_sources.models import NetworkDocument, RawContent, CleanedContent
 from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport, Storage, LocalStorage
 from app_sources.tasks import process_cloud_files, download_and_create_raw_content, \
     download_and_create_raw_content_parallel
+from recognizers.dispatcher import ContentRecognizerDispatcher
 from utils.tasks import get_task_status
 
 logger = logging.getLogger(__name__)
@@ -388,6 +391,74 @@ class LocalStorageCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateV
 
 
 class RawContentRecognizeCreateView(LoginRequiredMixin, View):
-    def get(self):
-        pass
+    def get(self, request, pk):
+        raw_content = get_object_or_404(RawContent, pk=pk)
+        dispatcher = ContentRecognizerDispatcher()
+        file_extension = raw_content.file_extension()
+        # available = dispatcher.get_recognizers_for_extension(ext)
+        # print(f"{available=}")
+        #
+        # recognizer_choices = [(r.name, r.label) for r in available]
+        recognizers = dispatcher.get_recognizers_for_extension(file_extension)
+        form = ContentRecognizerForm(recognizers=recognizers)
 
+        return render(request, "app_sources/rawcontent_recognize.html", {
+            "raw_content": raw_content,
+            "form": form,
+        })
+
+    def post(self, request, pk):
+        raw_content = get_object_or_404(RawContent, pk=pk)
+        dispatcher = ContentRecognizerDispatcher()
+        file_extension = raw_content.file_extension()
+        recognizers = dispatcher.get_recognizers_for_extension(file_extension)
+
+        form = ContentRecognizerForm(request.POST, recognizers=recognizers)
+
+        if form.is_valid():
+            recognizer_class = form.cleaned_data['recognizer']
+            file_path = raw_content.file.path
+            print(file_path)
+            # print(recognizer_name)
+            # recognizer = dispatcher.get_by_name(recognizer_name)
+            try:
+                recognizer = recognizer_class(file_path)
+                recognizer_report = recognizer.recognize()
+                recognized_text = recognizer_report.get("text", "")
+                if not recognized_text.strip():
+                    raise ValueError("Не удалось распознать текст.")
+
+                # Создаём CleanedContent без файла
+                cleaned_content = CleanedContent.objects.create(
+                    raw_content=raw_content,
+                    author=request.user,
+                )
+                raw_content_source = next(
+                    ((attr, getattr(raw_content, attr)) for attr in ['url', 'network_document', 'local_document'] if
+                     getattr(raw_content, attr, None)),
+                    (None, None)
+                )
+                source_name, source_value = raw_content_source
+                setattr(cleaned_content, source_name, source_value)
+                cleaned_content.save()
+                cleaned_content.file.save("ignored.txt", ContentFile(recognized_text))
+
+                messages.success(request, "Очищенный контент успешно создан.")
+                return redirect("sources:rawcontent_detail", pk=raw_content.pk)
+            except Exception as e:
+                messages.error(request, f"Ошибка при обработке файла: {e}")
+        print(form.errors)
+        return render(request, "app_sources/rawcontent_recognize.html", {
+            "raw_content": raw_content,
+            "form": form,
+        })
+
+
+class RawContentDetailView(LoginRequiredMixin, DetailView):
+    model = RawContent
+
+class CleanedContentDetailView(LoginRequiredMixin, DetailView):
+    model = CleanedContent
+
+class CleanedContentUpdateView(LoginRequiredMixin, UpdateView):
+    model = CleanedContent

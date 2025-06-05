@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Распознать файл{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="mt-5">
+  <ol class="breadcrumb container">
+    <li class="breadcrumb-item"><a href="{% url 'sources:rawcontent_detail' raw_content.pk %}">RawContent {{ raw_content.pk }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Распознавание</li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <h2>Распознавание RawContent</h2>
+
+    <div class="card shadow-sm rounded-4 border-0 my-4">
+        <div class="card-body">
+            <h5 class="card-title">Файл</h5>
+            <p>
+                <i class="bi {{ raw_content.get_icon_class }} fs-1 text-secondary"></i><br>
+                <a href="{{ raw_content.file.url }}" target="_blank" class="btn btn-outline-primary btn-sm mt-2">Скачать файл</a>
+            </p>
+
+            <form method="post" class="mt-4">
+                {% csrf_token %}
+                <div class="mb-3">
+                    {{ form.recognizer.label_tag }}
+                    {{ form.recognizer }}
+                </div>
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-magic"></i> Запустить распознавание
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
