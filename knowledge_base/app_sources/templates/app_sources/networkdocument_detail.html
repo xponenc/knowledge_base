@@ -38,9 +38,9 @@
         <a href="{{ object.storage.get_absolute_url }}">{{ object.storage.title }}</a>
         </p>
 
-        {% if object.categories %}
+        {% if object.tags %}
         <p><strong>Теги:</strong> 
-        {% for tag in object.categories %}
+        {% for tag in object.tags %}
             <span class="badge bg-secondary">{{ tag }}</span>
         {% endfor %}
         </p>

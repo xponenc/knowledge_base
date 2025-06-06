@@ -138,11 +138,11 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for file in result.new_files %}
+                        {% for file_id, file in result.new_files.items %}
                             <tr>
                                 <td>
                                     {% if created_count != result.new_files|length and not file.doc_id %}
-                                        <input type="checkbox" name="file_ids" value="{{ file.file_id }}" class="form-check-input new_files-checkbox">
+                                        <input type="checkbox" name="file_ids" value="{{ file_id }}" class="form-check-input new_files-checkbox">
                                     {% endif %}
                                 </td>
                                 <td>{{ file.file_name }}</td>
@@ -199,11 +199,11 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for file in result.updated_files %}
+                    {% for file_id, file in result.updated_files.items %}
                     <tr>
                         {% if created_count != result.updated_files|length and not file.doc_id %}
                         <td>
-                            <input type="checkbox" name="file_ids" value="{{ file.file_id }}" class="form-check-input updated_files-checkbox">
+                            <input type="checkbox" name="file_ids" value="{{ file_id }}" class="form-check-input updated_files-checkbox">
                         </td>
                         {% endif %}
                         <td>{{ file.file_name }}</td>
@@ -260,11 +260,11 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for file in result.deleted_files %}
+                    {% for file_id, file in result.deleted_files.items %}
                     <tr>
                         {% if created_count != result.deleted_files|length and not file.doc_id %}
                             <td>
-                                <input type="checkbox" name="file_ids" value="{{ file.id }}" class="form-check-input deleted_files-checkbox">
+                                <input type="checkbox" name="file_ids" value="{{ file_id }}" class="form-check-input deleted_files-checkbox">
                             </td>
                         {% endif %}
                         <td>{{ file.title }}</td>
@@ -321,11 +321,11 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for file in result.restored_files %}
+                    {% for file_id, file in result.restored_files.items %}
                     <tr>
                         {% if created_count != result.restored_files|length and not file.doc_id %}
                             <td>
-                                <input type="checkbox" name="file_ids" value="{{ file.file_id }}" class="form-check-input restored_files-checkbox">
+                                <input type="checkbox" name="file_ids" value="{{ file_id }}" class="form-check-input restored_files-checkbox">
                             </td>
                         {% endif %}
                         <td>{{ file.file_name }}</td>
@@ -382,11 +382,11 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for file in result.excluded_files %}
+                    {% for file_id, file in result.excluded_files.items %}
                     <tr>
                         {% if created_count != result.excluded_files|length and not file.doc_id %}
                             <td>
-                                <input type="checkbox" name="file_ids" value="{{ file.file_id }}" class="form-check-input excluded_files-checkbox">
+                                <input type="checkbox" name="file_ids" value="{{ file_id }}" class="form-check-input excluded_files-checkbox">
                             </td>
                         {% endif %}
                         <td>{{ file.file_name }}</td>

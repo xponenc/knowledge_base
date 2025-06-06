@@ -87,11 +87,11 @@ def process_cloud_files(
     progress_description = f'Обрабатывается {total_counter} объектов'
 
     result = {
-        'new_files': [],
-        'updated_files': [],
-        'deleted_files': [],
-        'restored_files': [],
-        'excluded_files': [],
+        'new_files': {},
+        'updated_files': {},
+        'deleted_files': {},
+        'restored_files': {},
+        'excluded_files': {},
         'error': None
     }
 
@@ -101,26 +101,31 @@ def process_cloud_files(
 
     incoming_urls_set = set(file["url"] for file in files)
 
+    # DELETED: те, что были в базе, но отсутствуют в облаке
     deleted_urls_set = db_urls_set - incoming_urls_set
-    result["deleted_files"] = list(
-        db_documents.filter(url__in=deleted_urls_set).values_list("id", flat=True)
-    )
+    deleted_docs = db_documents.filter(url__in=deleted_urls_set)
+    for doc in deleted_docs:
+        result["deleted_files"][doc.id] = {
+            "url": doc.url,
+            "name": doc.name,
+            "status": doc.status,
+            # можно добавить другие поля по необходимости
+        }
 
-    for file in files:
-        # time.sleep(10)
-        current += 1
+    # NEW / UPDATED / RESTORED / EXCLUDED
+    for index, file in enumerate(files):
         url = file.get('url')
         doc = db_documents_by_url.get(url)
 
         if url not in db_urls_set:
-            result['new_files'].append(file)
+            result['new_files'][index] = file
         else:
             if doc.status == Status.DELETED.value:
-                result['restored_files'].append(file)
+                result['restored_files'][index] = file
             elif doc.status == Status.EXCLUDED.value:
-                result['excluded_files'].append(file)
+                result['excluded_files'][index] = file
             else:
-                result['updated_files'].append(file)
+                result['updated_files'][index] = file
 
         if current == (progress_now + 1) * progress_step:
             progress_now += 1

@@ -191,3 +191,12 @@ LOGGING = {
         # },
     },
 }
+
+try:
+    from .local_settings import *
+except ImportError:
+    try:
+        from .product_settings import *
+    except ImportError:
+        pass
+

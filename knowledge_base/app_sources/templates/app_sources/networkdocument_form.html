@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}{{ view.object.pk|yesno:"Редактировать,Создать" }} базу знаний{% endblock %}
+
+{% block content %}
+<h2>{{ view.object.pk|yesno:"Редактировать,Создать" }} базу знаний</h2>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.errors }}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-success">Сохранить</button>
+    <a href="{% url 'sources:networkdocument_detail' object.pk %}" class="btn btn-sm btn-outline-secondary">Отмена</a>
+</form>
+{% endblock %}

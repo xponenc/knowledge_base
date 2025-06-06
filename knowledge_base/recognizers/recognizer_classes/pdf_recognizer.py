@@ -17,7 +17,7 @@ OCR_LANGUAGES = 'rus+eng'
 
 pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
 
-POPPLER_PATH = r'D:\poppler-24.08.0\Library\bin'
+POPPLER_PATH = r'c:\poppler-24.08.0\Library\bin'
 """Путь к библиотеке Poppler для pdf2image."""
 
 

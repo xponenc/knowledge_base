@@ -71,6 +71,7 @@ class AbstractSource(models.Model):
                              null=True)
     tags = models.JSONField(verbose_name="список тегов",
                             default=list,
+                            blank=True,
                             help_text="Категории в формате JSON, например ['news', 'tech', ]")
     error_message = models.CharField(verbose_name="ошибка при обрабоотке",
                                      max_length=1000,

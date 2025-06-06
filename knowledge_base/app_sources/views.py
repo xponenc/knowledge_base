@@ -226,60 +226,8 @@ class NetworkDocumentsMassCreateView(View):
     Создание документов (NetworkDocument) на основе отчёта синхронизации (CloudStorageUpdateReport).
     """
 
-    # def post(self, request, pk):
-    #     update_report = get_object_or_404(CloudStorageUpdateReport, pk=pk)
-    #     new_files = update_report.content.get("result", {}).get("new_files", [])
-    #
-    #     db_documents = NetworkDocument.objects.filter(storage=update_report.storage)
-    #     existing_urls = set(db_documents.values_list("url", flat=True))
-    #     new_urls = {f["url"] for f in new_files}
-    #     duplicates = existing_urls & new_urls
-    #
-    #     bulk_container = []
-    #     for f in new_files:
-    #         if f["url"] in duplicates:
-    #             f["process_status"] = "already_exists"
-    #             continue
-    #         try:
-    #             remote_updated = parse(f.get("last_modified", ''))
-    #         except Exception:
-    #             remote_updated = None
-    #         bulk_container.append(NetworkDocument(
-    #             storage=update_report.storage,
-    #             title=f["file_name"],
-    #             path=f["path"],
-    #             file_id=f["file_id"],
-    #             size=f["size"],
-    #             url=f["url"],
-    #             remote_updated=remote_updated,
-    #             synchronized_at=timezone.now(),
-    #         ))
-    #
-    #     if bulk_container:
-    #         created_docs = NetworkDocument.objects.bulk_create(bulk_container)
-    #         created_ids = [doc.id for doc in created_docs]
-    #         update_report.content["created_docs"] = created_ids
-    #         for f in new_files:
-    #             if f.get("process_status") != "already_exists":
-    #                 f["process_status"] = "created"
-    #         update_report.content["current_status"] = "Documents successfully created, download content in progress..."
-    #         update_report.save(update_fields=["content", ])
-    #
-    #         task = download_and_create_raw_content_parallel.delay(
-    #             document_ids=created_ids,
-    #             update_report_id=update_report.pk,
-    #             author=request.user
-    #         )
-    #         update_report.running_background_tasks[task.id] = "Загрузка контента файлов с облачного хранилища"
-    #         update_report.save(update_fields=["running_background_tasks", ])
-    #
-    #     return redirect(reverse_lazy("sources:cloudstorageupdatereport_detail", args=[pk]))
-
     def post(self, request, pk):
-        print(request.POST)
-        selected_ids = request.POST.getlist("file_ids")
         selected_ids = [i for i in request.POST.getlist("file_ids") if i.strip()]
-        print(selected_ids)
         if not selected_ids:
             # TODO message
             return redirect(reverse_lazy("sources:cloudstorageupdatereport_detail", args=[pk]))
@@ -287,7 +235,7 @@ class NetworkDocumentsMassCreateView(View):
         update_report = get_object_or_404(CloudStorageUpdateReport, pk=pk)
         new_files = update_report.content.get("result", {}).get("new_files", [])
 
-        new_files = [file for file in new_files if file.get("file_id", "") in selected_ids]
+        new_files = [file for file_id, file in new_files.items() if file_id in selected_ids]
 
         # Получаем все документы, которые уже есть в базе для данного хранилища
         db_documents = NetworkDocument.objects.filter(storage=update_report.storage)
@@ -364,7 +312,7 @@ class NetworkDocumentDetailView(LoginRequiredMixin, DocumentPermissionMixin, Det
 class NetworkDocumentUpdateView(LoginRequiredMixin, DocumentPermissionMixin, UpdateView):
     """Редактирование объекта модели Сетевой документ NetworkDocument (с проверкой прав доступа)"""
     model = NetworkDocument
-
+    fields = ["title", "tags", "output_format" ]
 
 
 
