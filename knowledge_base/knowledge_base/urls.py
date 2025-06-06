@@ -20,7 +20,7 @@ router = DefaultRouter()
 
 urlpatterns = [
     path('api/', include(router.urls)),
-    path('hidden-admin/', admin.site.urls),
+    path('admin/', admin.site.urls),
     path('accounts/', include('django.contrib.auth.urls')),
     path('', RedirectView.as_view(pattern_name="core:knowledgebase_list", permanent=False)),
     re_path(r'^celery-progress/', include('celery_progress.urls')),
