@@ -5,7 +5,7 @@ from .views import CloudStorageListView, CloudStorageCreateView, CloudStorageDet
     NetworkDocumentsMassCreateView, LocalStorageListView, LocalStorageCreateView, \
     LocalStorageDetailView, CloudStorageUpdateView, CloudStorageDeleteView, CloudStorageUpdateReportDetailView, \
     NetworkDocumentDetailView, NetworkDocumentListView, NetworkDocumentUpdateView, RawContentRecognizeCreateView, \
-    RawContentDetailView, CleanedContentDetailView, CleanedContentUpdateView
+    RawContentDetailView, CleanedContentDetailView, CleanedContentUpdateView, NetworkDocumentsMassUpdateView
 
 app_name = 'sources'
 
@@ -27,6 +27,8 @@ urlpatterns = [
 
     path('storage-update-report/<int:pk>/create-new-docs', NetworkDocumentsMassCreateView.as_view(),
          name='documents-mass-create'),
+    path('storage-update-report/<int:pk>/update-docs', NetworkDocumentsMassUpdateView.as_view(),
+         name='documents-mass-update'),
 
     path('network-document/<int:pk>', NetworkDocumentDetailView.as_view(), name='networkdocument_detail'),
     path('network-document/', NetworkDocumentListView.as_view(), name='networkdocument_list'),

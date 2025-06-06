@@ -270,7 +270,8 @@ class NetworkDocumentsMassCreateView(LoginRequiredMixin, View):
             # Создаём все документы одним запросом
             created_docs = NetworkDocument.objects.bulk_create(bulk_container)
             created_ids = [doc.id for doc in created_docs]
-            update_report.content["created_docs"] = created_ids
+
+            update_report.content.setdefault("created_docs", []).extend(created_ids)
 
             # Индекс для прохода по созданным документам
             created_doc_index = 0
@@ -299,6 +300,9 @@ class NetworkDocumentsMassCreateView(LoginRequiredMixin, View):
 
         return redirect(reverse_lazy("sources:cloudstorageupdatereport_detail", args=[pk]))
 
+
+class NetworkDocumentsMassUpdateView(LoginRequiredMixin, View):
+    pass
 
 class NetworkDocumentListView(LoginRequiredMixin, ListView):
     """Списковый просмотр объектов модели Сетевой документ NetworkDocument"""
