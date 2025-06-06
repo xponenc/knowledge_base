@@ -1,3 +1,5 @@
+import platform
+
 import pdfplumber
 from pdf2image import convert_from_path
 import pytesseract
@@ -9,16 +11,25 @@ from utils.setup_logger import setup_logger
 logger = setup_logger(__name__, log_dir="logs/documents_recognize", log_file="recognizers.log")
 
 # Настройки OCR
-TESSERACT_CMD = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-"""Путь к исполняемому файлу Tesseract OCR."""
+"""TESSERACT_CMD Путь к исполняемому файлу Tesseract OCR."""
+if platform.system() == "Windows":
+    TESSERACT_CMD = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+else:
+    # Для Unix предполагаем, что tesseract доступен в PATH
+    TESSERACT_CMD = "tesseract"
+
+pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
 
 OCR_LANGUAGES = 'rus+eng'
 """Языки для распознавания текста в Tesseract OCR (русский и английский)."""
 
 pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
 
-POPPLER_PATH = r'c:\poppler-24.08.0\Library\bin'
-"""Путь к библиотеке Poppler для pdf2image."""
+"""POPPLER_PATH Путь к библиотеке Poppler для pdf2image."""
+if platform.system() == "Windows":
+    POPPLER_PATH = r'c:\poppler-24.08.0\Library\bin'
+else:
+    POPPLER_PATH = "/usr/bin"     # или другой путь, где установлен poppler на Unix
 
 
 class PDFRecognizer(ContentRecognizer):
