@@ -120,11 +120,11 @@ class CloudStorageCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateV
     #     return context
 
 
-class CloudStorageUpdateView(UpdateView):
+class CloudStorageUpdateView(LoginRequiredMixin, UpdateView):
     pass
 
 
-class CloudStorageDeleteView(DeleteView):
+class CloudStorageDeleteView(LoginRequiredMixin, DeleteView):
     model = CloudStorage
     success_url = reverse_lazy("sources:cloudstorage_list")
 
@@ -198,7 +198,7 @@ class CloudStorageSyncView(View):
             })
 
 
-class CloudStorageUpdateReportDetailView(DetailView):
+class CloudStorageUpdateReportDetailView(LoginRequiredMixin, DetailView):
     """Детальный просмотр отчёта о синхронизации облачного хранилища"""
     model = CloudStorageUpdateReport
 
@@ -221,7 +221,7 @@ class CloudStorageUpdateReportDetailView(DetailView):
 
 
 
-class NetworkDocumentsMassCreateView(View):
+class NetworkDocumentsMassCreateView(LoginRequiredMixin, View):
     """
     Создание документов (NetworkDocument) на основе отчёта синхронизации (CloudStorageUpdateReport).
     """
