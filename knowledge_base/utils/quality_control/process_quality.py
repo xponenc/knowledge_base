@@ -32,30 +32,7 @@ from collections import Counter
 
 # Инициализируем анализаторы
 morph = pymorphy2.MorphAnalyzer()
-# print(enchant.list_languages())
-# os.environ["ENCHANT_CONFIG_DIR"] = os.path.join(os.path.dirname(__file__), "ENCHANT_DICTIONARY")
-# # d = enchant.Dict("ru_RU")
-# # print(d.check("привет"))
-# # print(d.suggest("привт"))
-#
-# try:
-#     d = enchant.Dict("ru_RU")
-#     print(d.check("привет"))
-#     print(d.suggest("привт"))
-# except:
-#     RU_DICT_PATH = os.path.join(os.path.dirname(__file__), "ENCHANT_DICTIONARY")
-#     enchant_base = os.path.dirname(enchant.__file__)
-#     ENCHANT_DICT_PATH = os.path.join(enchant_base, "data", "mingw64", "share", "enchant", "hunspell")
-#     for dict_file in os.listdir(RU_DICT_PATH):
-#         source_dict_file = os.path.join(RU_DICT_PATH, dict_file)
-#         destination_dict_file = os.path.join(ENCHANT_DICT_PATH, dict_file)
-#         if os.path.isfile(source_dict_file) and not os.path.exists(destination_dict_file):
-#             shutil.copy(source_dict_file, destination_dict_file)
-#             print("Скопирован файл", destination_dict_file)
-#     print(enchant.list_languages())
-#     d = enchant.Dict("ru_RU")
 
-print("НАЧАЛО ОТЛАДКИ")
 
 # Устанавливаем ENCHANT_CONFIG_DIR сразу
 RU_DICT_PATH = os.path.join(os.path.dirname(__file__), "ENCHANT_DICTIONARY")
@@ -96,15 +73,13 @@ def ensure_dictionaries(language="ru_RU"):
 
 
 # Проверяем доступные языки
-print(enchant.list_languages())
+# print(enchant.list_languages())
 
 # Копируем словари
 ensure_dictionaries("ru_RU")
 
 try:
     d = enchant.Dict("ru_RU")
-    print(d.check("привет"))  # Проверка слова
-    print(d.suggest("привт"))  # Предложения исправления
 except Exception as e:
     print(f"Ошибка инициализации словаря: {e}")
     # Проверяем содержимое .dic файла
@@ -114,9 +89,6 @@ except Exception as e:
             print("Первые 10 строк словаря:")
             print("\n".join(f.readlines()[:10]))
     raise
-
-# Проверяем языки после попытки
-print(enchant.list_languages())
 
 
 def clean_text(text: str) -> tuple[str, float]:
