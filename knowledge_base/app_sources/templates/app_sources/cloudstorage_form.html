@@ -2,7 +2,9 @@
 {% block title %}Создать хранилище{% endblock %}
 {% block content %}
 <h2>Создать облачное хранилище</h2>
+
 <form method="post">
+    {{ form.kb }}
     {% csrf_token %}
     {{ form.errors }}
     <div class="mb-3">

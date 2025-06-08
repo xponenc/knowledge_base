@@ -32,7 +32,6 @@ class CloudStorageForm(forms.ModelForm):
                 "spellcheck": "false",
             })
 
-
     def clean(self):
         cleaned_data = super().clean()
         signer = Signer()

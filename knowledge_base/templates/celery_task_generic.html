@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Обработка...{% endblock %}
+
+{% block content %}
+<div class="container mt-5 text-center">
+    <h2 class="mb-4">⏳ Задача выполняется...</h2>
+
+    <!-- Спиннер -->
+    <div class="spinner-border text-primary mb-4" role="status" style="width: 4rem; height: 4rem;">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+
+    <!-- Сообщение -->
+    <p id="progress-description" class="lead">Пожалуйста, подождите. Мы обрабатываем ваши данные.</p>
+</div>
+
+<script src="{% static 'libs/jquery/jquery-3.6.0.min.js' %}"></script>
+<script src="{% static 'libs/celery_progress/celery_progress.js' %}"></script>
+
+<script>
+    const progressUrl = "{{ progress_url }}";
+
+    const progressBar = CeleryProgressBar.initProgressBar(progressUrl, {
+        pollingInterval: 1500,  // медленнее, т.к. прогресса нет
+        onResult: function (result) {
+            $('#progress-description').text("✅ Задача завершена");
+        },
+        onError: function (error) {
+            $('#progress-description').text("❌ Ошибка при выполнении задачи");
+        }
+    });
+</script>
+{% endblock %}

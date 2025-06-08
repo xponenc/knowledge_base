@@ -3,7 +3,10 @@ from importlib import import_module
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.db.models import UniqueConstraint, Q
 from django.urls import reverse
+
+from app_parsers.models import Parser
 
 User = get_user_model()
 
@@ -30,13 +33,83 @@ class Storage(models.Model):
         abstract = True
 
 
+class WebSite(Storage):
+    """Модель Веб-сайта для полного парсинга сайта"""
+    base_url = models.URLField(verbose_name="Основной URL сайта")
+    xml_map_url = models.URLField(verbose_name="XML карта сайта", blank=True, null=True)
+
+    parser = models.ForeignKey(Parser, verbose_name="текущий парсер сайта", on_delete=models.PROTECT,
+                               blank=True, null=True)
+
+    test_parser = models.ForeignKey(Parser, verbose_name="тестовый парсер сайта", on_delete=models.PROTECT,
+                                    blank=True, null=True, related_name="websites_as_test_parser" )
+
+    class Meta:
+        verbose_name = "Web Site"
+        verbose_name_plural = "Web Sites"
+        # Раскомментировать для PostgreSQL
+        # constraints = [
+        #     UniqueConstraint(
+        #         fields=['kb', 'name'],
+        #         condition=Q(kb__isnull=False, name__isnull=False),
+        #         name='unique_kb_and_name',
+        #     ),
+        #    UniqueConstraint(
+        #         fields=['kb', 'base_url'],
+        #         condition=Q(kb__isnull=False, base_url__isnull=False),
+        #         name='unique_kb_and_base_url',
+        #     )
+        # ]
+
+    def get_absolute_url(self):
+        return reverse("sources:website_detail", kwargs={"pk": self.id, })
+
+    def __str__(self):
+        return f"{self.name}(web-site)"
+
+    def clean(self):
+        if self.kb and self.name:
+            if WebSite.objects.filter(kb=self.kb, name=self.name).exclude(pk=self.pk).exists():
+                raise ValidationError(f"Веб-сайт с именем {self.name} в базе знаний {self.kb.name} уже существует.")
+        if self.kb and self.base_url:
+            if WebSite.objects.filter(kb=self.kb, name=self.base_url).exclude(pk=self.pk).exists():
+                raise ValidationError(f"Веб-сайт с URL {self.base_url} в базе знаний {self.kb.name} уже существует.")
+
+
+class URLBatch(Storage):
+    """Модель Пакете ссылок для выборочного парсинга страниц"""
+
+    class Meta:
+        verbose_name = "URL Batch"
+        verbose_name_plural = "URL Batches"
+        # Раскомментировать для PostgreSQL
+        # constraints = [
+        #     UniqueConstraint(
+        #         fields=['kb', 'name'],
+        #         condition=Q(kb__isnull=False, name__isnull=False),
+        #         name='unique_kb_and_name',
+        #     ),
+        # ]
+
+    def get_absolute_url(self):
+        return reverse("sources:webbatch_detail", kwargs={"pk": self.id, })
+
+    def __str__(self):
+        return f"{self.name}(web-batch)"
+
+    def clean(self):
+        if self.kb and self.name:
+            if URLBatch.objects.filter(kb=self.kb, name=self.name).exclude(pk=self.pk).exists():
+                raise ValidationError(f"Веб-пакет с именем {self.name} в базе знаний {self.kb.name} уже существует.")
+
+
 class LocalStorage(Storage):
     """Модель локального хранилища"""
 
     class Meta:
         verbose_name = "Local Storage"
         verbose_name_plural = "Local Storages"
-        # Раскомментировать для PostgreSQL и убрать из clean
+        # Раскомментировать для PostgreSQL
         # constraints = [
         #     UniqueConstraint(
         #         fields=['kb', 'name'],
@@ -54,8 +127,8 @@ class LocalStorage(Storage):
     def clean(self):
         # Только если оба поля не None — проверка на уникальность
         if self.kb and self.name:
-            if Storage.objects.filter(kb=self.kb, name=self.name).exclude(pk=self.pk).exists():
-                raise ValidationError(f"Storage с именем {self.name} в базе знаний {self.kb.name} уже существует.")
+            if LocalStorage.objects.filter(kb=self.kb, name=self.name).exclude(pk=self.pk).exists():
+                raise ValidationError(f"Локальное с именем {self.name} в базе знаний {self.kb.name} уже существует.")
 
 
 class CloudStorage(Storage):
@@ -74,7 +147,7 @@ class CloudStorage(Storage):
     class Meta:
         verbose_name = "Cloud Storage"
         verbose_name_plural = "Cloud Storages"
-        # Раскомментировать для PostgreSQL и убрать из clean
+        # Раскомментировать для PostgreSQL
         # constraints = [
         #     UniqueConstraint(
         #         fields=['kb', 'name'],
@@ -87,7 +160,6 @@ class CloudStorage(Storage):
         return f"{self.name}(network)"
 
     def clean(self):
-        # Только если оба поля не None — проверка на уникальность
         if self.kb and self.name:
             if CloudStorage.objects.filter(kb=self.kb, name=self.name).exclude(pk=self.pk).exists():
                 raise ValidationError(f"CloudStorage с именем {self.name} в базе знаний {self.kb.name} уже существует.")

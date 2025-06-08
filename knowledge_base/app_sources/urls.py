@@ -5,7 +5,8 @@ from .views import CloudStorageListView, CloudStorageCreateView, CloudStorageDet
     NetworkDocumentsMassCreateView, LocalStorageListView, LocalStorageCreateView, \
     LocalStorageDetailView, CloudStorageUpdateView, CloudStorageDeleteView, CloudStorageUpdateReportDetailView, \
     NetworkDocumentDetailView, NetworkDocumentListView, NetworkDocumentUpdateView, RawContentRecognizeCreateView, \
-    RawContentDetailView, CleanedContentDetailView, CleanedContentUpdateView, NetworkDocumentsMassUpdateView
+    RawContentDetailView, CleanedContentDetailView, CleanedContentUpdateView, NetworkDocumentsMassUpdateView, \
+    WebSiteDetailView, WebSiteCreateView, WebSiteUpdateView, WebSiteDeleteView, WebSitParseView
 
 app_name = 'sources'
 
@@ -14,13 +15,19 @@ urlpatterns = [
     path('cloud_storage/', CloudStorageListView.as_view(), name='cloudstorage_list'),
     path('cloud_storage/<int:pk>', CloudStorageDetailView.as_view(), name='cloudstorage_detail'),
     path('cloud_storage/create/<int:kb_pk>', CloudStorageCreateView.as_view(), name='cloudstorage_create'),
-    path('cloud_storage/<int:pk>/create/', CloudStorageUpdateView.as_view(), name='cloudstorage_update'),
+    path('cloud_storage/<int:pk>/update/', CloudStorageUpdateView.as_view(), name='cloudstorage_update'),
     path('cloud_storage/<int:pk>/delete/', CloudStorageDeleteView.as_view(), name='cloudstorage_delete'),
     path('cloud_storage/<int:pk>/full-scan', CloudStorageSyncView.as_view(), name='cloudstorage_sync'),
 
     path('local_storage/', LocalStorageListView.as_view(), name='localstorage_list'),
     path('local_storage/<int:pk>', LocalStorageDetailView.as_view(), name='localstorage_detail'),
-    path('local_storage/create/', LocalStorageCreateView.as_view(), name='localstorage_create'),
+    path('local_storage/create/<int:kb_pk>', LocalStorageCreateView.as_view(), name='localstorage_create'),
+
+    path('website/<int:pk>', WebSiteDetailView.as_view(), name='website_detail'),
+    path('website/create/<int:kb_pk>', WebSiteCreateView.as_view(), name='website_create'),
+    path('website/<int:pk>/update/', WebSiteUpdateView.as_view(), name='website_update'),
+    path('website/<int:pk>/delete/', WebSiteDeleteView.as_view(), name='website_delete'),
+    path('website/<int:pk>/parse/', WebSitParseView.as_view(), name='website_parse'),
 
     path('storage-update-report/<int:pk>/', CloudStorageUpdateReportDetailView.as_view(),
          name='cloudstorageupdatereport_detail'),

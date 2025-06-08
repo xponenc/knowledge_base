@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Результат тестового парсинга{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">✅ Результат тестового парсинга</h5>
+        </div>
+        <div class="card-body">
+            <p><strong>🔗 URL:</strong> <a href="{{ url }}" target="_blank">{{ url }}</a></p>
+
+            <hr>
+
+            <h6 class="mt-4">⚙️ Использованная конфигурация (config):</h6>
+            {% if config %}
+                <pre class="bg-light p-3 rounded border">{{ config|json_script:"config_json" }}</pre>
+            {% else %}
+                <p class="text-muted">Конфигурация по умолчанию (пустой словарь).</p>
+            {% endif %}
+
+            <hr>
+
+            <h6 class="mt-4">📦 Результат:</h6>
+            {% if result %}
+                <pre class="bg-light p-3 rounded border">{{ result|safe }}</pre>
+            {% else %}
+                <p class="text-danger">Парсер не вернул результат.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <a href="{% url 'sources:website_parse' website.pk %}" class="btn btn-outline-secondary">
+        ⬅ Назад к форме
+    </a>
+</div>
+{% endblock %}

@@ -1,5 +1,5 @@
 import abc
-from typing import List, Dict
+from typing import List, Type, Dict
 
 
 class ContentRecognizer(abc.ABC):

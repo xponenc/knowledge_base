@@ -14,7 +14,9 @@ from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from django.urls import reverse, reverse_lazy
 from django.utils.text import slugify
-from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport, LocalStorage
+
+from app_parsers.models import Parser
+from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport, LocalStorage, WebSite, URLBatch
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -114,8 +116,12 @@ class AbstractSource(models.Model):
 
 class URL(AbstractSource):
     """Модель страницы сайта с информацией"""
-
+    site = models.ForeignKey(WebSite, verbose_name="сайт", on_delete=models.CASCADE, blank=True, null=True)
+    batch = models.ForeignKey(URLBatch, verbose_name="пакет", on_delete=models.CASCADE, blank=True, null=True)
     response_status = models.IntegerField(null=True, blank=True, help_text="HTTP-код ответа")
+
+    parser = models.ForeignKey(Parser, verbose_name="текущий страницы сайта", on_delete=models.PROTECT,
+                               blank=True, null=True)
 
     def __str__(self):
         return f"[URL] {super().__str__()}"

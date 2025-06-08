@@ -3,11 +3,10 @@ import logging
 from typing import List, Type, Dict, Any
 
 from .base import ContentRecognizer
-from .registry import get_recognizer_for_extension, recognizer_registry
 from utils.setup_logger import setup_logger
+from .register import RECOGNIZER_REGISTRY, get_recognizer_for_extension
 
 logger = setup_logger(__name__, log_dir="logs/documents_recognize", log_file="recognizers.log")
-
 
 
 class ContentRecognizerDispatcher:
@@ -72,7 +71,6 @@ class ContentRecognizerDispatcher:
                 matching.append(recognizer_cls)
         return matching
 
-
     def recognize_with(self, recognizer_cls: Type[ContentRecognizer], file_path: str) -> Dict[str, Any]:
         """
         Применяет конкретный класс-распознаватель для файла.
@@ -102,6 +100,7 @@ class ContentRecognizerDispatcher:
         Возвращает все уникальные классы-распознаватели из регистра.
         """
         all_classes = set()
-        for classes in recognizer_registry.values():
+        for classes in RECOGNIZER_REGISTRY.values():
             all_classes.update(classes)
+        print(all_classes)
         return list(all_classes)

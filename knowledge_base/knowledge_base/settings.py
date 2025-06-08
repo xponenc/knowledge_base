@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     # 'app_parsers',
     'app_core',
     'app_sources',
+    'app_parsers',
     # 'app_chunks',
     # 'app_embeddings',
     # 'app_retriever',

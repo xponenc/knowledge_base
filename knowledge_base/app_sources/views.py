@@ -13,9 +13,13 @@ from django.contrib import messages
 from django.views.generic import DetailView, ListView, CreateView, UpdateView, DeleteView
 
 from app_core.models import KnowledgeBase
+from app_parsers.forms import TestParseForm, BulkParseForm, ParserDynamicConfigForm
+from app_parsers.models import Parser
+from app_parsers.services.parsers.core_parcer_engine import SeleniumDriver
+from app_parsers.services.parsers.dispatcher import WebParserDispatcher
 from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedContentEditorForm
 from app_sources.models import NetworkDocument, RawContent, CleanedContent
-from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport, Storage, LocalStorage
+from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport, Storage, LocalStorage, WebSite
 from app_sources.tasks import process_cloud_files, download_and_create_raw_content, \
     download_and_create_raw_content_parallel
 from recognizers.dispatcher import ContentRecognizerDispatcher
@@ -36,7 +40,6 @@ class StoragePermissionMixin(UserPassesTestMixin):
         storage = self.get_object()
         kb = getattr(storage, "knowledge_base", None)
         return kb and kb.owner == self.request.user
-
 
 
 class DocumentPermissionMixin(UserPassesTestMixin):
@@ -220,7 +223,6 @@ class CloudStorageUpdateReportDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-
 class NetworkDocumentsMassCreateView(LoginRequiredMixin, View):
     """
     Создание документов (NetworkDocument) на основе отчёта синхронизации (CloudStorageUpdateReport).
@@ -304,6 +306,7 @@ class NetworkDocumentsMassCreateView(LoginRequiredMixin, View):
 class NetworkDocumentsMassUpdateView(LoginRequiredMixin, View):
     pass
 
+
 class NetworkDocumentListView(LoginRequiredMixin, ListView):
     """Списковый просмотр объектов модели Сетевой документ NetworkDocument"""
     model = NetworkDocument
@@ -313,11 +316,11 @@ class NetworkDocumentDetailView(LoginRequiredMixin, DocumentPermissionMixin, Det
     """Детальный просмотр объекта модели Сетевой документ NetworkDocument (с проверкой прав доступа)"""
     model = NetworkDocument
 
+
 class NetworkDocumentUpdateView(LoginRequiredMixin, DocumentPermissionMixin, UpdateView):
     """Редактирование объекта модели Сетевой документ NetworkDocument (с проверкой прав доступа)"""
     model = NetworkDocument
-    fields = ["title", "tags", "output_format" ]
-
+    fields = ["title", "tags", "output_format"]
 
 
 class LocalStorageListView(LoginRequiredMixin, ListView):
@@ -341,6 +344,179 @@ class LocalStorageCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateV
     """Создание объекта модели Локальное хранилище"""
     model = Storage
     fields = "__all__"
+
+
+class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
+    """Детальный просмотр объекта модели Вебсайт (с проверкой прав доступа)"""
+    model = WebSite
+
+
+class WebSiteCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateView):
+    """Создание объекта модели Вебсайт"""
+    model = WebSite
+    fields = ['name', 'base_url', 'xml_map_url']
+
+    def dispatch(self, request, *args, **kwargs):
+        """Сохраняем knowledge_base для дальнейшего использования"""
+        self.knowledge_base = get_object_or_404(KnowledgeBase, pk=kwargs['kb_pk'])
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        """Установка связи с базой знаний перед валидацией"""
+        kb_pk = self.kwargs.get("kb_pk")
+        print("Dfkblfwbz")
+        if not kb_pk:
+            form.add_error(None, "Не передан ID базы знаний")
+            return self.form_invalid(form)
+
+        form.instance.kb = self.knowledge_base
+        form.instance.author = self.request.user
+        return super().form_valid(form)
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+
+        kb_pk = self.kwargs.get("kb_pk")
+        if kb_pk:
+            form.instance.kb_id = kb_pk
+        form.instance.author = self.request.user
+        return form
+
+
+class WebSiteUpdateView(LoginRequiredMixin, StoragePermissionMixin, UpdateView):
+    """Редактирование объекта модели Вебсайт"""
+    model = WebSite
+    fields = ['name', 'xml_map_url']
+
+
+class WebSiteDeleteView(LoginRequiredMixin, DeleteView):
+    """Удаление объекта модели Вебсайт"""
+    model = WebSite
+
+    def get_success_url(self):
+        return self.object.kb.get_absolute_url()
+
+
+class WebSitParseView(LoginRequiredMixin, StoragePermissionMixin, View):
+
+    def get(self, request, pk, *args, **kwargs):
+        website = get_object_or_404(WebSite, pk=pk)
+        mode = request.GET.get("mode", "")
+        parser_dispatcher = WebParserDispatcher()
+        all_parsers = parser_dispatcher.discover_parsers()
+        config_form = None
+        if mode == "test":
+            form = TestParseForm(parsers=all_parsers,
+                                 initial={
+                                     "url": website.base_url,
+                                     "parser": website.test_parser.class_name if website.test_parser else None
+                                 })
+
+            if website.test_parser:
+                try:
+                    parser_cls = WebParserDispatcher().get_by_class_name(website.test_parser.class_name)
+                    config_schema = getattr(parser_cls, "config_schema", {})
+                    config_form = ParserDynamicConfigForm(schema=config_schema, initial=website.test_parser.config)
+                except ValueError:
+                    logger.error(f"Для WebSite (id={website.pk}) не найдет test_parser"
+                                 f" Parser class_name = {website.test_parser.class_name}")
+                    pass
+
+        else:  # bulk mode
+            if website.parser:
+                form = BulkParseForm(
+                    parsers=all_parsers,
+                    initial={
+                        "urls": website.base_url,
+                        "parser": website.parser.class_name
+                    })
+                parser_cls = WebParserDispatcher().get_by_class_name(website.parser.class_name)
+                config_schema = getattr(parser_cls, "config_schema", {})
+                config_form = ParserDynamicConfigForm(schema=config_schema, initial=website.test_parser.config)
+            else:
+                form = BulkParseForm(
+                    parsers=all_parsers,
+                    initial={
+                        "parser": website.test_parser.class_name if website.test_parser else None
+                    })
+
+                if website.test_parser:
+                    parser_cls = WebParserDispatcher().get_by_class_name(website.parser.class_name)
+                    config_schema = getattr(parser_cls, "config_schema", {})
+                    config_form = ParserDynamicConfigForm(schema=config_schema, initial=website.test_parser.config)
+
+        return render(request, "app_sources/website_parse_form.html", {
+            "form": form,
+            "config_form": config_form,
+            "mode": mode,
+            "selected_parser": form.initial.get("parser"),
+            "website": website,
+        })
+
+    def post(self, request, pk):
+        website = get_object_or_404(WebSite, id=pk)
+        mode = request.GET.get("mode", "")
+
+        parser_dispatcher = WebParserDispatcher()
+        all_parsers = parser_dispatcher.discover_parsers()
+
+        form = TestParseForm(request.POST, parsers=all_parsers)
+
+        if not form.is_valid():
+            return render(request, "app_sources/website_parse_form.html", {
+                "form": form,
+                "config_form": None,
+                "mode": mode,
+                "website": website
+            })
+
+        parser_cls = form.cleaned_data["parser"]
+        config_schema = getattr(parser_cls, "config_schema", {})
+        config_form = ParserDynamicConfigForm(request.POST, schema=config_schema)
+
+        if not config_form.is_valid():
+            return render(request, "app_sources/website_parse_form.html", {
+                "form": form,
+                "config_form": config_form,
+                "mode": mode,
+                "website": website
+            })
+
+        config = config_form.cleaned_data
+
+        # Обновляем или создаём test_parser для сайта
+        if not website.test_parser:
+            parser = Parser.objects.create(class_name=f"{parser_cls.__module__}.{parser_cls.__name__}", config=config)
+            website.test_parser = parser
+            website.save()
+        else:
+            parser = website.test_parser
+            if parser.class_name != f"{parser_cls.__module__}.{parser_cls.__name__}" or parser.config != config:
+                parser.class_name = f"{parser_cls.__module__}.{parser_cls.__name__}"
+                parser.config = config
+                parser.save()
+
+        parser = parser_cls(config=config)
+        url = form.cleaned_data["url"]
+        selenium = SeleniumDriver()
+        driver = selenium.get_driver()
+        try:
+            driver.get(url)  # Загрузка страницы
+            driver.execute_script("return document.readyState")  # Ожидание полной загрузки страницы
+            html = driver.page_source  # Получение HTML-контента страницы
+        finally:
+            driver.quit()
+        result = ""
+        if html:
+            # result = parser_instance.parse_html(html)
+            result = html
+
+        return render(request, "app_sources/website_test_result.html", {
+            "result": result,
+            "url": url,
+            "config": config,
+            "website": website,
+        })
 
 
 class RawContentRecognizeCreateView(LoginRequiredMixin, View):
@@ -465,4 +641,3 @@ class CleanedContentUpdateView(LoginRequiredMixin, View):
             "form": form,
         }
         return render(request=request, template_name="app_sources/cleanedcontent_form.html", context=context)
-

@@ -1,0 +1,91 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>Тестирование парсера</title>
+    <link href="{% static 'bootstrap/css/bootstrap.min.css' %}" rel="stylesheet" />
+</head>
+<body class="p-4">
+
+<h1>Тестирование парсера</h1>
+
+<form method="post" id="parse-form" novalidate>
+    {% csrf_token %}
+    
+    <!-- Основная форма: выбор парсера и URL/URLы -->
+    <div class="mb-3">
+        {{ form.parser.label_tag }}<br/>
+        {{ form.parser }}
+        {% if form.parser.errors %}
+            <div class="text-danger">{{ form.parser.errors }}</div>
+        {% endif %}
+    </div>
+
+    {% if mode == "test" %}
+        <div class="mb-3">
+            {{ form.url.label_tag }}<br/>
+            {{ form.url }}
+            {% if form.url.errors %}
+                <div class="text-danger">{{ form.url.errors }}</div>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="mb-3">
+            {{ form.urls.label_tag }}<br/>
+            {{ form.urls }}
+            {% if form.urls.errors %}
+                <div class="text-danger">{{ form.urls.errors }}</div>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <!-- Контейнер для динамических полей конфигурации -->
+    <div id="config-form-container">
+        {% if config_form %}
+            {% include "app_sources/include/partial_parser_config_form.html" %}
+        {% endif %}
+    </div>
+
+    <button type="submit" class="btn btn-primary">Запустить тест</button>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const parserSelect = document.querySelector('#id_parser');
+    const configContainer = document.getElementById('config-form-container');
+
+    parserSelect.addEventListener('change', () => {
+        const parser = parserSelect.value;
+        console.log(parser)
+        if (!parser) {
+            configContainer.innerHTML = '';
+            return;
+        }
+        fetch(`{% url 'parsers:parser_config' %}?parser_class_name=${encodeURIComponent(parser)}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Ошибка загрузки конфигурации');
+            return response.text();
+        })
+        .then(html => {
+            configContainer.innerHTML = html;
+        })
+        .catch(err => {
+            configContainer.innerHTML = '<div class="text-danger">Не удалось загрузить конфигурацию парсера</div>';
+            console.error(err);
+        });
+    });
+
+    // Триггерим загрузку при загрузке страницы, если есть выбранный парсер
+    if (parserSelect.value) {
+        parserSelect.dispatchEvent(new Event('change'));
+    }
+});
+</script>
+
+</body>
+</html>
