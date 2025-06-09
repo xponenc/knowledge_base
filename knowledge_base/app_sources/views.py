@@ -16,10 +16,12 @@ from app_core.models import KnowledgeBase
 from app_parsers.forms import TestParseForm, BulkParseForm, ParserDynamicConfigForm
 from app_parsers.models import Parser
 from app_parsers.services.parsers.core_parcer_engine import SeleniumDriver
+from app_parsers.tasks import test_single_url
 from app_parsers.services.parsers.dispatcher import WebParserDispatcher
 from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedContentEditorForm
 from app_sources.models import NetworkDocument, RawContent, CleanedContent
-from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport, Storage, LocalStorage, WebSite
+from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport, Storage, LocalStorage, WebSite, \
+    TestParseResult
 from app_sources.tasks import process_cloud_files, download_and_create_raw_content, \
     download_and_create_raw_content_parallel
 from recognizers.dispatcher import ContentRecognizerDispatcher
@@ -397,7 +399,7 @@ class WebSiteDeleteView(LoginRequiredMixin, DeleteView):
         return self.object.kb.get_absolute_url()
 
 
-class WebSitParseView(LoginRequiredMixin, StoragePermissionMixin, View):
+class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
 
     def get(self, request, pk, *args, **kwargs):
         website = get_object_or_404(WebSite, pk=pk)
@@ -416,7 +418,8 @@ class WebSitParseView(LoginRequiredMixin, StoragePermissionMixin, View):
                 try:
                     parser_cls = WebParserDispatcher().get_by_class_name(website.test_parser.class_name)
                     config_schema = getattr(parser_cls, "config_schema", {})
-                    config_form = ParserDynamicConfigForm(schema=config_schema, initial=website.test_parser.config)
+                    config_form = ParserDynamicConfigForm(schema=config_schema,
+                                                          initial_config=website.test_parser.config)
                 except ValueError:
                     logger.error(f"Для WebSite (id={website.pk}) не найдет test_parser"
                                  f" Parser class_name = {website.test_parser.class_name}")
@@ -441,7 +444,7 @@ class WebSitParseView(LoginRequiredMixin, StoragePermissionMixin, View):
                     })
 
                 if website.test_parser:
-                    parser_cls = WebParserDispatcher().get_by_class_name(website.parser.class_name)
+                    parser_cls = WebParserDispatcher().get_by_class_name(website.test_parser.class_name)
                     config_schema = getattr(parser_cls, "config_schema", {})
                     config_form = ParserDynamicConfigForm(schema=config_schema, initial=website.test_parser.config)
 
@@ -495,28 +498,49 @@ class WebSitParseView(LoginRequiredMixin, StoragePermissionMixin, View):
                 parser.class_name = f"{parser_cls.__module__}.{parser_cls.__name__}"
                 parser.config = config
                 parser.save()
-
+        print(parser_cls)
         parser = parser_cls(config=config)
+        print(parser)
         url = form.cleaned_data["url"]
-        selenium = SeleniumDriver()
-        driver = selenium.get_driver()
-        try:
-            driver.get(url)  # Загрузка страницы
-            driver.execute_script("return document.readyState")  # Ожидание полной загрузки страницы
-            html = driver.page_source  # Получение HTML-контента страницы
-        finally:
-            driver.quit()
-        result = ""
-        if html:
-            # result = parser_instance.parse_html(html)
-            result = html
+        parse_test_result, created = TestParseResult.create_or_update(
+            site=website,
+            author=request.user,
+            parser_class_name = f"{parser_cls.__module__}.{parser_cls.__name__}",
+            parser_config = config,
+            url = url,
+        )
 
-        return render(request, "app_sources/website_test_result.html", {
-            "result": result,
-            "url": url,
-            "config": config,
-            "website": website,
+        task = test_single_url.delay(
+            url=url,
+            site_id=website.pk,
+            author_id=request.user.pk,
+            parser_cls_name=f"{parser_cls.__module__}.{parser_cls.__name__}",
+            parser_config=config,
+            webdriver_options = None # применятся дефолтные в классе
+        )
+
+
+
+        return render(request, "celery_task_progress.html", {
+            "task_id": task.id,
+            "task_name": f"Тестовый парсинг страницы {url}",
+            "task_object_url": reverse_lazy("sources:website_detail", kwargs={"pk": website.pk} ),
+            "task_object_name": website.name,
+            "next_step_url": reverse_lazy("sources:website_test_parse_report", kwargs={"pk": website.pk} ),
         })
+
+
+class WebSiteTestParseReportView(LoginRequiredMixin, View):
+    """Класс отчета по тестовому парсингу страницы сайта"""
+
+    def get(self, request, pk):
+        website = get_object_or_404(WebSite, id=pk)
+        test_report = get_object_or_404(TestParseResult, site=website, author=request.user)
+        context = {
+            "website": website,
+            "report": test_report,
+        }
+        return render(request, "app_sources/testparseresult_detail.html", context)
 
 
 class RawContentRecognizeCreateView(LoginRequiredMixin, View):

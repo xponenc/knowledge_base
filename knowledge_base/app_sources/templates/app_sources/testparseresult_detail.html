@@ -9,13 +9,14 @@
             <h5 class="mb-0">✅ Результат тестового парсинга</h5>
         </div>
         <div class="card-body">
-            <p><strong>🔗 URL:</strong> <a href="{{ url }}" target="_blank">{{ url }}</a></p>
+            <p><strong>🔗 URL:</strong> <a href="{{ report.url }}" target="_blank">{{ report.url }}</a></p>
 
             <hr>
-
+            {{ report }}
+            {{ report.parser_class_name }}
             <h6 class="mt-4">⚙️ Использованная конфигурация (config):</h6>
             {% if config %}
-                <pre class="bg-light p-3 rounded border">{{ config|json_script:"config_json" }}</pre>
+                <pre class="bg-light p-3 rounded border">{{ report.parser_config }}</pre>
             {% else %}
                 <p class="text-muted">Конфигурация по умолчанию (пустой словарь).</p>
             {% endif %}
@@ -23,8 +24,8 @@
             <hr>
 
             <h6 class="mt-4">📦 Результат:</h6>
-            {% if result %}
-                <pre class="bg-light p-3 rounded border">{{ result|safe }}</pre>
+            {% if report.parsed_data %}
+                <pre class="bg-light p-3 rounded border">{{ report.parsed_data }}</pre>
             {% else %}
                 <p class="text-danger">Парсер не вернул результат.</p>
             {% endif %}

@@ -1,12 +1,11 @@
 from django.urls import path
-from . import views
-from .models import CleanedContent
 from .views import CloudStorageListView, CloudStorageCreateView, CloudStorageDetailView, CloudStorageSyncView, \
     NetworkDocumentsMassCreateView, LocalStorageListView, LocalStorageCreateView, \
     LocalStorageDetailView, CloudStorageUpdateView, CloudStorageDeleteView, CloudStorageUpdateReportDetailView, \
     NetworkDocumentDetailView, NetworkDocumentListView, NetworkDocumentUpdateView, RawContentRecognizeCreateView, \
     RawContentDetailView, CleanedContentDetailView, CleanedContentUpdateView, NetworkDocumentsMassUpdateView, \
-    WebSiteDetailView, WebSiteCreateView, WebSiteUpdateView, WebSiteDeleteView, WebSitParseView
+    WebSiteDetailView, WebSiteCreateView, WebSiteUpdateView, WebSiteDeleteView, WebSiteParseView, \
+    WebSiteTestParseReportView
 
 app_name = 'sources'
 
@@ -27,7 +26,8 @@ urlpatterns = [
     path('website/create/<int:kb_pk>', WebSiteCreateView.as_view(), name='website_create'),
     path('website/<int:pk>/update/', WebSiteUpdateView.as_view(), name='website_update'),
     path('website/<int:pk>/delete/', WebSiteDeleteView.as_view(), name='website_delete'),
-    path('website/<int:pk>/parse/', WebSitParseView.as_view(), name='website_parse'),
+    path('website/<int:pk>/parse/', WebSiteParseView.as_view(), name='website_parse'),
+    path('website/<int:pk>/parse-report/', WebSiteTestParseReportView.as_view(), name='website_test_parse_report'),
 
     path('storage-update-report/<int:pk>/', CloudStorageUpdateReportDetailView.as_view(),
          name='cloudstorageupdatereport_detail'),

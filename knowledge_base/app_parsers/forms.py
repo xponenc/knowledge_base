@@ -16,6 +16,7 @@ class ParserDynamicConfigForm(forms.Form):
         self.initial_config = initial_config or {}
 
         for field_name, meta in self.schema.items():
+            print(field_name, meta)
             field_type = meta.get("type", list[str])
             label = meta.get("label", field_name.replace("_", " ").capitalize())
             help_text = meta.get("help_text", "Вводите по одному значению на строку")
@@ -23,11 +24,11 @@ class ParserDynamicConfigForm(forms.Form):
             initial = "\n".join(self.initial_config.get(field_name, [])) if isinstance(field_type,
                                                                                        type) and issubclass(
                 field_type, list) else self.initial_config.get(field_name, "")
-
+            print(initial)
             self.fields[field_name] = forms.CharField(
                 required=False,
                 initial=initial,
-                widget=forms.Textarea(attrs={"rows": 3, "placeholder": help_text}),
+                widget=forms.Textarea(attrs={"rows": 3,}),
                 label=label,
                 help_text=help_text
             )

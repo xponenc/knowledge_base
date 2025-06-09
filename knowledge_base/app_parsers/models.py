@@ -5,7 +5,7 @@ class Parser(models.Model):
     """
     Хранит информацию о парсерах c конфигурацией парсера для разных сайтов.
     """
-    class_name = models.CharField(max_length=200, verbose_name="класс парсера из app_parsers.parsers.parser_classes")
+    class_name = models.CharField(max_length=400, verbose_name="класс парсера из app_parsers.parsers.parser_classes")
     config = models.JSONField(verbose_name="конфигурация парсера", default=dict, blank=True)
 
     description = models.TextField(blank=True, verbose_name="Описание или цель использования")

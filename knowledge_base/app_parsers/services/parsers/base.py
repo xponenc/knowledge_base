@@ -43,7 +43,7 @@ class BaseWebParser(abc.ABC):
             )
 
     @abc.abstractmethod
-    def parse_html(self, html) -> Dict:
+    def parse_html(self, url: str, html: str) -> Dict:
         """
         Основной метод, который должен возвращать очищенный контент для html:
         {

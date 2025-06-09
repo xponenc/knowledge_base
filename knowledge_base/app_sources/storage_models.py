@@ -1,7 +1,7 @@
 from importlib import import_module
 
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth import get_user_model
 from django.db.models import UniqueConstraint, Q
 from django.urls import reverse
@@ -74,6 +74,43 @@ class WebSite(Storage):
         if self.kb and self.base_url:
             if WebSite.objects.filter(kb=self.kb, name=self.base_url).exclude(pk=self.pk).exists():
                 raise ValidationError(f"Веб-сайт с URL {self.base_url} в базе знаний {self.kb.name} уже существует.")
+
+
+class TestParseResult(models.Model):
+    """Класс результатов тестового запуска парсера для страницы сайта"""
+
+    site = models.ForeignKey(WebSite, on_delete=models.CASCADE, verbose_name="результат теста")
+
+    parser_class_name = models.CharField(max_length=400, verbose_name="класс парсера из app_parsers.parsers.parser_classes")
+    parser_config = models.JSONField(verbose_name="конфигурация парсера", default=dict, blank=True)
+
+    url = models.URLField(verbose_name="тестовый url",)
+    status = models.IntegerField(null=True, blank=True)
+    html = models.TextField(null=True, blank=True)
+    parsed_data = models.JSONField(null=True, blank=True)  # Для хранения результата парсинга
+    error = models.TextField(null=True, blank=True)
+
+    author = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="автор теста")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['site', 'author'], name='unique_test_result_per_author_per_site')
+        ]
+
+
+    @classmethod
+    @transaction.atomic
+    def create_or_update(cls, *, site, author, **kwargs):
+        """
+        Создаёт или обновляет TestResult по уникальной паре (site, author).
+        """
+        obj, created = cls.objects.update_or_create(
+            site=site,
+            author=author,
+            defaults=kwargs,
+        )
+        return obj, created
 
 
 class URLBatch(Storage):
