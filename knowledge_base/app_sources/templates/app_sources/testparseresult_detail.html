@@ -12,28 +12,163 @@
             <p><strong>🔗 URL:</strong> <a href="{{ report.url }}" target="_blank">{{ report.url }}</a></p>
 
             <hr>
-            {{ report }}
-            {{ report.parser_class_name }}
-            <h6 class="mt-4">⚙️ Использованная конфигурация (config):</h6>
-            {% if config %}
-                <pre class="bg-light p-3 rounded border">{{ report.parser_config }}</pre>
+
+            <h6 class="mt-4">🛠 Использованный парсер:</h6>
+            <p><strong>Название парсера:</strong> {{ parser.name }}</p>
+            <p><strong>Конфигурация:</strong></p>
+            {% if report.parser_config %}
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Ключ</th>
+                            <th>Значение</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for key, value in report.parser_config.items %}
+                            <tr>
+                                <td>{{ key }}</td>
+                                <td>
+                                    {% if value is string %}
+                                        {{ value }}
+                                    {% elif value is iterable and value is not string %}
+                                        {{ value|join:", " }}
+                                    {% else %}
+                                        {{ value|default:"Нет данных" }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             {% else %}
-                <p class="text-muted">Конфигурация по умолчанию (пустой словарь).</p>
+                <p class="text-muted">Конфигурация отсутствует.</p>
             {% endif %}
 
             <hr>
 
             <h6 class="mt-4">📦 Результат:</h6>
             {% if report.parsed_data %}
-                <pre class="bg-light p-3 rounded border">{{ report.parsed_data }}</pre>
+                <div class="parsed-result">
+                    <!-- Отображение content -->
+                    {% if report.parsed_data.content %}
+                        <div class="mb-4">
+                            <h5 class="text-primary">Content</h5>
+                            <div class="markdown-content">
+                                {{ report.parsed_data.content|linebreaksbr }}
+                                {% comment %} {% autoescape off %}
+                                    {{ report.parsed_data.content|safe }}  {# Предполагаем, что content уже отрендерен #}
+                                {% endautoescape %} {% endcomment %}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Отображение метаданных, исключая files -->
+                    {% for key, value in report.parsed_data.metadata.items %}
+                        {% if key != 'files' %}
+                            <div class="mb-4">
+                                <h5 class="text-primary">{{ key|title }}</h5>
+                                {% if key == 'tags' %}
+                                    <ul class="list-group">
+                                        {% for tag in value %}
+                                            <li class="list-group-item">{{ tag }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% elif key == 'external_links' or key == 'internal_links' %}
+                                    <ul class="list-group">
+                                        {% for link_text, link_url in value %}
+                                            <li class="list-group-item">
+                                                {{ link_text }}: <a href="{{ link_url }}" target="_blank">{{ link_url }}</a>
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                {% else %}
+                                    <p class="text-muted">{{ value|default:"Нет данных" }}</p>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+
+                    <!-- Отдельная секция для files -->
+                    {% if report.parsed_data.metadata.files %}
+                        <div class="mb-4">
+                            <h5 class="text-primary">Files</h5>
+                            <div class="files-section">
+                                {% if report.parsed_data.metadata.files.images %}
+                                    <h6 class="mt-2">Images</h6>
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Название</th>
+                                                <th>Ссылка</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for image_name, image_url in report.parsed_data.metadata.files.images %}
+                                                <tr>
+                                                    <td>{{ image_name }}</td>
+                                                    <td><a href="{{ image_url }}" target="_blank">{{ image_url }}</a></td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                {% endif %}
+                                {% if report.parsed_data.metadata.files.documents %}
+                                    <h6 class="mt-2">Documents</h6>
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Название</th>
+                                                <th>Ссылка</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for doc_text, doc_url in report.parsed_data.metadata.files.documents %}
+                                                <tr>
+                                                    <td>{{ doc_text }}</td>
+                                                    <td><a href="{{ doc_url }}" target="_blank">{{ doc_url }}</a></td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                {% endif %}
+                                {% if not report.parsed_data.metadata.files.images and not report.parsed_data.metadata.files.documents %}
+                                    <p class="text-muted">Нет файлов</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
             {% else %}
                 <p class="text-danger">Парсер не вернул результат.</p>
             {% endif %}
+
+            <hr>
+
+            <a href="{% url 'sources:website_parse' website.pk %}?mode=test" class="btn btn-outline-secondary">
+                ⬅ Назад к форме
+            </a>
         </div>
     </div>
-
-    <a href="{% url 'sources:website_parse' website.pk %}" class="btn btn-outline-secondary">
-        ⬅ Назад к форме
-    </a>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .markdown-content img {
+        max-width: 100%;
+        height: auto;
+    }
+    .markdown-content a {
+        color: #007bff;
+        text-decoration: none;
+    }
+    .markdown-content a:hover {
+        text-decoration: underline;
+    }
+    .files-section h6 {
+        font-weight: bold;
+        margin-top: 1rem;
+    }
+</style>
 {% endblock %}

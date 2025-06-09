@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple, Set
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup, Tag, NavigableString, Comment
@@ -10,14 +10,12 @@ from app_parsers.services.parsers.base import BaseWebParser
 class BOWebParser(BaseWebParser):
     BREADCRUMBS_CLASS = (".breadcrumbs a.taxonomy.category")
 
-
     EXCLUDE_TAGS = [
-        "footer, header, nav, menu, sidebar, popup, modal, banner, ad, subscribe, widget, cookie, social, share,"
-        " logo, script, style, form, input, iframe, svg, noscript button, select, option, canvas, link, meta, jdiv"
+        "footer, header, nav, menu, sidebar, popup, modal, banner, ad, subscribe, widget, cookie, social, share, logo, script, style, form, input, iframe, svg, noscript button, select, option, canvas, link, meta, jdiv"
     ]
     EXCLUDE_id = "preload"
-    EXCLUDE_CLASSES = ("header__top, coast_block, express_test_marquiz, order_tel, cf7_form, sw-app, modal,"
-                       " calc, category__info-sale, breadcrumbs, my_yandex_centered_text")
+    EXCLUDE_CLASSES = (
+        "header__top, coast_block, express_test_marquiz, order_tel, cf7_form, sw-app, modal, calc, category__info-sale, breadcrumbs, my_yandex_centered_text")
     STYLE_TAGS = {'strong, b, i, em, u, span'}
     useful_image_classes = ["attachment-full, size-full"]
 
@@ -42,20 +40,20 @@ class BOWebParser(BaseWebParser):
                 "Например: `.breadcrumbs a.taxonomy.category` — выбирает все ссылки <a> с классами "
                 "`taxonomy` и `category`, которые находятся внутри элемента с классом `breadcrumbs`.\n"
                 "Если вы не уверены — оставьте значение по незаполненным, по умолчанию будет выполнен поиск в .breadcrumbs a"
-                ),
+            ),
         },
         "exclude_tags": {
-                "type": list[str],
-                "label": "Удаляемые HTML теги",
-                "help_text": "Вводите названия тегов по одному через ',' или ';' или"
-                             " перевод строки (например: script, style)"
-            },
+            "type": list[str],
+            "label": "Удаляемые HTML теги",
+            "help_text": "Вводите названия тегов по одному через ',' или ';' или"
+                         " перевод строки (например: script, style)"
+        },
         "exclude_ids": {
-                "type": list[str],
-                "label": "Удаляемые элементы с id",
-                "help_text": "Вводите названия тегов по одному через ',' или ';' или"
-                             " перевод строки (например: preload, map)"
-            },
+            "type": list[str],
+            "label": "Удаляемые элементы с id",
+            "help_text": "Вводите названия тегов по одному через ',' или ';' или"
+                         " перевод строки (например: preload, map)"
+        },
         "exclude_classes": {
             "type": list[str],
             "label": "Удаляемые CSS классы",
@@ -75,6 +73,11 @@ class BOWebParser(BaseWebParser):
             "label": "Классы изображений, которые будут сохранены при парсинге",
             "help_text": "Вводите названия CSS классов по одному через ',' или ';' или"
                          " перевод строки (например: strong, b, i)"
+        },
+        "remove_inter_page_links": {
+            "type": bool,
+            "label": "Удалять в контенте ссылки на другие страницы сайта, по умолчанию False",
+            "help_text": "Введите bool Значение (True/False, 0/1)"
         }
 
     }
@@ -95,9 +98,7 @@ class BOWebParser(BaseWebParser):
         }
         """
         result = self._extract_article_data(url=url, html=html)
-        print(result)
         return result
-
 
     @staticmethod
     def _extract_main_content(soup: BeautifulSoup):
@@ -133,14 +134,23 @@ class BOWebParser(BaseWebParser):
             for tag in soup(EXCLUDE_TAGS):
                 tag.decompose()
         if EXCLUDE_CLASSES:
+            print(f"{EXCLUDE_CLASSES=}")
             # Удаление элементов с классами из EXCLUDE_CLASSES
-            for element in soup.find_all(class_=EXCLUDE_CLASSES):
+            # for element in soup.find_all(class_=EXCLUDE_CLASSES):
+            #     print(element)
+            #     element.decompose()
+            for element in soup.find_all(lambda _tag: any(
+                    cls in EXCLUDE_CLASSES
+                    for cls in _tag.get("class", [])
+            )):
                 element.decompose()
         if EXCLUDE_IDS:
             # Удаление элементов с ID, содержащими ключевые слова из EXCLUDE_KEYWORDS
-            for el in soup.find_all(attrs={"id": True}):
-                if any(k in el['id'].lower() for k in EXCLUDE_IDS):
-                    el.decompose()
+            # for el in soup.find_all(attrs={"id": True}):
+            #     if any(k in el['id'].lower() for k in EXCLUDE_IDS):
+            #         el.decompose()
+            for el in soup.find_all(lambda _tag: _tag.has_attr("id") and _tag["id"].lower() in EXCLUDE_IDS):
+                el.decompose()
 
         # Удаление HTML-комментариев
         for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
@@ -196,13 +206,42 @@ class BOWebParser(BaseWebParser):
 
         return tag.get_text(strip=True) if tag else None
 
-
     def _extract_breadcrumb_categories(self, soup: BeautifulSoup) -> list[str]:
         """Извлекает список тегов страницы из хлебных крошек"""
         selector = self.config.get("breadcrumbs_selector", ".breadcrumbs a")
         elements = soup.select(selector)
         return [el.get_text(strip=True) for el in elements if el.get_text(strip=True)]
 
+    @staticmethod
+    def _extract_and_remove_internal_links(soup: BeautifulSoup, url: str) -> Tuple[BeautifulSoup, Set[Tuple[str, str]]]:
+        """
+        Извлекает все внутренние ссылки с страницы, удаляет их из soup и возвращает set кортежей (текст ссылки, URL).
+
+        Args:
+            soup (BeautifulSoup): Объект BeautifulSoup с разобранным HTML.
+            url (str): Базовый URL страницы для определения внутренних ссылок.
+
+        Returns:
+            Tuple[BeautifulSoup, Set[Tuple[str, str]]]: Кортеж, содержащий обновлённый soup и множество кортежей (текст ссылки, URL).
+        """
+        internal_links = set()
+        base_domain = urlparse(url).netloc  # Извлекаем домен (например, academydpo.org)
+
+        # Находим все теги <a> с атрибутом href
+        for anchor in soup.find_all('a', href=True):
+            href = anchor['href']
+            # Преобразуем относительные ссылки в абсолютные
+            absolute_url = urljoin(url, href)
+            parsed_link = urlparse(absolute_url)
+            link_text = anchor.get_text(strip=True) or absolute_url  # Текст ссылки или URL, если текста нет
+
+            # Проверяем, является ли ссылка внутренней (тот же домен)
+            if parsed_link.netloc == base_domain:
+                internal_links.add((link_text, absolute_url))
+                # Удаляем тег <a> из soup
+                anchor.decompose()
+
+        return soup, internal_links
 
     @staticmethod
     def _process_http_links(
@@ -227,6 +266,90 @@ class BOWebParser(BaseWebParser):
             a["href"] = full_url
 
         return soup
+
+    @staticmethod
+    def _extract_images(soup: BeautifulSoup) -> List[Tuple[str, str]]:
+        """
+        Извлекает все изображения с элемента BeautifulSoup.
+
+        Args:
+            soup (BeautifulSoup): Объект BeautifulSoup, содержащий очищенный контент страницы.
+
+        Returns:
+            List[Tuple[str, str]]: Список кортежей (alt-текст, URL изображения).
+        """
+        page_images = []
+        for img in soup.find_all("img"):
+            src = img.get("data-src") or img.get("src")  # Получаем src или data-src изображения
+            alt = img.get("alt", "")  # Получаем alt-текст изображения
+            if src:
+                page_images.append((alt, src))  # Добавляем изображение как кортеж (alt, src)
+
+        return page_images
+
+    @staticmethod
+    def _extract_document_links(soup: BeautifulSoup, base_url: str) -> List[Tuple[str, str]]:
+        """
+        Извлекает все ссылки на документы (не изображения) с страницы.
+
+        Args:
+            soup (BeautifulSoup): Объект BeautifulSoup с разобранным HTML.
+            base_url (str): Базовый URL страницы для преобразования относительных ссылок.
+
+        Returns:
+            List[Tuple[str, str]]: Список кортежей (текст ссылки, абсолютный URL документа).
+        """
+        document_links = []
+        # Список расширений документов (можно расширить по необходимости)
+        document_extensions = {'.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.rtf'}
+
+        for anchor in soup.find_all('a', href=True):
+            href = anchor.get('href')
+            if href:
+                # Преобразуем относительную ссылку в абсолютную
+                absolute_url = urljoin(base_url, href)
+                # Извлекаем расширение файла из URL
+                parsed_url = absolute_url.lower().rsplit('?', 1)[0]  # Удаляем параметры запроса
+                file_extension = '.' + parsed_url.rsplit('.', 1)[-1] if '.' in parsed_url else ''
+
+                # Проверяем, является ли ссылка на документ (не изображение)
+                if file_extension in document_extensions and not any(
+                        img_ext in parsed_url for img_ext in {'.jpg', '.jpeg', '.png', '.gif', '.bmp'}):
+                    link_text = anchor.get_text(strip=True) or absolute_url  # Текст ссылки или URL, если текста нет
+                    document_links.append((link_text, absolute_url))
+
+        return document_links
+
+    @staticmethod
+    def _extract_external_links(soup: BeautifulSoup, base_url: str) -> List[Tuple[str, str]]:
+        """
+        Извлекает все внешние ссылки с страницы.
+
+        Args:
+            soup (BeautifulSoup): Объект BeautifulSoup с разобранным HTML.
+            base_url (str): Базовый URL страницы для определения внешних ссылок.
+
+        Returns:
+            List[Tuple[str, str]]: Список кортежей (текст ссылки, абсолютный URL внешнего ресурса).
+        """
+        external_links = []
+        base_domain = urlparse(base_url).netloc  # Извлекаем домен базового URL
+
+        for anchor in soup.find_all('a', href=True):
+            href = anchor.get('href')
+            if href:
+                # Преобразуем относительные ссылки в абсолютные
+                absolute_url = urljoin(base_url, href)
+                parsed_link = urlparse(absolute_url)
+
+                # Проверяем, является ли ссылка внешней (другой домен)
+                if parsed_link.netloc and parsed_link.netloc != base_domain:
+                    link_text = anchor.get_text(strip=True) or absolute_url  # Текст ссылки или URL, если текста нет
+                    external_links.append((link_text, absolute_url))
+                    # Опционально: удаление тега из soup
+                    # anchor.decompose()
+
+        return external_links
 
     @staticmethod
     def _parse_line(line):
@@ -276,7 +399,6 @@ class BOWebParser(BaseWebParser):
                 rows.append(row_line)
 
         return rows
-
 
     def _analyze_element(self, element, level=0, parent_text=None):
         """
@@ -445,7 +567,6 @@ class BOWebParser(BaseWebParser):
 
         return "\n".join(md_lines)
 
-
     def _extract_article_data(self, html: str, url: str) -> Dict[str, Any]:
         """
         Извлекает данные статьи: категории, контент в markdown и изображения.
@@ -454,12 +575,10 @@ class BOWebParser(BaseWebParser):
         :param url: URL страницы, используется для контекста и возможных преобразований ссылок.
         :return: Словарь с категориями, контентом в формате Markdown и изображениями.
         """
+        internal_links = set()
         parsed = urlparse(url)
+
         BASE_URL = f"{parsed.scheme}://{parsed.netloc}"
-
-
-        config = self.config
-        # BREADCRUMBS_CLASS = config.get("b")
 
         soup = BeautifulSoup(html, "html.parser")
 
@@ -467,42 +586,57 @@ class BOWebParser(BaseWebParser):
 
         # Извлечение категорий из breadcrumbs
         page_tags = self._extract_breadcrumb_categories(soup)
-
+        print(f"{page_tags=}")
 
         # Поиск основного контента
         content_element = self._extract_main_content(
             soup)  # extract_main_content выбирает тег с наибольшим количеством контента
         # print(f"{content_element=}")
         cleaned_content_element = self._clean_soup(soup=content_element,
-                                             url=url)  # clean_soup очищает HTML от ненужных элементов
+                                                   url=url)  # clean_soup очищает HTML от ненужных элементов
+
+        # Очистка от внутрисайтовых ссылок
+        remove_inter_page_links = self.config.get("remove_inter_page_links", False)
+        if remove_inter_page_links:
+            cleaned_content_element, internal_links = self._extract_and_remove_internal_links(
+                soup=cleaned_content_element, url=url)
+
+        # clean_soup очищает HTML от ненужных изображений
         cleaned_content_element = self._process_images(soup=cleaned_content_element, url=BASE_URL,
-                                                 clear_img=True)  # clean_soup очищает HTML от ненужных изображений
+                                                       clear_img=True)
+
+        # Очистка от внутристраничных ссылок
         cleaned_content_element = self._process_http_links(soup=cleaned_content_element, url=url,
-                                                     clear_link_anchor=False)  # clean_soup очищает HTML от ненужных ссылок
+                                                           clear_link_anchor=False)
         # print(f"{cleaned_content_element=}")
 
         # Преобразование контента в структурированный формат
         html_structure = self._analyze_element(cleaned_content_element,
-                                         0)  # analyze_element рекурсивно разбирает HTML-структуру
+                                               0)  # analyze_element рекурсивно разбирает HTML-структуру
         # print(f"{html_structure=}")
         # Преобразование структуры в Markdown
-        markdown_content = self._to_markdown(html_structure)  # to_markdown преобразует структурированный формат в Markdown
+        markdown_content = self._to_markdown(
+            html_structure)  # to_markdown преобразует структурированный формат в Markdown
         # pprint(f"{markdown_content=}")
 
         # Извлечение изображений
-        page_images = []
-        for img in cleaned_content_element.find_all("img"):
-            src = img.get("data-src") or img.get("src")  # Получаем src или data-src изображения
-            alt = img.get("alt", "")  # Получаем alt-текст изображения
-            if src:
-                page_images.append((alt, src))  # Добавляем изображение как кортеж (alt, src)
+        page_images = self._extract_images(soup=cleaned_content_element)
+        # Извлечение документов
+        page_documents = self._extract_document_links(soup=cleaned_content_element, base_url=BASE_URL)
+        # Извлечение ссылок на внешние источники
+        page_external_links = self._extract_external_links(soup=cleaned_content_element, base_url=BASE_URL)
 
         # logger.info(f"Успешно извлечено {len(markdown_content)} символов контента для URL: {url}")
         return {
-            "title": page_title,
-            "tags": page_tags,
             "content": markdown_content.strip(),
-            "files": {
-                "images": page_images,
+            "metadata": {
+                "title": page_title,
+                "tags": page_tags,
+                "files": {
+                    "images": page_images,
+                    "documents": page_documents,
+                },
+                "external_links": page_external_links,
+                "internal_links": tuple(internal_links),
             }
         }

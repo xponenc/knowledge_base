@@ -31,6 +31,7 @@ except Exception as e:
 
 driver_pool = Queue()
 
+
 # Старая версия
 # @shared_task(bind=True)
 # def parse_urls_task(self,
@@ -221,14 +222,15 @@ def parse_urls_task(self,
     return "Обработка завершена"
 
 
-@shared_task(bind=True)
-def test_single_url(self,
-                    url: str,
-                    site_id: int,
-                    author_id: int,
-                    parser_cls_name: str,
-                    parser_config: dict[str, Any] = None,
-                    webdriver_options: list[str] = None) -> str:
+# @shared_task(bind=True)
+# def test_single_url(self,
+def test_single_url(
+        url: str,
+        site_id: int,
+        author_id: int,
+        parser_cls_name: str,
+        parser_config: dict[str, Any] = None,
+        webdriver_options: list[str] = None) -> str:
     """
     Celery-задача для тестирования одного URL с использованием Selenium и парсера.
 
@@ -242,13 +244,12 @@ def test_single_url(self,
     :return: Словарь с результатами обработки.
     """
     # Инициализация прогресса
-    progress_recorder = ProgressRecorder(self)
-    progress_recorder.set_progress(0, 100, description="Начало обработки URL")
+    # progress_recorder = ProgressRecorder(self)
+    # progress_recorder.set_progress(0, 100, description="Начало обработки URL")
 
     parser_dispatcher = WebParserDispatcher()
     parser_cls = parser_dispatcher.get_by_class_name(parser_cls_name)
     parser = parser_cls(config=parser_config if parser_config else {})
-
 
     selenium = SeleniumDriver(options=webdriver_options if webdriver_options else None)
     driver = selenium.get_driver()
@@ -262,58 +263,55 @@ def test_single_url(self,
     }
 
     try:
-        progress_recorder.set_progress(50, 100, description="Страница загружается")
+        # progress_recorder.set_progress(50, 100, description="Страница загружается")
         fetch_result = fetch_page_with_selenium(url, driver)
 
         result["status"] = fetch_result["status"]
         result["html"] = fetch_result["html"]
 
         if fetch_result["html"]:
-            progress_recorder.set_progress(75, 100, description="Парсинг данных")
+            # progress_recorder.set_progress(75, 100, description="Парсинг данных")
             try:
                 parser_result = parser.parse_html(url=url, html=fetch_result["html"])
-                pprint(parser_result)
-                result["parsed_data"] = json.dumps(parser_result, indent=4)
+                result["parsed_data"] = parser_result
             except Exception as e:
                 result["error"] = f"Parsing failed: {str(e)}"
                 logger.error(f"Parsing failed for {url}: {e}")
         else:
             result["error"] = "No HTML content retrieved"
 
-        progress_recorder.set_progress(100, 100, description="Обработка завершена")
+        # progress_recorder.set_progress(100, 100, description="Обработка завершена")
         website = WebSite.objects.get(pk=site_id)
         author = User.objects.get(pk=author_id)
         # Сохранение результата в базе данных
-        test_result, created  = TestParseResult.create_or_update(
+        test_result, created = TestParseResult.create_or_update(
             site=website,
             author=author,
-            task_id = self.request.id,
-            parser_class_name = parser_cls_name,
-            parser_config = parser_config if parser_config else {},
-            url = url,
-            status = result["status"],
-            html = result["html"],
-            parsed_data = result["parsed_data"],
-            error = result["error"],
+            parser_class_name=parser_cls_name,
+            parser_config=parser_config if parser_config else {},
+            url=url,
+            status=result["status"],
+            html=result["html"],
+            parsed_data=result["parsed_data"],
+            error=result["error"],
         )
 
     except Exception as e:
         result["error"] = f"Failed to fetch page: {str(e)}"
         logger.error(f"Failed to process {url}: {e}")
-        progress_recorder.set_progress(100, 100, description="Обработка завершена с ошибкой")
+        # progress_recorder.set_progress(100, 100, description="Обработка завершена с ошибкой")
         website = WebSite.objects.get(pk=site_id)
         author = User.objects.get(pk=author_id)
-        test_result, created  = TestParseResult.create_or_update(
+        test_result, created = TestParseResult.create_or_update(
             site=website,
             author=author,
-                task_id = self.request.id,
-                parser_class_name = parser_cls_name,
-                parser_config = parser_config if parser_config else {},
-                url = url,
-                status = None,
-                html = None,
-                parsed_data = None,
-                error =result["error"]
+            parser_class_name=parser_cls_name,
+            parser_config=parser_config if parser_config else {},
+            url=url,
+            status=None,
+            html=None,
+            parsed_data=None,
+            error=result["error"]
         )
     finally:
         driver.quit()  # Закрытие Selenium-драйвера

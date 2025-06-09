@@ -498,36 +498,43 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
                 parser.class_name = f"{parser_cls.__module__}.{parser_cls.__name__}"
                 parser.config = config
                 parser.save()
-        print(parser_cls)
         parser = parser_cls(config=config)
-        print(parser)
         url = form.cleaned_data["url"]
         parse_test_result, created = TestParseResult.create_or_update(
             site=website,
             author=request.user,
-            parser_class_name = f"{parser_cls.__module__}.{parser_cls.__name__}",
-            parser_config = config,
-            url = url,
+            parser_class_name=f"{parser_cls.__module__}.{parser_cls.__name__}",
+            parser_config=config,
+            url=url,
         )
 
-        task = test_single_url.delay(
+        # task = test_single_url.delay(
+        #     url=url,
+        #     site_id=website.pk,
+        #     author_id=request.user.pk,
+        #     parser_cls_name=f"{parser_cls.__module__}.{parser_cls.__name__}",
+        #     parser_config=config,
+        #     webdriver_options = None # применятся дефолтные в классе
+        # )
+
+        test_single_url(
             url=url,
             site_id=website.pk,
             author_id=request.user.pk,
             parser_cls_name=f"{parser_cls.__module__}.{parser_cls.__name__}",
             parser_config=config,
-            webdriver_options = None # применятся дефолтные в классе
+            webdriver_options=None  # применятся дефолтные в классе
         )
 
+        return redirect(reverse_lazy("sources:website_test_parse_report", kwargs={"pk": website.pk}))
 
-
-        return render(request, "celery_task_progress.html", {
-            "task_id": task.id,
-            "task_name": f"Тестовый парсинг страницы {url}",
-            "task_object_url": reverse_lazy("sources:website_detail", kwargs={"pk": website.pk} ),
-            "task_object_name": website.name,
-            "next_step_url": reverse_lazy("sources:website_test_parse_report", kwargs={"pk": website.pk} ),
-        })
+        # return render(request, "celery_task_progress.html", {
+        #     "task_id": task.id,
+        #     "task_name": f"Тестовый парсинг страницы {url}",
+        #     "task_object_url": reverse_lazy("sources:website_detail", kwargs={"pk": website.pk}),
+        #     "task_object_name": website.name,
+        #     "next_step_url": reverse_lazy("sources:website_test_parse_report", kwargs={"pk": website.pk}),
+        # })
 
 
 class WebSiteTestParseReportView(LoginRequiredMixin, View):
