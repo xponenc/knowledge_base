@@ -1,22 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}Результат тестового парсинга{% endblock %}
+{% block title %}Тестовый парсер Веб-сайта {{ testparser.site.name }} {% endblock %}
 
 {% block content %}
 <div class="container mt-5">
+    <h2 class="mb-4">🛠 Тестовый парсер сайта</strong> 🔗<a class="text-dark" href="{{ testparser.site.get_absolute_url }}" target="_blank">{{ testparser.site.name }}</a></h6>
     <div class="card shadow-sm mb-4">
-        <div class="card-header bg-success text-white">
-            <h5 class="mb-0">✅ Результат тестового парсинга для Веб-сайта </strong> 🔗<a class="text-dark" href="{{ report.site.get_absolute_url }}" target="_blank">{{ report.site.name }}</a></h5>
-        </div>
         <div class="card-body">
-            <p><strong>🔗 URL:</strong> <a href="{{ report.url }}" target="_blank">{{ report.url }}</a></p>
-
-            <hr>
-
-            <h6 class="mt-4">🛠 Использованный парсер:</h6>
-            <p><strong>Название парсера:</strong> {{ report.parser_class_name }}</p>
+            <p><strong>Название парсера:</strong> {{ testparser.class_name }}</p>
             <p><strong>Конфигурация:</strong></p>
-            {% if report.parser_config %}
+            {% if testparser.config %}
                 <table class="table table-striped">
                     <thead>
                         <tr>
@@ -25,7 +18,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for key, value in report.parser_config.items %}
+                        {% for key, value in testparser.config.items %}
                             <tr>
                                 <td>{{ key }}</td>
                                 <td>
@@ -42,32 +35,45 @@
                     </tbody>
                 </table>
                 <div class="d-flex gap-2">
-                    <a href="{% url 'parsers:set_test_parser_config_as_main' report.pk %}" class="btn btn-outline-primary">Использовать конфигурацию для всего сайта</a>
+                    <a href="{% url 'parsers:set_test_parser_as_main' testparser.pk %}" class="btn btn-outline-primary">Задать основным для сайта</a>
+                    <a href="{% url 'sources:website_parse' testparser.site.pk %}?mode=test&url={{ testparser.testparsereport.url }}" class="btn btn-outline-primary">
+                        🧪 Тестовый парсинг
+                    </a>
                 </div>
             {% else %}
                 <p class="text-muted">Конфигурация отсутствует.</p>
             {% endif %}
+        </div>
+
+
+
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">✅ Результат теста </h5>
+        </div>
+        <div class="card-body">
+            <p><strong>🔗 Тестируемый URL:</strong> <a href="{{ testparser.testparsereport.url }}" target="_blank">{{ testparser.testparsereport.url }}</a></p>
 
             <hr>
 
             <h6 class="mt-4">📦 Результат:</h6>
-            {% if report.parsed_data %}
+            {% if testparser.testparsereport.parsed_data.content %}
                 <div class="parsed-result">
                     <!-- Отображение content -->
-                    {% if report.parsed_data.content %}
+                    {% if testparser.testparsereport.parsed_data.content %}
                         <div class="mb-4">
                             <h5 class="text-primary">Content</h5>
                             <div class="markdown-content">
-                                {{ report.parsed_data.content|linebreaksbr }}
+                                {{ testparser.testparsereport.parsed_data.content|linebreaksbr }}
+                                {% comment %} {{ testparser.testparsereport.parsed_data.content|linebreaks }} {% endcomment %}
                                 {% comment %} {% autoescape off %}
-                                    {{ report.parsed_data.content|safe }}  {# Предполагаем, что content уже отрендерен #}
+                                    {{ testparser.testparsereport.parsed_data.content|safe }}  {# Предполагаем, что content уже отрендерен #}
                                 {% endautoescape %} {% endcomment %}
                             </div>
                         </div>
                     {% endif %}
 
                     <!-- Отображение метаданных, исключая files -->
-                    {% for key, value in report.parsed_data.metadata.items %}
+                    {% for key, value in testparser.testparsereport.parsed_data.metadata.items %}
                         {% if key != 'files' %}
                             <div class="mb-4">
                                 <h5 class="text-primary">{{ key|title }}</h5>
@@ -93,11 +99,11 @@
                     {% endfor %}
 
                     <!-- Отдельная секция для files -->
-                    {% if report.parsed_data.metadata.files %}
+                    {% if testparser.testparsereport.parsed_data.metadata.files %}
                         <div class="mb-4">
                             <h5 class="text-primary">Files</h5>
                             <div class="files-section">
-                                {% if report.parsed_data.metadata.files.images %}
+                                {% if testparser.testparsereport.parsed_data.metadata.files.images %}
                                     <h6 class="mt-2">Images</h6>
                                     <table class="table table-striped">
                                         <thead>
@@ -107,7 +113,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {% for image_name, image_url in report.parsed_data.metadata.files.images %}
+                                            {% for image_name, image_url in testparser.testparsereport.parsed_data.metadata.files.images %}
                                                 <tr>
                                                     <td>{{ image_name }}</td>
                                                     <td><a href="{{ image_url }}" target="_blank">{{ image_url }}</a></td>
@@ -116,8 +122,8 @@
                                         </tbody>
                                     </table>
                                 {% endif %}
-                                {% if report.parsed_data.metadata.files.documents %}
-                                {{ report.parsed_data.metadata.files.documents }}
+                                {% if testparser.testparsereport.parsed_data.metadata.files.documents %}
+                                {{ testparser.testparsereport.parsed_data.metadata.files.documents }}
                                     <h6 class="mt-2">Documents</h6>
                                     <table class="table table-striped">
                                         <thead>
@@ -127,7 +133,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {% for doc_text, doc_url in report.parsed_data.metadata.files.documents %}
+                                            {% for doc_text, doc_url in testparser.testparsereport.parsed_data.metadata.files.documents %}
                                                 <tr>
                                                     <td>{{ doc_text }}</td>
                                                     <td><a href="{{ doc_url }}" target="_blank">{{ doc_url }}</a></td>
@@ -136,7 +142,7 @@
                                         </tbody>
                                     </table>
                                 {% endif %}
-                                {% if not report.parsed_data.metadata.files.images and not report.parsed_data.metadata.files.documents %}
+                                {% if not testparser.testparsereport.parsed_data.metadata.files.images and not testparser.testparsereport.parsed_data.metadata.files.documents %}
                                     <p class="text-muted">Нет файлов</p>
                                 {% endif %}
                             </div>
@@ -149,12 +155,13 @@
 
             <hr>
 
-            <a href="{% url 'sources:website_parse' website.pk %}?mode=test" class="btn btn-outline-secondary">
+            {% comment %} <a href="{% url 'sources:website_parse' website.pk %}?mode=test" class="btn btn-outline-secondary">
                 ⬅ Назад к форме
-            </a>
+            </a> {% endcomment %}
         </div>
     </div>
 </div>
+{% include "include/object_history.html" %}
 {% endblock %}
 
 {% block extra_css %}

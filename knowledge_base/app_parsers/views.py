@@ -1,12 +1,19 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseBadRequest, HttpResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render, redirect
 from django.template.loader import render_to_string
 from django.views import View
+from django.views.generic import DetailView
 
 from app_parsers.forms import ParserDynamicConfigForm
+from app_parsers.models import TestParser, MainParser
 from app_parsers.services.parsers.dispatcher import WebParserDispatcher
 from app_sources.storage_models import WebSite
+
+
+class TestParserDetailView(LoginRequiredMixin, DetailView):
+    """Детальный просмотр объекта класс :models:app_parsers.TestParser (Тесовый Парсер)"""
+    model = TestParser
 
 
 class ParserConfigView(LoginRequiredMixin, View):
@@ -33,9 +40,35 @@ class ParserConfigView(LoginRequiredMixin, View):
         return HttpResponse(html)
 
 
-class ParserSetTestConfigAsMainView(LoginRequiredMixin, View):
+class ParserSetTestAsMainView(LoginRequiredMixin, View):
     """Устанавливает тестовый парсер с конфигурацией как Основной парсер для сайта"""
-    def post(self, request, website_pk, *args, **kwargs):
-        website = get_object_or_404(WebSite, pk=website_pk)
-        test
+    def get(self, request, pk, *args, **kwargs):
+        test_parser = get_object_or_404(TestParser, pk=pk)
+        website = test_parser.site
+        main_parser = None
+        if hasattr(website, "mainparser"):
+            main_parser = website.mainparser
+        context = {
+            "site": website,
+            "test_parser": test_parser,
+            "main_parser": main_parser,
 
+        }
+        return render(request=request,
+                      template_name="app_parsers/set_main_parser.html",
+                      context=context)
+
+    def post(self, request, pk, *args, **kwargs):
+        test_parser = get_object_or_404(TestParser, pk=pk)
+        website = test_parser.site
+        main_parser = MainParser.objects.update_or_create(
+            site=website,
+            defaults={
+                "class_name": test_parser.class_name,
+                "config": test_parser.config,
+                "description": test_parser.description,
+                "author": request.user,
+            }
+        )
+
+        return redirect(website.get_absolute_url())

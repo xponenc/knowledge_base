@@ -60,7 +60,7 @@ class WebSite(Storage):
         # ]
 
     def get_absolute_url(self):
-        return reverse("sources:website_detail", kwargs={"pk": self.id, })
+        return reverse("sources:website_detail", kwargs={"pk": self.pk, })
 
     def __str__(self):
         return f"{self.name}(web-site)"

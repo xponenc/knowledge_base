@@ -41,7 +41,7 @@ class ParserDynamicConfigForm(forms.Form):
             self.fields[field_name] = forms.CharField(
                 required=False,
                 initial=initial,
-                widget=forms.Textarea(attrs={"rows": 8, 'class': 'form-control'}),
+                widget=forms.Textarea(attrs={"rows": 4, 'class': 'form-control'}),
                 label=label,
                 help_text=help_text
             )

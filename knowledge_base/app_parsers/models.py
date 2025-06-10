@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import models, transaction
+from django.urls import reverse_lazy
 
 from app_sources.storage_models import WebSite
 from knowledge_base.base_models import TrackableModel
@@ -20,22 +21,29 @@ class Parser(TrackableModel):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    objects = models.Manager()
+
     class Meta:
         abstract = True
         # verbose_name = "Site Parser"
         # verbose_name_plural = "Site Parsers"
 
+
 class MainParser(Parser):
     """Модель Основного парсера сайта, применяется для массового парсинга сайта"""
     site = models.OneToOneField(WebSite, on_delete=models.CASCADE, verbose_name="сайт")
+
+    def get_absolute_url(self):
+        return reverse_lazy("parsers:mainparser_detail", kwargs={"pk", self.pk})
 
     class Meta:
         verbose_name = "Парсер сайта"
         verbose_name_plural = "Парсеры сайтов"
 
+
 class TestParser(Parser):
     """Модель тестового парсера применяется для теста отдельных страниц без изменения Основного парсера сайта"""
-    site = models.OneToOneField(WebSite, on_delete=models.CASCADE, verbose_name="сайт", related_name="test_parsers")
+    site = models.ForeignKey(WebSite, on_delete=models.CASCADE, verbose_name="сайт", related_name="test_parsers")
 
     class Meta:
         verbose_name = "Тестовый парсер"

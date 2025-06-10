@@ -1,10 +1,13 @@
 from django.urls import path
 
-from app_parsers.views import ParserConfigView
+from app_parsers.views import ParserConfigView, TestParserDetailView, ParserSetTestAsMainView
 
 app_name = "parsers"
 
+
 urlpatterns = [
     path("parser/config", ParserConfigView.as_view(), name="parser_config"),
-    # path("parser/<int:website_pk>/set-config", ParserSetTestConfigAsMainView.as_view(), name="set_test_parser_config_as_main")
+
+    path("test-parser/<int:pk>", TestParserDetailView.as_view(), name="testparser_detail"),
+    path("test-parser/<int:pk>/set-as-main", ParserSetTestAsMainView.as_view(), name="set_test_parser_as_main")
 ]

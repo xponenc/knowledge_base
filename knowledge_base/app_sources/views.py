@@ -407,10 +407,11 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
         all_parsers = parser_dispatcher.discover_parsers()
         parser_config_form = None
 
-
-
         if mode == "test":
-            parse_form_initial = {"url": website.base_url}
+            test_url = request.GET.get("url")
+            if not test_url:
+                test_url = website.base_url
+            parse_form_initial = {"url": test_url}
             try:
                 website_test_parser = TestParser.objects.get(site=website, author=request.user)
             except TestParser.DoesNotExist:
@@ -450,7 +451,6 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
                         f"class_name = {website_main_parser.class_name}"
                     )
             parse_form = BulkParseForm(parsers=all_parsers, initial=parse_form_initial)
-
 
         return render(request, "app_sources/website_parse_form.html", {
             "form": parse_form,
@@ -517,31 +517,29 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
                 test_parser_report.author = request.user
                 test_parser_report.save()
 
-            # task = test_single_url.delay(
-            #     url=url,
-            #     site_id=website.pk,
-            #     author_id=request.user.pk,
-            #     parser_cls_name=f"{parser_cls.__module__}.{parser_cls.__name__}",
-            #     parser_config=config,
-            #     webdriver_options = None # применятся дефолтные в классе
-            # )
-
-            test_single_url(
+            task = test_single_url.delay(
                 url=url,
                 parser=test_parser,
                 author_id=request.user.pk,
-                webdriver_options=None  # применятся дефолтные в классе
+                webdriver_options=None  # если не задать, то применятся дефолтные в классе
             )
 
-        return redirect(reverse_lazy("sources:website_test_parse_report", kwargs={"pk": website.pk}))
+            # test_single_url(
+            #     url=url,
+            #     parser=test_parser,
+            #     author_id=request.user.pk,
+            #     webdriver_options=None  # если не задать, то применятся дефолтные в классе
+            # )
 
-        # return render(request, "celery_task_progress.html", {
-        #     "task_id": task.id,
-        #     "task_name": f"Тестовый парсинг страницы {url}",
-        #     "task_object_url": reverse_lazy("sources:website_detail", kwargs={"pk": website.pk}),
-        #     "task_object_name": website.name,
-        #     "next_step_url": reverse_lazy("sources:website_test_parse_report", kwargs={"pk": website.pk}),
-        # })
+            # return redirect(reverse_lazy("parsers:testparser_detail", kwargs={"pk": test_parser.pk}))
+
+            return render(request, "celery_task_progress.html", {
+                "task_id": task.id,
+                "task_name": f"Тестовый парсинг страницы {url}",
+                "task_object_url": reverse_lazy("sources:website_detail", kwargs={"pk": website.pk}),
+                "task_object_name": website.name,
+                "next_step_url": reverse_lazy("parsers:testparser_detail", kwargs={"pk": test_parser.pk}),
+            })
 
 
 class WebSiteTestParseReportView(LoginRequiredMixin, View):

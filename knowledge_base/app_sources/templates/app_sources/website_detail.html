@@ -34,27 +34,72 @@
         </dl>
     </div>
 </div>
-<div class="mb-4 d-flex gap-3">
-    <div class="flex">
-        <div>
-            Тестовые прасеры
-            {% for test_parser in website.test_parsers.all %}
-                {{ tesk_parser }}
-            {% endfor %}
+<div class="row">
+    <!-- Основной парсер -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                Основной парсер
+            </div>
+            <div class="card-body">
+                {% if website.mainparser %}
+                    <h5 class="card-title">{{ website.mainparser.class_name }}</h5>
+                    <p class="card-text"><strong>Описание:</strong> {{ website.mainparser.description|default:"—" }}</p>
+                    <p class="card-text"><strong>Автор:</strong> {{ website.mainparser.author }}</p>
+                    <p class="card-text"><strong>Создан:</strong> {{ website.mainparser.created_at }}</p>
+                    <p class="card-text"><strong>Обновлён:</strong> {{ website.mainparser.updated_at }}</p>
+                {% else %}
+                    <p class="text-muted">Основной парсер не задан</p>
+                {% endif %}
+                <a href="{% url 'sources:website_parse' website.pk %}" class="btn btn-success">
+                    📦 Массовый парсинг
+                </a>
+            </div>
         </div>
     </div>
-    {% if website.testparseresult_set.count > 0 %}
-        {% for report in website.testparseresult_set.all %}
-            <a href="{% url 'sources:website_test_parse_report' website.pk %}">Отчет {{ report.url }}</a>
-        {% endfor %}
-    {% endif %}
-    <a href="{% url 'sources:website_parse' website.pk %}?mode=test" class="btn btn-outline-primary">
-        🧪 Тестовый парсинг
-    </a>
-    <a href="{% url 'sources:website_parse' website.pk %}" class="btn btn-success">
-        📦 Массовый парсинг
-    </a>
+
+    <!-- Тестовые парсеры -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                Тестовые парсеры
+            </div>
+            <div class="card-body">
+                {% for test_parser in website.test_parsers.all %}
+                    <div class="mb-3 border-bottom pb-2">
+                        <h6>{{ test_parser.class_name }}</h6>
+                        <p class="mb-1"><strong>Описание:</strong> {{ test_parser.description|default:"—" }}</p>
+                        <p class="mb-1"><strong>Автор:</strong> {{ test_parser.author }}</p>
+                        <p class="mb-1"><strong>Создан:</strong> {{ test_parser.created_at }}</p>
+                        
+                        {% if test_parser.testparsereport %}
+                            <div class="mt-2 ms-3">
+                                <p class="fw-bold">Результат теста:</p>
+                                <p class="mb-1"><strong>URL:</strong> <a href="{{ test_parser.testparsereport.url }}" target="_blank">{{ test_parser.testparsereport.url }}</a></p>
+                                <p class="mb-1"><strong>Статус:</strong> {{ test_parser.testparsereport.status }}</p>
+                                <p class="mb-1 text-danger"><strong>Ошибка:</strong> {{ test_parser.testparsereport.error|default:"—" }}</p>
+                                <p class="mb-1"><strong>Дата:</strong> {{ test_parser.testparsereport.created_at }}</p>
+                                
+                                <a href="{% url 'parsers:testparser_detail' test_parser.id %}" class="btn btn-sm btn-outline-primary mt-2" target="_blank">
+                                    Посмотреть детали
+                                </a>
+                            </div>
+                        {% else %}
+                            <p class="text-muted">Результат теста отсутствует</p>
+                        {% endif %}
+                    </div>
+                {% empty %}
+                    <p class="text-muted">Тестовых парсеров нет</p>
+                {% endfor %}
+                <a href="{% url 'sources:website_parse' website.pk %}?mode=test" class="btn btn-outline-primary">
+                    🧪 Тестовый парсинг
+                </a>
+            </div>
+        </div>
+    </div>
 </div>
+    
+    
 
 
 {% if website.reports.all %}

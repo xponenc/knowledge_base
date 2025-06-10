@@ -224,13 +224,12 @@ def parse_urls_task(self,
     return "Обработка завершена"
 
 
-# @shared_task(bind=True)
-# def test_single_url(self,
-def test_single_url(
-        url: str,
-        parser: TestParser,
-        author_id: int,
-        webdriver_options: list[str] = None) -> str:
+@shared_task(bind=True)
+def test_single_url(self,
+                    url: str,
+                    parser: TestParser,
+                    author_id: int,
+                    webdriver_options: list[str] = None) -> str:
     """
     Celery-задача для тестирования одного URL с использованием Selenium и парсера.
 
@@ -242,12 +241,11 @@ def test_single_url(
     :return: Словарь с результатами обработки.
     """
     # Инициализация прогресса
-    # progress_recorder = ProgressRecorder(self)
-    # progress_recorder.set_progress(0, 100, description="Начало обработки URL")
+    progress_recorder = ProgressRecorder(self)
+    progress_recorder.set_progress(0, 100, description="Начало обработки URL")
 
     parser_cls_name = parser.class_name
     parser_config = parser.config
-    website = parser.site
     test_parse_report = parser.testparsereport
 
     parser_dispatcher = WebParserDispatcher()
@@ -266,14 +264,14 @@ def test_single_url(
     }
 
     try:
-        # progress_recorder.set_progress(50, 100, description="Страница загружается")
+        progress_recorder.set_progress(50, 100, description="Страница загружается")
         fetch_result = fetch_page_with_selenium(url, driver)
 
         result["status"] = fetch_result["status"]
         result["html"] = fetch_result["html"]
 
         if fetch_result["html"]:
-            # progress_recorder.set_progress(75, 100, description="Парсинг данных")
+            progress_recorder.set_progress(75, 100, description="Парсинг данных")
             try:
                 parser_result = parser.parse_html(url=url, html=fetch_result["html"])
                 result["parsed_data"] = parser_result
@@ -283,20 +281,18 @@ def test_single_url(
         else:
             result["error"] = "No HTML content retrieved"
 
-        # progress_recorder.set_progress(100, 100, description="Обработка завершена")
-        author = User.objects.get(pk=author_id)
+        progress_recorder.set_progress(100, 100, description="Обработка завершена")
         # Сохранение результата в базе данных
-
-        test_parse_report.status=result["status"]
-        test_parse_report.html=result["html"]
-        test_parse_report.parsed_data=result["parsed_data"]
-        test_parse_report.error=result["error"]
+        test_parse_report.status = result["status"]
+        test_parse_report.html = result["html"]
+        test_parse_report.parsed_data = result["parsed_data"]
+        test_parse_report.error = result["error"]
         test_parse_report.save()
 
     except Exception as e:
         result["error"] = f"Failed to fetch page: {str(e)}"
         logger.error(f"Failed to process {url}: {e}")
-        # progress_recorder.set_progress(100, 100, description="Обработка завершена с ошибкой")
+        progress_recorder.set_progress(100, 100, description="Обработка завершена с ошибкой")
         test_parse_report.error = result["error"]
         test_parse_report.save()
 

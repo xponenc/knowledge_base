@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">Подтверждение замены основного парсера</h2>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Сайт: {{ site.name }}</h5>
+
+            {% if main_parser %}
+                <p class="card-text text-muted">Текущий основной парсер:</p>
+                <ul>
+                    <li><strong>ID:</strong> {{ main_parser.id }}</li>
+                    <li><strong>Описание:</strong> {{ main_parser.description|default:"—" }}</li>
+                    <li><strong>Автор:</strong> {{ main_parser.author }}</li>
+                    <li><strong>Создан:</strong> {{ main_parser.created_at }}</li>
+                    <li>
+                        <p><strong>Конфигурация:</strong></p>
+                        {% if main_parser.config %}
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Ключ</th>
+                                        <th>Значение</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for key, value in main_parser.config.items %}
+                                        <tr>
+                                            <td>{{ key }}</td>
+                                            <td>
+                                                {% if value is string %}
+                                                    {{ value }}
+                                                {% elif value is iterable and value is not string %}
+                                                    {{ value|join:", " }}
+                                                {% else %}
+                                                    {{ value|default:"Нет данных" }}
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <p class="text-muted">Конфигурация отсутствует.</p>
+                        {% endif %}
+
+                    </li>
+                </ul>
+            {% else %}
+                <p class="text-warning">У сайта ещё не задан основной парсер.</p>
+            {% endif %}
+
+            <hr>
+
+            <p class="card-text text-muted">Тестовый парсер, который будет установлен как основной:</p>
+            <ul>
+                <li><strong>ID:</strong> {{ test_parser.id }}</li>
+                <li><strong>Описание:</strong> {{ test_parser.description|default:"—" }}</li>
+                <li><strong>Автор:</strong> {{ test_parser.author }}</li>
+                <li><strong>Создан:</strong> {{ test_parser.created_at }}</li>
+                <li>
+                    <p><strong>Конфигурация:</strong></p>
+                    {% if test_parser.config %}
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Ключ</th>
+                                    <th>Значение</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for key, value in test_parser.config.items %}
+                                    <tr>
+                                        <td>{{ key }}</td>
+                                        <td>
+                                            {% if value is string %}
+                                                {{ value }}
+                                            {% elif value is iterable and value is not string %}
+                                                {{ value|join:", " }}
+                                            {% else %}
+                                                {{ value|default:"Нет данных" }}
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p class="text-muted">Конфигурация отсутствует.</p>
+                    {% endif %}
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <form method="post" action="">
+        {% csrf_token %}
+        <div class="d-flex justify-content-between">
+            <a href="{% url 'parsers:testparser_detail' test_parser.id %}" class="btn btn-secondary">
+                Отмена
+            </a>
+            <button type="submit" class="btn btn-danger">
+                Подтвердить замену
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

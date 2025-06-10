@@ -591,7 +591,6 @@ class BOWebParser(BaseWebParser):
 
         # Извлечение категорий из breadcrumbs
         page_tags = self._extract_breadcrumb_categories(soup)
-        print(f"{page_tags=}")
 
         # Поиск основного контента
         content_element = self._extract_main_content(
