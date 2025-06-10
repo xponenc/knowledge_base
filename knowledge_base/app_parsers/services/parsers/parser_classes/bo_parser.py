@@ -11,7 +11,7 @@ class BOWebParser(BaseWebParser):
     BREADCRUMBS_CLASS = (".breadcrumbs a.taxonomy.category")
 
     EXCLUDE_TAGS = [
-        "footer, header, nav, menu, sidebar, popup, modal, banner, ad, subscribe, widget, cookie, social, share, logo, script, style, form, input, iframe, svg, noscript button, select, option, canvas, link, meta, jdiv"
+        "footer, header, nav, menu, sidebar, popup, modal, banner, ad, subscribe, widget, cookie, social, share, logo, script, style, form, input, iframe, svg, noscript, button, select, option, canvas, link, meta, jdiv"
     ]
     EXCLUDE_id = "preload"
     EXCLUDE_CLASSES = (
@@ -72,14 +72,13 @@ class BOWebParser(BaseWebParser):
             "type": list[str],
             "label": "Классы изображений, которые будут сохранены при парсинге",
             "help_text": "Вводите названия CSS классов по одному через ',' или ';' или"
-                         " перевод строки (например: strong, b, i)"
+                         " перевод строки (например: attachment-full, size-full)"
         },
         "remove_inter_page_links": {
             "type": bool,
-            "label": "Удалять в контенте ссылки на другие страницы сайта, по умолчанию False",
-            "help_text": "Введите bool Значение (True/False, 0/1)"
+            "label": "Удалять в контенте ссылки на другие страницы сайта",
+            "help_text": "Введите bool Значение (True/False, 1/0)"
         }
-
     }
 
     def __init__(self, config: Dict, **kwargs):
@@ -215,7 +214,7 @@ class BOWebParser(BaseWebParser):
     @staticmethod
     def _extract_and_remove_internal_links(soup: BeautifulSoup, url: str) -> Tuple[BeautifulSoup, Set[Tuple[str, str]]]:
         """
-        Извлекает все внутренние ссылки с страницы, удаляет их из soup и возвращает set кортежей (текст ссылки, URL).
+        Извлекает все внутренние HTML-ссылки со страницы, удаляет их из soup и возвращает set кортежей (текст ссылки, URL).
 
         Args:
             soup (BeautifulSoup): Объект BeautifulSoup с разобранным HTML.
@@ -225,20 +224,26 @@ class BOWebParser(BaseWebParser):
             Tuple[BeautifulSoup, Set[Tuple[str, str]]]: Кортеж, содержащий обновлённый soup и множество кортежей (текст ссылки, URL).
         """
         internal_links = set()
-        base_domain = urlparse(url).netloc  # Извлекаем домен (например, academydpo.org)
+        base_domain = urlparse(url).netloc
 
-        # Находим все теги <a> с атрибутом href
+        # Расширения, которые считаем НЕ HTML-страницами
+        non_html_extensions = (
+            '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+            '.zip', '.rar', '.7z', '.tar', '.gz', '.mp4', '.mp3', '.exe',
+            '.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.ico',
+            '.csv', '.json', '.xml'
+        )
+
         for anchor in soup.find_all('a', href=True):
             href = anchor['href']
-            # Преобразуем относительные ссылки в абсолютные
             absolute_url = urljoin(url, href)
             parsed_link = urlparse(absolute_url)
-            link_text = anchor.get_text(strip=True) or absolute_url  # Текст ссылки или URL, если текста нет
+            link_text = anchor.get_text(strip=True) or absolute_url
 
-            # Проверяем, является ли ссылка внутренней (тот же домен)
-            if parsed_link.netloc == base_domain:
+            # Убираем якоря и параметры
+            path = parsed_link.path.lower()
+            if parsed_link.netloc == base_domain and not path.endswith(non_html_extensions):
                 internal_links.add((link_text, absolute_url))
-                # Удаляем тег <a> из soup
                 anchor.decompose()
 
         return soup, internal_links

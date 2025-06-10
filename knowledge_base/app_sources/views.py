@@ -14,14 +14,13 @@ from django.views.generic import DetailView, ListView, CreateView, UpdateView, D
 
 from app_core.models import KnowledgeBase
 from app_parsers.forms import TestParseForm, BulkParseForm, ParserDynamicConfigForm
-from app_parsers.models import Parser
+from app_parsers.models import Parser, TestParser, TestParseReport
 from app_parsers.services.parsers.core_parcer_engine import SeleniumDriver
 from app_parsers.tasks import test_single_url
 from app_parsers.services.parsers.dispatcher import WebParserDispatcher
 from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedContentEditorForm
 from app_sources.models import NetworkDocument, RawContent, CleanedContent
-from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport, Storage, LocalStorage, WebSite, \
-    TestParseResult
+from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport, Storage, LocalStorage, WebSite
 from app_sources.tasks import process_cloud_files, download_and_create_raw_content, \
     download_and_create_raw_content_parallel
 from recognizers.dispatcher import ContentRecognizerDispatcher
@@ -403,128 +402,136 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
 
     def get(self, request, pk, *args, **kwargs):
         website = get_object_or_404(WebSite, pk=pk)
-        mode = request.GET.get("mode", "")
+        mode = request.GET.get("mode", "test")
         parser_dispatcher = WebParserDispatcher()
         all_parsers = parser_dispatcher.discover_parsers()
-        config_form = None
-        if mode == "test":
-            form = TestParseForm(parsers=all_parsers,
-                                 initial={
-                                     "url": website.base_url,
-                                     "parser": website.test_parser.class_name if website.test_parser else None
-                                 })
+        parser_config_form = None
 
-            if website.test_parser:
+
+
+        if mode == "test":
+            parse_form_initial = {"url": website.base_url}
+            try:
+                website_test_parser = TestParser.objects.get(site=website, author=request.user)
+            except TestParser.DoesNotExist:
+                website_test_parser = None
+
+            if website_test_parser:
+                parse_form_initial["parser"] = website_test_parser.class_name
                 try:
-                    parser_cls = WebParserDispatcher().get_by_class_name(website.test_parser.class_name)
-                    config_schema = getattr(parser_cls, "config_schema", {})
-                    config_form = ParserDynamicConfigForm(schema=config_schema,
-                                                          initial_config=website.test_parser.config)
+                    parser_cls = parser_dispatcher.get_by_class_name(website_test_parser.class_name)
+                    parser_config_schema = getattr(parser_cls, "config_schema", {})
+                    parser_config_form = ParserDynamicConfigForm(
+                        schema=parser_config_schema,
+                        initial_config=website_test_parser.config
+                    )
                 except ValueError:
-                    logger.error(f"Для WebSite (id={website.pk}) не найдет test_parser"
-                                 f" Parser class_name = {website.test_parser.class_name}")
-                    pass
+                    logger.error(
+                        f"Для WebSite {website.name} не найден BaseWebParser по "
+                        f"class_name = {website_test_parser.class_name}"
+                    )
+            parse_form = TestParseForm(parsers=all_parsers, initial=parse_form_initial)
 
         else:  # bulk mode
-            if website.parser:
-                form = BulkParseForm(
-                    parsers=all_parsers,
-                    initial={
-                        "urls": website.base_url,
-                        "parser": website.parser.class_name
-                    })
-                parser_cls = WebParserDispatcher().get_by_class_name(website.parser.class_name)
-                config_schema = getattr(parser_cls, "config_schema", {})
-                config_form = ParserDynamicConfigForm(schema=config_schema, initial=website.test_parser.config)
-            else:
-                form = BulkParseForm(
-                    parsers=all_parsers,
-                    initial={
-                        "parser": website.test_parser.class_name if website.test_parser else None
-                    })
+            parse_form_initial = {"urls": website.base_url}
+            website_main_parser = getattr(website, "mainparser", None)
+            if website_main_parser:
+                parse_form_initial["parser"] = website_main_parser.class_name
+                try:
+                    parser_cls = WebParserDispatcher().get_by_class_name(website_main_parser.class_name)
+                    parser_config_schema = getattr(parser_cls, "config_schema", {})
+                    parser_config_form = ParserDynamicConfigForm(
+                        schema=parser_config_schema,
+                        initial=website_main_parser.config
+                    )
+                except ValueError:
+                    logger.error(
+                        f"Для WebSite {website.name} не найден BaseWebParser по "
+                        f"class_name = {website_main_parser.class_name}"
+                    )
+            parse_form = BulkParseForm(parsers=all_parsers, initial=parse_form_initial)
 
-                if website.test_parser:
-                    parser_cls = WebParserDispatcher().get_by_class_name(website.test_parser.class_name)
-                    config_schema = getattr(parser_cls, "config_schema", {})
-                    config_form = ParserDynamicConfigForm(schema=config_schema, initial=website.test_parser.config)
 
         return render(request, "app_sources/website_parse_form.html", {
-            "form": form,
-            "config_form": config_form,
+            "form": parse_form,
+            "config_form": parser_config_form,
             "mode": mode,
-            "selected_parser": form.initial.get("parser"),
+            # "selected_parser": parse_form.initial.get("parser"),
             "website": website,
         })
 
     def post(self, request, pk):
         website = get_object_or_404(WebSite, id=pk)
-        mode = request.GET.get("mode", "")
+        mode = request.GET.get("mode", "test")
 
         parser_dispatcher = WebParserDispatcher()
         all_parsers = parser_dispatcher.discover_parsers()
+        if mode == "test":
+            parse_form = TestParseForm(request.POST, parsers=all_parsers)
+        else:
+            parse_form = BulkParseForm(request.POST, parsers=all_parsers)
 
-        form = TestParseForm(request.POST, parsers=all_parsers)
-
-        if not form.is_valid():
+        if not parse_form.is_valid():
             return render(request, "app_sources/website_parse_form.html", {
-                "form": form,
+                "form": parse_form,
                 "config_form": None,
                 "mode": mode,
                 "website": website
             })
 
-        parser_cls = form.cleaned_data["parser"]
-        config_schema = getattr(parser_cls, "config_schema", {})
-        config_form = ParserDynamicConfigForm(request.POST, schema=config_schema)
+        parser_cls = parse_form.cleaned_data["parser"]
+        parser_config_schema = getattr(parser_cls, "config_schema", {})
+        parser_config_form = ParserDynamicConfigForm(request.POST, schema=parser_config_schema)
 
-        if not config_form.is_valid():
+        if not parser_config_form.is_valid():
             return render(request, "app_sources/website_parse_form.html", {
-                "form": form,
-                "config_form": config_form,
+                "form": parse_form,
+                "config_form": parser_config_form,
                 "mode": mode,
                 "website": website
             })
 
-        config = config_form.cleaned_data
+        parser_config = parser_config_form.cleaned_data
 
-        # Обновляем или создаём test_parser для сайта
-        if not website.test_parser:
-            parser = Parser.objects.create(class_name=f"{parser_cls.__module__}.{parser_cls.__name__}", config=config)
-            website.test_parser = parser
-            website.save()
-        else:
-            parser = website.test_parser
-            if parser.class_name != f"{parser_cls.__module__}.{parser_cls.__name__}" or parser.config != config:
-                parser.class_name = f"{parser_cls.__module__}.{parser_cls.__name__}"
-                parser.config = config
-                parser.save()
-        parser = parser_cls(config=config)
-        url = form.cleaned_data["url"]
-        parse_test_result, created = TestParseResult.create_or_update(
-            site=website,
-            author=request.user,
-            parser_class_name=f"{parser_cls.__module__}.{parser_cls.__name__}",
-            parser_config=config,
-            url=url,
-        )
+        if mode == "test":
+            url = parse_form.cleaned_data["url"]
+            test_parser, created = TestParser.create_or_update(
+                site=website,
+                class_name=f"{parser_cls.__module__}.{parser_cls.__name__}",
+                config=parser_config,
+                author=request.user,
+            )
+            test_parser_report, created = TestParseReport.objects.get_or_create(
+                parser=test_parser,
+                defaults={
+                    "url": url,
+                    "author": request.user,
+                }
+            )
+            if not created:
+                test_parser_report.url = url
+                test_parser_report.status = None
+                test_parser_report.html = ""
+                test_parser_report.parsed_data = {}
+                test_parser_report.error = ""
+                test_parser_report.author = request.user
+                test_parser_report.save()
 
-        # task = test_single_url.delay(
-        #     url=url,
-        #     site_id=website.pk,
-        #     author_id=request.user.pk,
-        #     parser_cls_name=f"{parser_cls.__module__}.{parser_cls.__name__}",
-        #     parser_config=config,
-        #     webdriver_options = None # применятся дефолтные в классе
-        # )
+            # task = test_single_url.delay(
+            #     url=url,
+            #     site_id=website.pk,
+            #     author_id=request.user.pk,
+            #     parser_cls_name=f"{parser_cls.__module__}.{parser_cls.__name__}",
+            #     parser_config=config,
+            #     webdriver_options = None # применятся дефолтные в классе
+            # )
 
-        test_single_url(
-            url=url,
-            site_id=website.pk,
-            author_id=request.user.pk,
-            parser_cls_name=f"{parser_cls.__module__}.{parser_cls.__name__}",
-            parser_config=config,
-            webdriver_options=None  # применятся дефолтные в классе
-        )
+            test_single_url(
+                url=url,
+                parser=test_parser,
+                author_id=request.user.pk,
+                webdriver_options=None  # применятся дефолтные в классе
+            )
 
         return redirect(reverse_lazy("sources:website_test_parse_report", kwargs={"pk": website.pk}))
 
@@ -542,7 +549,7 @@ class WebSiteTestParseReportView(LoginRequiredMixin, View):
 
     def get(self, request, pk):
         website = get_object_or_404(WebSite, id=pk)
-        test_report = get_object_or_404(TestParseResult, site=website, author=request.user)
+        test_report = get_object_or_404(TestParseReport, site=website, author=request.user)
         context = {
             "website": website,
             "report": test_report,

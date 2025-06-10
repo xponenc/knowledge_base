@@ -1,12 +1,10 @@
 from importlib import import_module
 
 from django.core.exceptions import ValidationError
-from django.db import models, transaction
+from django.db import models
 from django.contrib.auth import get_user_model
 from django.db.models import UniqueConstraint, Q
 from django.urls import reverse
-
-from app_parsers.models import Parser
 
 User = get_user_model()
 
@@ -18,7 +16,7 @@ class Storage(models.Model):
 
     kb = models.ForeignKey(KnowledgeBase, verbose_name="база знаний", on_delete=models.CASCADE)
 
-    name = models.CharField(max_length=200, unique=True, help_text="название")
+    name = models.CharField(max_length=200, help_text="название")
     description = models.CharField(verbose_name="описание", max_length=1000, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -38,11 +36,11 @@ class WebSite(Storage):
     base_url = models.URLField(verbose_name="Основной URL сайта")
     xml_map_url = models.URLField(verbose_name="XML карта сайта", blank=True, null=True)
 
-    parser = models.ForeignKey(Parser, verbose_name="текущий парсер сайта", on_delete=models.PROTECT,
-                               blank=True, null=True)
-
-    test_parser = models.ForeignKey(Parser, verbose_name="тестовый парсер сайта", on_delete=models.PROTECT,
-                                    blank=True, null=True, related_name="websites_as_test_parser" )
+    # parser = models.ForeignKey(Parser, verbose_name="текущий парсер сайта", on_delete=models.PROTECT,
+    #                            blank=True, null=True)
+    #
+    # test_parser = models.ForeignKey(Parser, verbose_name="тестовый парсер сайта", on_delete=models.PROTECT,
+    #                                 blank=True, null=True, related_name="websites_as_test_parser" )
 
     class Meta:
         verbose_name = "Web Site"
@@ -76,41 +74,6 @@ class WebSite(Storage):
                 raise ValidationError(f"Веб-сайт с URL {self.base_url} в базе знаний {self.kb.name} уже существует.")
 
 
-class TestParseResult(models.Model):
-    """Класс результатов тестового запуска парсера для страницы сайта"""
-
-    site = models.ForeignKey(WebSite, on_delete=models.CASCADE, verbose_name="результат теста")
-
-    parser_class_name = models.CharField(max_length=400, verbose_name="класс парсера из app_parsers.parsers.parser_classes")
-    parser_config = models.JSONField(verbose_name="конфигурация парсера", default=dict, blank=True)
-
-    url = models.URLField(verbose_name="тестовый url",)
-    status = models.IntegerField(null=True, blank=True)
-    html = models.TextField(null=True, blank=True)
-    parsed_data = models.JSONField(null=True, blank=True)  # Для хранения результата парсинга
-    error = models.TextField(null=True, blank=True)
-
-    author = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="автор теста")
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=['site', 'author'], name='unique_test_result_per_author_per_site')
-        ]
-
-
-    @classmethod
-    @transaction.atomic
-    def create_or_update(cls, *, site, author, **kwargs):
-        """
-        Создаёт или обновляет TestResult по уникальной паре (site, author).
-        """
-        obj, created = cls.objects.update_or_create(
-            site=site,
-            author=author,
-            defaults=kwargs,
-        )
-        return obj, created
 
 
 class URLBatch(Storage):

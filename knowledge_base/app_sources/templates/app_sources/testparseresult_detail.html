@@ -6,7 +6,7 @@
 <div class="container mt-5">
     <div class="card shadow-sm mb-4">
         <div class="card-header bg-success text-white">
-            <h5 class="mb-0">✅ Результат тестового парсинга</h5>
+            <h5 class="mb-0">✅ Результат тестового парсинга для Веб-сайта </strong> 🔗<a class="text-dark" href="{{ report.site.get_absolute_url }}" target="_blank">{{ report.site.name }}</a></h5>
         </div>
         <div class="card-body">
             <p><strong>🔗 URL:</strong> <a href="{{ report.url }}" target="_blank">{{ report.url }}</a></p>
@@ -14,7 +14,7 @@
             <hr>
 
             <h6 class="mt-4">🛠 Использованный парсер:</h6>
-            <p><strong>Название парсера:</strong> {{ parser.name }}</p>
+            <p><strong>Название парсера:</strong> {{ report.parser_class_name }}</p>
             <p><strong>Конфигурация:</strong></p>
             {% if report.parser_config %}
                 <table class="table table-striped">
@@ -41,6 +41,9 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'parsers:set_test_parser_config_as_main' report.pk %}" class="btn btn-outline-primary">Использовать конфигурацию для всего сайта</a>
+                </div>
             {% else %}
                 <p class="text-muted">Конфигурация отсутствует.</p>
             {% endif %}
@@ -114,6 +117,7 @@
                                     </table>
                                 {% endif %}
                                 {% if report.parsed_data.metadata.files.documents %}
+                                {{ report.parsed_data.metadata.files.documents }}
                                     <h6 class="mt-2">Documents</h6>
                                     <table class="table table-striped">
                                         <thead>

@@ -12,9 +12,11 @@ from celery_progress.backend import ProgressRecorder
 from selenium.webdriver.common.by import By
 from retrying import retry
 
+from app_parsers.models import Parser, TestParser
+from app_parsers.services.parsers.base import BaseWebParser
 from app_parsers.services.parsers.core_parcer_engine import SeleniumDriver
 from app_parsers.services.parsers.dispatcher import WebParserDispatcher
-from app_sources.storage_models import TestParseResult, WebSite
+from app_sources.storage_models import WebSite
 
 from django.contrib.auth import get_user_model
 
@@ -226,26 +228,27 @@ def parse_urls_task(self,
 # def test_single_url(self,
 def test_single_url(
         url: str,
-        site_id: int,
+        parser: TestParser,
         author_id: int,
-        parser_cls_name: str,
-        parser_config: dict[str, Any] = None,
         webdriver_options: list[str] = None) -> str:
     """
     Celery-задача для тестирования одного URL с использованием Selenium и парсера.
 
     :param self: Объект задачи Celery.
     :param url: URL для обработки.
-    :param site_id: ID сайта (WebSite).
     :param author_id: ID автора (User).
-    :param parser_cls_name: Имя класса парсера.
-    :param parser_config: Настройки тестового конфига для парсера.
+    :param parser: объект класса TestParser
     :param webdriver_options: Опции для Selenium-драйвера.
     :return: Словарь с результатами обработки.
     """
     # Инициализация прогресса
     # progress_recorder = ProgressRecorder(self)
     # progress_recorder.set_progress(0, 100, description="Начало обработки URL")
+
+    parser_cls_name = parser.class_name
+    parser_config = parser.config
+    website = parser.site
+    test_parse_report = parser.testparsereport
 
     parser_dispatcher = WebParserDispatcher()
     parser_cls = parser_dispatcher.get_by_class_name(parser_cls_name)
@@ -281,38 +284,22 @@ def test_single_url(
             result["error"] = "No HTML content retrieved"
 
         # progress_recorder.set_progress(100, 100, description="Обработка завершена")
-        website = WebSite.objects.get(pk=site_id)
         author = User.objects.get(pk=author_id)
         # Сохранение результата в базе данных
-        test_result, created = TestParseResult.create_or_update(
-            site=website,
-            author=author,
-            parser_class_name=parser_cls_name,
-            parser_config=parser_config if parser_config else {},
-            url=url,
-            status=result["status"],
-            html=result["html"],
-            parsed_data=result["parsed_data"],
-            error=result["error"],
-        )
+
+        test_parse_report.status=result["status"]
+        test_parse_report.html=result["html"]
+        test_parse_report.parsed_data=result["parsed_data"]
+        test_parse_report.error=result["error"]
+        test_parse_report.save()
 
     except Exception as e:
         result["error"] = f"Failed to fetch page: {str(e)}"
         logger.error(f"Failed to process {url}: {e}")
         # progress_recorder.set_progress(100, 100, description="Обработка завершена с ошибкой")
-        website = WebSite.objects.get(pk=site_id)
-        author = User.objects.get(pk=author_id)
-        test_result, created = TestParseResult.create_or_update(
-            site=website,
-            author=author,
-            parser_class_name=parser_cls_name,
-            parser_config=parser_config if parser_config else {},
-            url=url,
-            status=None,
-            html=None,
-            parsed_data=None,
-            error=result["error"]
-        )
+        test_parse_report.error = result["error"]
+        test_parse_report.save()
+
     finally:
         driver.quit()  # Закрытие Selenium-драйвера
 

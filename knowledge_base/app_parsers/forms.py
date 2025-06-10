@@ -41,7 +41,7 @@ class ParserDynamicConfigForm(forms.Form):
             self.fields[field_name] = forms.CharField(
                 required=False,
                 initial=initial,
-                widget=forms.Textarea(attrs={"rows": 8}),
+                widget=forms.Textarea(attrs={"rows": 8, 'class': 'form-control'}),
                 label=label,
                 help_text=help_text
             )
@@ -193,6 +193,7 @@ class TestParseForm(forms.Form):
     parser = forms.ChoiceField(choices=[], label="Выберите парсер")
     url = forms.URLField(label="URL для теста", required=True)
 
+
     def __init__(self, *args, parsers: Optional[List[Type[BaseWebParser]]] = None, **kwargs):
         super().__init__(*args, **kwargs)
         choices = [("", "— Выберите парсер —")] + [
@@ -203,6 +204,8 @@ class TestParseForm(forms.Form):
         self.fields["parser"].widget.attrs.update({
             "class": "form-select",
         })
+        self.fields['url'].widget.attrs.update({'class': 'form-control'})
+
 
     def clean_parser(self):
         value = self.cleaned_data["parser"]

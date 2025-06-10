@@ -120,8 +120,8 @@ class URL(AbstractSource):
     batch = models.ForeignKey(URLBatch, verbose_name="пакет", on_delete=models.CASCADE, blank=True, null=True)
     response_status = models.IntegerField(null=True, blank=True, help_text="HTTP-код ответа")
 
-    parser = models.ForeignKey(Parser, verbose_name="текущий страницы сайта", on_delete=models.PROTECT,
-                               blank=True, null=True)
+    # parser = models.ForeignKey(Parser, verbose_name="текущий страницы сайта", on_delete=models.PROTECT,
+    #                            blank=True, null=True)
 
     def __str__(self):
         return f"[URL] {super().__str__()}"

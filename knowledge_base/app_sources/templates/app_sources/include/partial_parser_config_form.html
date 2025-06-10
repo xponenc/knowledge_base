@@ -1,12 +1,12 @@
 {% for field in config_form %}
-<div class="mb-3">
-    {{ field.label_tag }}
-    {{ field }}
-    {% if field.help_text %}
-        <small class="form-text text-muted">{{ field.help_text }}</small>
-    {% endif %}
-    {% if field.errors %}
-        <div class="text-danger">{{ field.errors }}</div>
-    {% endif %}
-</div>
+    <div class="mb-3">
+        <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+        {% if field.help_text %}
+            <div class="form-text">{{ field.help_text }}</div>
+        {% endif %}
+        {{ field }}
+        {% if field.errors %}
+            <div class="invalid-feedback">{{ field.errors }}</div>
+        {% endif %}
+    </div>
 {% endfor %}

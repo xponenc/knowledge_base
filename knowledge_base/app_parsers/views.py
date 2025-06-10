@@ -1,10 +1,12 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseBadRequest, HttpResponse
+from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.views import View
 
 from app_parsers.forms import ParserDynamicConfigForm
 from app_parsers.services.parsers.dispatcher import WebParserDispatcher
+from app_sources.storage_models import WebSite
 
 
 class ParserConfigView(LoginRequiredMixin, View):
@@ -29,3 +31,11 @@ class ParserConfigView(LoginRequiredMixin, View):
         }, request=request)
 
         return HttpResponse(html)
+
+
+class ParserSetTestConfigAsMainView(LoginRequiredMixin, View):
+    """Устанавливает тестовый парсер с конфигурацией как Основной парсер для сайта"""
+    def post(self, request, website_pk, *args, **kwargs):
+        website = get_object_or_404(WebSite, pk=website_pk)
+        test
+
