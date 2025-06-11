@@ -14,7 +14,7 @@ from django.views.generic import DetailView, ListView, CreateView, UpdateView, D
 
 from app_core.models import KnowledgeBase
 from app_parsers.forms import TestParseForm, BulkParseForm, ParserDynamicConfigForm
-from app_parsers.models import Parser, TestParser, TestParseReport
+from app_parsers.models import Parser, TestParser, TestParseReport, MainParser, MainParserReport
 from app_parsers.services.parsers.core_parcer_engine import SeleniumDriver
 from app_parsers.tasks import test_single_url
 from app_parsers.services.parsers.dispatcher import WebParserDispatcher
@@ -407,7 +407,26 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
         all_parsers = parser_dispatcher.discover_parsers()
         parser_config_form = None
 
-        if mode == "test":
+        if mode == "bulk":
+            parse_form_initial = {"urls": website.base_url}
+            website_main_parser = getattr(website, "mainparser", None)
+            if website_main_parser:
+                # parse_form_initial["parser"] = website_main_parser.class_name
+                try:
+                    parser_cls = WebParserDispatcher().get_by_class_name(website_main_parser.class_name)
+                    parser_config_schema = getattr(parser_cls, "config_schema", {})
+                    parser_config_form = ParserDynamicConfigForm(
+                        schema=parser_config_schema,
+                        initial=website_main_parser.config
+                    )
+                except ValueError:
+                    logger.error(
+                        f"Для WebSite {website.name} не найден BaseWebParser по "
+                        f"class_name = {website_main_parser.class_name}"
+                    )
+            parse_form = BulkParseForm(initial=parse_form_initial)
+
+        else:  # test mode
             test_url = request.GET.get("url")
             if not test_url:
                 test_url = website.base_url
@@ -433,25 +452,6 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
                     )
             parse_form = TestParseForm(parsers=all_parsers, initial=parse_form_initial)
 
-        else:  # bulk mode
-            parse_form_initial = {"urls": website.base_url}
-            website_main_parser = getattr(website, "mainparser", None)
-            if website_main_parser:
-                parse_form_initial["parser"] = website_main_parser.class_name
-                try:
-                    parser_cls = WebParserDispatcher().get_by_class_name(website_main_parser.class_name)
-                    parser_config_schema = getattr(parser_cls, "config_schema", {})
-                    parser_config_form = ParserDynamicConfigForm(
-                        schema=parser_config_schema,
-                        initial=website_main_parser.config
-                    )
-                except ValueError:
-                    logger.error(
-                        f"Для WebSite {website.name} не найден BaseWebParser по "
-                        f"class_name = {website_main_parser.class_name}"
-                    )
-            parse_form = BulkParseForm(parsers=all_parsers, initial=parse_form_initial)
-
         return render(request, "app_sources/website_parse_form.html", {
             "form": parse_form,
             "config_form": parser_config_form,
@@ -466,10 +466,10 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
 
         parser_dispatcher = WebParserDispatcher()
         all_parsers = parser_dispatcher.discover_parsers()
-        if mode == "test":
-            parse_form = TestParseForm(request.POST, parsers=all_parsers)
-        else:
+        if mode == "bulk":
             parse_form = BulkParseForm(request.POST, parsers=all_parsers)
+        else:
+            parse_form = TestParseForm(request.POST, parsers=all_parsers)
 
         if not parse_form.is_valid():
             return render(request, "app_sources/website_parse_form.html", {
@@ -493,13 +493,39 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
 
         parser_config = parser_config_form.cleaned_data
 
-        if mode == "test":
+        if mode == "bulk":
+            urls = parse_form.cleaned_data["urls"]
+            # main_parser, created = MainParser.create_or_update(
+            #     site=website,
+            #     defaults={
+            #         "class_name": f"{parser_cls.__module__}.{parser_cls.__name__}",
+            #         "config": parser_config,
+            #         "author": request.user,
+            #     }
+            # )
+            #
+            # main_parser_report = MainParserReport.objects.create(
+            #     parser=main_parser,
+            #     author=request.user,
+            #     content={
+            #         "urls": urls,
+            #         "parser_class": main_parser.class_name,
+            #         "parser_config": main_parser.config,
+            #     }
+            # )
+            print(urls)
+
+            return render(request, "app_sources/main_parser.html", {})
+        else:
             url = parse_form.cleaned_data["url"]
             test_parser, created = TestParser.create_or_update(
                 site=website,
-                class_name=f"{parser_cls.__module__}.{parser_cls.__name__}",
-                config=parser_config,
                 author=request.user,
+                defaults={
+                    "class_name": f"{parser_cls.__module__}.{parser_cls.__name__}",
+                    "config": parser_config,
+                },
+
             )
             test_parser_report, created = TestParseReport.objects.get_or_create(
                 parser=test_parser,

@@ -219,33 +219,33 @@ class TestParseForm(forms.Form):
 
 class BulkParseForm(forms.Form):
     """Форма для массового парсинга списка URL выбранным парсером"""
-    parser = forms.ChoiceField(choices=[], label="Выберите парсер")
+    # parser = forms.ChoiceField(choices=[], label="Выберите парсер")
     urls = forms.CharField(
         label="Список URL (формат: JSON или просто через , ; \\n)",
-        widget=forms.Textarea(attrs={"rows": 6}),
+        widget=forms.Textarea(attrs={"rows": 6, "class": "form-control"}),
         required=True,
     )
 
-    def __init__(self, *args, parsers: Optional[List[Type[BaseWebParser]]] = None, **kwargs):
-        super().__init__(*args, **kwargs)
-        choices = [
-            (f"{cls.__module__}.{cls.__name__}", cls.__name__)
-            for cls in (parsers or [])
-        ]
-        self.fields["parser"].choices = choices
-        self.fields["parser"].widget.attrs.update({
-            "class": "form-select",
-        })
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
+    #     choices = [
+    #         (f"{cls.__module__}.{cls.__name__}", cls.__name__)
+    #         for cls in (parsers or [])
+    #     ]
+    #     self.fields["parser"].choices = choices
+    #     self.fields["parser"].widget.attrs.update({
+    #         "class": "form-select",
+    #     })
 
-    def clean_parser(self):
-        value = self.cleaned_data["parser"]
-        try:
-            module_name, class_name = value.rsplit(".", 1)
-            module = __import__(module_name, fromlist=[class_name])
-            cls = getattr(module, class_name)
-            return cls
-        except (ImportError, AttributeError, ValueError) as e:
-            raise forms.ValidationError(f"Не удалось загрузить парсер: {e}")
+    # def clean_parser(self):
+    #     value = self.cleaned_data["parser"]
+    #     try:
+    #         module_name, class_name = value.rsplit(".", 1)
+    #         module = __import__(module_name, fromlist=[class_name])
+    #         cls = getattr(module, class_name)
+    #         return cls
+    #     except (ImportError, AttributeError, ValueError) as e:
+    #         raise forms.ValidationError(f"Не удалось загрузить парсер: {e}")
 
     def clean_urls(self):
         raw_input = self.cleaned_data["urls"].strip()

@@ -41,6 +41,19 @@ class MainParser(Parser):
         verbose_name_plural = "Парсеры сайтов"
 
 
+class MainParserReport(models.Model):
+    """Класс отчета результатов работы MainParser"""
+
+    parser = models.OneToOneField(MainParser, on_delete=models.CASCADE, verbose_name="результат теста")
+
+    content = models.JSONField(verbose_name="отчет", default=dict)
+    running_background_tasks = models.JSONField(verbose_name="выполняемые фоновые задачи по обработке отчета",
+                                                default=dict)
+
+    author = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="автор теста")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class TestParser(Parser):
     """Модель тестового парсера применяется для теста отдельных страниц без изменения Основного парсера сайта"""
     site = models.ForeignKey(WebSite, on_delete=models.CASCADE, verbose_name="сайт", related_name="test_parsers")

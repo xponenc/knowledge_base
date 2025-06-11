@@ -51,7 +51,7 @@
                 {% else %}
                     <p class="text-muted">Основной парсер не задан</p>
                 {% endif %}
-                <a href="{% url 'sources:website_parse' website.pk %}" class="btn btn-success">
+                <a href="{% url 'sources:website_parse' website.pk %}?mode=bulk" class="btn btn-success">
                     📦 Массовый парсинг
                 </a>
             </div>

@@ -8,17 +8,23 @@ from app_parsers.services.parsers.base import BaseWebParser
 
 
 class BOWebParser(BaseWebParser):
-    BREADCRUMBS_CLASS = (".breadcrumbs a.taxonomy.category")
+    """
+    Базовый конфиг под академию
+    BREADCRUMBS_CLASS = .breadcrumbs a.taxonomy.category
 
-    EXCLUDE_TAGS = [
-        "footer, header, nav, menu, sidebar, popup, modal, banner, ad, subscribe, widget, cookie, social, share, logo, script, style, form, input, iframe, svg, noscript, button, select, option, canvas, link, meta, jdiv"
-    ]
-    EXCLUDE_id = "preload"
-    EXCLUDE_CLASSES = (
-        "header__top, coast_block, express_test_marquiz, order_tel, cf7_form, sw-app, modal, calc, category__info-sale, breadcrumbs, my_yandex_centered_text")
-    STYLE_TAGS = {'strong, b, i, em, u, span'}
-    useful_image_classes = ["attachment-full, size-full"]
+    EXCLUDE_TAGS = footer, header, nav, menu, sidebar, popup, modal, banner, ad, subscribe, widget, cookie,
+     social, share, logo, script, style, form, input, iframe, svg, noscript, button, select, option, canvas,
+      link, meta, jdiv
 
+    EXCLUDE_id = preload
+
+    EXCLUDE_CLASSES = header__top, coast_block, express_test_marquiz, order_tel, cf7_form, sw-app, modal, calc,
+     category__info-sale, breadcrumbs, my_yandex_centered_text, calc-block, form-wrapper
+
+    STYLE_TAGS = strong, b, i, em, u, span
+
+    useful_image_classes = attachment-full, size-full
+    """
     config_schema = {
         "title_tag": {
             "type": str,
