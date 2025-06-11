@@ -20,6 +20,8 @@ from app_sources.storage_models import WebSite
 
 from django.contrib.auth import get_user_model
 
+from utils.process_text import normalize_text, remove_emoji
+
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
@@ -226,9 +228,12 @@ def parse_urls_task(self,
 
 @shared_task(bind=True)
 def test_single_url(self,
+# def test_single_url(
                     url: str,
                     parser: TestParser,
                     author_id: int,
+                    clean_text: bool = False,
+                    clean_emoji: bool = False,
                     webdriver_options: list[str] = None) -> str:
     """
     Celery-задача для тестирования одного URL с использованием Selenium и парсера.
@@ -236,6 +241,8 @@ def test_single_url(self,
     :param self: Объект задачи Celery.
     :param url: URL для обработки.
     :param author_id: ID автора (User).
+    :param clean_text: вызывает метод очистки текста от мусора.
+    :param clean_emoji: вызывает метод очистки текста от emoji.
     :param parser: объект класса TestParser
     :param webdriver_options: Опции для Selenium-драйвера.
     :return: Словарь с результатами обработки.
@@ -283,10 +290,23 @@ def test_single_url(self,
 
         progress_recorder.set_progress(100, 100, description="Обработка завершена")
         # Сохранение результата в базе данных
+        # Сохранение базовых данных
         test_parse_report.status = result["status"]
         test_parse_report.html = result["html"]
         test_parse_report.parsed_data = result["parsed_data"]
         test_parse_report.error = result["error"]
+
+        # Обработка контента, если выбраны флаги
+        if clean_text or clean_emoji:
+            content = result["parsed_data"].get("content", "")
+            if clean_text:
+                content = normalize_text(content)
+            if clean_emoji:
+                content = remove_emoji(content)
+            result["parsed_data"]["content"] = content
+
+        # Финальное сохранение
+        test_parse_report.parsed_data = result["parsed_data"]
         test_parse_report.save()
 
     except Exception as e:

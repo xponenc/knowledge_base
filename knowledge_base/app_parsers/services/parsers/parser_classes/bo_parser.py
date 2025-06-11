@@ -1,10 +1,12 @@
 import re
+from pprint import pprint
 from typing import Dict, Any, List, Tuple, Set
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup, Tag, NavigableString, Comment
 
 from app_parsers.services.parsers.base import BaseWebParser
+from utils.process_text import remove_emoji
 
 
 class BOWebParser(BaseWebParser):
@@ -139,7 +141,6 @@ class BOWebParser(BaseWebParser):
             for tag in soup(EXCLUDE_TAGS):
                 tag.decompose()
         if EXCLUDE_CLASSES:
-            print(f"{EXCLUDE_CLASSES=}")
             # Удаление элементов с классами из EXCLUDE_CLASSES
             # for element in soup.find_all(class_=EXCLUDE_CLASSES):
             #     print(element)
@@ -164,6 +165,37 @@ class BOWebParser(BaseWebParser):
         for tag in soup.select('div[style*="display:none"]'):
             tag.decompose()
 
+        return soup
+
+    @staticmethod
+    def _remove_heading_only_blocks(soup: BeautifulSoup) -> BeautifulSoup:
+        """
+        Удаляет элементы-контейнеры, в которых содержатся только заголовки (h1–h6) и/или пустые блоки без текстового содержимого.
+
+        Это предотвращает появление "висящих" заголовков в финальном тексте, особенно после удаления вложенных кнопок, форм и других вспомогательных блоков.
+
+        Критерий удаления:
+            - Элемент содержит только заголовки и/или пустые теги (div, p, span без текста).
+            - Элемент не является листом (имеет вложенные элементы).
+
+        Аргументы:
+            soup (BeautifulSoup): Объект BeautifulSoup, содержащий HTML-документ.
+
+        Возвращает:
+            BeautifulSoup: Обновлённый объект soup без пустых обёрток.
+        """
+        for tag in soup.find_all():
+            if not tag.find_all(recursive=False):
+                continue
+
+            children = tag.find_all(recursive=False)
+            if all(
+                    c.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] or
+                    (isinstance(c, str) and not c.strip()) or
+                    (c.name in ['div', 'p', 'span'] and not c.get_text(strip=True))
+                    for c in children
+            ):
+                tag.decompose()
         return soup
 
     def _process_images(
@@ -514,6 +546,7 @@ class BOWebParser(BaseWebParser):
             if not parsed:
                 continue
             level, tag, content = parsed
+
             # Отслеживание вложенности списков ul
             if tag == "ul" or tag == "ol":
                 ul_stack.append(level)
@@ -571,10 +604,18 @@ class BOWebParser(BaseWebParser):
 
             elif tag in {"h1", "h2", "h3", "h4"}:
                 hashes = "#" * int(tag[1])
-                md_lines.append(f"{hashes} {content}")
+                if content.strip():
+                    md_lines.append(f"{hashes} {content}")
+                else:
+                    md_lines.append(f"{hashes} ")
+
             else:
                 if content and tag != "table_row":
-                    md_lines.append(content)
+                    if md_lines and not re.sub(r"[#\s\n]+", "", md_lines[-1]):
+                        # Если предыдущая строка — только # и пробелы/переводы строк
+                        md_lines[-1] = f"{md_lines[-1].strip()} {content}"
+                    else:
+                        md_lines.append(content)
 
         return "\n".join(md_lines)
 
@@ -592,6 +633,10 @@ class BOWebParser(BaseWebParser):
         BASE_URL = f"{parsed.scheme}://{parsed.netloc}"
 
         soup = BeautifulSoup(html, "html.parser")
+
+        for tag in soup.find_all(['strong', 'b', 'i', 'em', 'u', 'span']):
+            # элементы из списка растегируются, тег уничтожается, оставляя вместо себя текст
+            tag.unwrap()
 
         page_title = self._find_title_tag(soup)
 
@@ -614,16 +659,15 @@ class BOWebParser(BaseWebParser):
         # clean_soup очищает HTML от ненужных изображений
         cleaned_content_element = self._process_images(soup=cleaned_content_element, url=BASE_URL,
                                                        clear_img=True)
-
         # Очистка от внутристраничных ссылок
         cleaned_content_element = self._process_http_links(soup=cleaned_content_element, url=url,
                                                            clear_link_anchor=False)
-        # print(f"{cleaned_content_element=}")
-
+        # Очистка от висящих заголовков
+        cleaned_content_element = self._remove_heading_only_blocks(soup=cleaned_content_element)
         # Преобразование контента в структурированный формат
         html_structure = self._analyze_element(cleaned_content_element,
                                                0)  # analyze_element рекурсивно разбирает HTML-структуру
-        # print(f"{html_structure=}")
+
         # Преобразование структуры в Markdown
         markdown_content = self._to_markdown(
             html_structure)  # to_markdown преобразует структурированный формат в Markdown

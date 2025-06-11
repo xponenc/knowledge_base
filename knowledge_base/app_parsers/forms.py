@@ -190,9 +190,27 @@ class ParserDynamicConfigForm(forms.Form):
 
 class TestParseForm(forms.Form):
     """Форма для тестового парсинга одного url выбранным parser"""
-    parser = forms.ChoiceField(choices=[], label="Выберите парсер")
-    url = forms.URLField(label="URL для теста", required=True)
 
+    clean_emoji = forms.BooleanField(
+        label="Выполнить очистку текста от эмоджи",
+        required=False,
+        initial=True
+    )
+
+    clean_text = forms.BooleanField(
+        label="Выполнить очистку текста",
+        required=False,
+        initial=True,
+        help_text=(
+            "Нормализация unicode, "
+            "замена неразрывных и нулевых пробелов, "
+            "удаление управляющих и невидимых символов, "
+            "удаление множественных пробелов, "
+            "удаление пустых строк"
+        )
+    )
+    url = forms.URLField(label="URL для теста", required=True)
+    parser = forms.ChoiceField(choices=[], label="Выберите парсер")
 
     def __init__(self, *args, parsers: Optional[List[Type[BaseWebParser]]] = None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -205,7 +223,8 @@ class TestParseForm(forms.Form):
             "class": "form-select",
         })
         self.fields['url'].widget.attrs.update({'class': 'form-control'})
-
+        self.fields["clean_emoji"].widget.attrs.update({"class": "form-check-input"})
+        self.fields["clean_text"].widget.attrs.update({"class": "form-check-input"})
 
     def clean_parser(self):
         value = self.cleaned_data["parser"]
@@ -220,22 +239,42 @@ class TestParseForm(forms.Form):
 class BulkParseForm(forms.Form):
     """Форма для массового парсинга списка URL выбранным парсером"""
     # parser = forms.ChoiceField(choices=[], label="Выберите парсер")
+    clean_emoji = forms.BooleanField(
+        label="Выполнить очистку текста от эмоджи",
+        required=False,
+        initial=True
+    )
+
+    clean_text = forms.BooleanField(
+        label="Выполнить очистку текста",
+        required=False,
+        initial=True,
+        help_text=(
+            "Нормализация unicode, "
+            "замена неразрывных и нулевых пробелов, "
+            "удаление управляющих и невидимых символов, "
+            "удаление множественных пробелов, "
+            "удаление пустых строк"
+        )
+    )
     urls = forms.CharField(
         label="Список URL (формат: JSON или просто через , ; \\n)",
         widget=forms.Textarea(attrs={"rows": 6, "class": "form-control"}),
         required=True,
     )
 
-    # def __init__(self, *args, **kwargs):
-    #     super().__init__(*args, **kwargs)
-    #     choices = [
-    #         (f"{cls.__module__}.{cls.__name__}", cls.__name__)
-    #         for cls in (parsers or [])
-    #     ]
-    #     self.fields["parser"].choices = choices
-    #     self.fields["parser"].widget.attrs.update({
-    #         "class": "form-select",
-    #     })
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # choices = [
+        #     (f"{cls.__module__}.{cls.__name__}", cls.__name__)
+        #     for cls in (parsers or [])
+        # ]
+        # self.fields["parser"].choices = choices
+        # self.fields["parser"].widget.attrs.update({
+        #     "class": "form-select",
+        # })
+        self.fields["clean_emoji"].widget.attrs.update({"class": "form-check-input"})
+        self.fields["clean_text"].widget.attrs.update({"class": "form-check-input"})
 
     # def clean_parser(self):
     #     value = self.cleaned_data["parser"]

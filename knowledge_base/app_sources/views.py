@@ -405,20 +405,22 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
         mode = request.GET.get("mode", "test")
         parser_dispatcher = WebParserDispatcher()
         all_parsers = parser_dispatcher.discover_parsers()
+        current_parser = None
         parser_config_form = None
 
         if mode == "bulk":
             parse_form_initial = {"urls": website.base_url}
             website_main_parser = getattr(website, "mainparser", None)
             if website_main_parser:
+                current_parser = website_main_parser
                 # parse_form_initial["parser"] = website_main_parser.class_name
                 try:
                     parser_cls = WebParserDispatcher().get_by_class_name(website_main_parser.class_name)
                     parser_config_schema = getattr(parser_cls, "config_schema", {})
-                    parser_config_form = ParserDynamicConfigForm(
-                        schema=parser_config_schema,
-                        initial=website_main_parser.config
-                    )
+                    # parser_config_form = ParserDynamicConfigForm(
+                    #     schema=parser_config_schema,
+                    #     initial=website_main_parser.config
+                    # )
                 except ValueError:
                     logger.error(
                         f"Для WebSite {website.name} не найден BaseWebParser по "
@@ -433,6 +435,7 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
             parse_form_initial = {"url": test_url}
             try:
                 website_test_parser = TestParser.objects.get(site=website, author=request.user)
+                print(website_test_parser)
             except TestParser.DoesNotExist:
                 website_test_parser = None
 
@@ -456,7 +459,7 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
             "form": parse_form,
             "config_form": parser_config_form,
             "mode": mode,
-            # "selected_parser": parse_form.initial.get("parser"),
+            "parser": current_parser,
             "website": website,
         })
 
@@ -464,11 +467,11 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
         website = get_object_or_404(WebSite, id=pk)
         mode = request.GET.get("mode", "test")
 
-        parser_dispatcher = WebParserDispatcher()
-        all_parsers = parser_dispatcher.discover_parsers()
         if mode == "bulk":
-            parse_form = BulkParseForm(request.POST, parsers=all_parsers)
+            parse_form = BulkParseForm(request.POST)
         else:
+            parser_dispatcher = WebParserDispatcher()
+            all_parsers = parser_dispatcher.discover_parsers()
             parse_form = TestParseForm(request.POST, parsers=all_parsers)
 
         if not parse_form.is_valid():
@@ -479,19 +482,26 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
                 "website": website
             })
 
-        parser_cls = parse_form.cleaned_data["parser"]
-        parser_config_schema = getattr(parser_cls, "config_schema", {})
-        parser_config_form = ParserDynamicConfigForm(request.POST, schema=parser_config_schema)
+        clean_emoji = parse_form.cleaned_data["clean_emoji"]
+        clean_text = parse_form.cleaned_data["clean_text"]
 
-        if not parser_config_form.is_valid():
-            return render(request, "app_sources/website_parse_form.html", {
-                "form": parse_form,
-                "config_form": parser_config_form,
-                "mode": mode,
-                "website": website
-            })
+        if mode == "bulk":
+            parser_config = website.mainparser.config
 
-        parser_config = parser_config_form.cleaned_data
+        else:
+            parser_cls = parse_form.cleaned_data["parser"]
+            parser_config_schema = getattr(parser_cls, "config_schema", {})
+            parser_config_form = ParserDynamicConfigForm(request.POST, schema=parser_config_schema)
+
+            if not parser_config_form.is_valid():
+                return render(request, "app_sources/website_parse_form.html", {
+                    "form": parse_form,
+                    "config_form": parser_config_form,
+                    "mode": mode,
+                    "website": website
+                })
+
+            parser_config = parser_config_form.cleaned_data
 
         if mode == "bulk":
             urls = parse_form.cleaned_data["urls"]
@@ -515,7 +525,12 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
             # )
             print(urls)
 
-            return render(request, "app_sources/main_parser.html", {})
+            return render(request, "app_sources/website_parse_form.html", {
+                "form": parse_form,
+                "config_form": None,
+                "mode": mode,
+                "website": website
+            })
         else:
             url = parse_form.cleaned_data["url"]
             test_parser, created = TestParser.create_or_update(
@@ -547,16 +562,20 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
                 url=url,
                 parser=test_parser,
                 author_id=request.user.pk,
-                webdriver_options=None  # если не задать, то применятся дефолтные в классе
+                webdriver_options=None,  # если не задать, то применятся дефолтные в классе
+                clean_text=clean_text,
+                clean_emoji=clean_emoji,
             )
 
             # test_single_url(
             #     url=url,
             #     parser=test_parser,
             #     author_id=request.user.pk,
-            #     webdriver_options=None  # если не задать, то применятся дефолтные в классе
+            #     webdriver_options=None,  # если не задать, то применятся дефолтные в классе
+            #     clean_text=clean_text,
+            #     clean_emoji=clean_emoji,
             # )
-
+            #
             # return redirect(reverse_lazy("parsers:testparser_detail", kwargs={"pk": test_parser.pk}))
 
             return render(request, "celery_task_progress.html", {

@@ -8,3 +8,4 @@ sudo apt install tesseract-ocr-rus tesseract-ocr-eng
 
 на unix установить Poppler sudo apt-get install poppler-utils
 
+на unix eустановить sudo apt install chromium-chromedriver

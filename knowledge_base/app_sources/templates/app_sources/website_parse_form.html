@@ -1,26 +1,75 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}Тестирование парсера{% endblock %}
+{% block title %}{% if mode == "bulk" %}Массовый парсинг сайта{% else %}Тестирование парсера{% endif %}{% endblock %}
 
 {% block content %}
 <div class="container my-4">
-    <h1 class="mb-4">Тестовый парсинг страницы</h1>
-
+    {% if mode == "bulk" %}
+        <h2 class="mb-4">Массовый парсинг сайта {{ website.name }}</h2>
+        <p><strong>Название парсера:</strong> {{ parser.class_name }}</p>
+        <p><strong>Конфигурация:</strong></p>
+        {% if parser.config %}
+            <table class="table table-striped mb-4">
+                <thead>
+                    <tr>
+                        <th>Ключ</th>
+                        <th>Значение</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key, value in parser.config.items %}
+                        <tr>
+                            <td>{{ key }}</td>
+                            <td>
+                                {% if value is string %}
+                                    {{ value }}
+                                {% elif value is iterable and value is not string %}
+                                    {{ value|join:", " }}
+                                {% else %}
+                                    {{ value|default:"Нет данных" }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="text-muted">Конфигурация отсутствует.</p>
+        {% endif %}
+    {% else %}
+        <h2 class="mb-4">Тестовый парсинг страницы</h2>
+    {% endif %}
+    
     <form method="post" id="parse-form" class="needs-validation" novalidate>
-        {% csrf_token %}
-        
-        <!-- Поле: выбор парсера -->
-        <div class="mb-3">
-            <label for="{{ form.parser.id_for_label }}" class="form-label">{{ form.parser.label }}</label>
-            {% if form.parser.help_text %}
-                <div class="form-text">{{ form.parser.help_text }}</div>
-            {% endif %}
-            {{ form.parser }}
-            {% if form.parser.errors %}
-                <div class="invalid-feedback">{{ form.parser.errors }}</div>
-            {% endif %}
+        <div class="d-flex gap-4 mb-4">
+            <div class="form-check">
+                {{ form.clean_emoji }}
+                <label for="{{ form.clean_emoji.id_for_label }}" class="form-check-label">
+                    {{ form.clean_emoji.label }}
+                </label>
+                {% if form.clean_emoji.help_text %}
+                    <div class="form-text">{{ form.clean_emoji.help_text }}</div>
+                {% endif %}
+            </div>
+    
+            <div class="form-check">
+                {{ form.clean_text }}
+                <label for="{{ form.clean_text.id_for_label }}" class="form-check-label">
+                    {{ form.clean_text.label }}
+                </label>
+                {% if form.clean_text.help_text %}
+                    <div class="form-text">{{ form.clean_text.help_text }}</div>
+                {% endif %}
+            </div>
+    
         </div>
-
+        {% if form.clean_emoji.errors %}
+            <div class="invalid-feedback d-block">{{ form.clean_emoji.errors }}</div>
+        {% endif %}
+        {% if form.clean_text.errors %}
+            <div class="invalid-feedback d-block">{{ form.clean_text.errors }}</div>
+        {% endif %}
+        {% csrf_token %}
         <!-- Условное отображение поля URL или URLs -->
         {% if mode == "bulk" %}
             <div class="mb-3">
@@ -34,6 +83,17 @@
                 {% endif %}
             </div>
         {% else %}
+            <!-- Поле: выбор парсера -->
+            <div class="mb-3">
+                <label for="{{ form.parser.id_for_label }}" class="form-label">{{ form.parser.label }}</label>
+                {% if form.parser.help_text %}
+                    <div class="form-text">{{ form.parser.help_text }}</div>
+                {% endif %}
+                {{ form.parser }}
+                {% if form.parser.errors %}
+                    <div class="invalid-feedback">{{ form.parser.errors }}</div>
+                {% endif %}
+            </div>
             <div class="mb-3">
                 <label for="{{ form.url.id_for_label }}" class="form-label">{{ form.url.label }}</label>
                 {% if form.url.help_text %}

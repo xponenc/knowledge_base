@@ -42,6 +42,9 @@
                 Основной парсер
             </div>
             <div class="card-body">
+                <p class="text-muted fst-italic mb-2">
+                    Используется для массового парсинга всего сайта. Его конфигурация влияет на автоматическую обработку.
+                </p>
                 {% if website.mainparser %}
                     <h5 class="card-title">{{ website.mainparser.class_name }}</h5>
                     <p class="card-text"><strong>Описание:</strong> {{ website.mainparser.description|default:"—" }}</p>
@@ -65,6 +68,11 @@
                 Тестовые парсеры
             </div>
             <div class="card-body">
+                <p class="text-muted fst-italic mb-2">
+                    Используется для настройки конфигурации парсинга. Тестируется заданный адрес и выдается отчет о парсинге. 
+                    В деталяж Тестового парсера можно установить его Основной парсер
+                </p>
+
                 {% for test_parser in website.test_parsers.all %}
                     <div class="mb-3 border-bottom pb-2">
                         <h6>{{ test_parser.class_name }}</h6>
