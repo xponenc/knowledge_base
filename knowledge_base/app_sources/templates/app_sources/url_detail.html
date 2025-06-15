@@ -1,0 +1,185 @@
+
+
+{% extends 'base.html' %}
+
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ object.title }}{% endblock %}
+
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="mt-5">
+    <ol class="breadcrumb container">
+        <li class="breadcrumb-item"><a href="{{ object.storage.kb.get_absolute_url }}">База знаний {{ object.storage.kb.title }}</a></li>
+        <li class="breadcrumb-item">
+            <a href="{% url 'sources:website_detail' object.site.pk %}">
+                Веб-сайт {{ object.site.name }}
+            </a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">Веб-страница</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+
+<h2>{{ object.title|default:"" }}</h2>
+
+<a href="{% url 'sources:networkdocument_update' object.id %}" class="btn btn-warning">Редактировать</a>
+
+<div class="card shadow-sm rounded-4 border-0 mb-4">
+    <div class="card-body">
+        <h3 class="card-title mb-3">Информация о вебстранице</h3>
+
+        <p><strong>Статус:</strong> 
+        <span class="badge bg-info text-dark">{{ object.get_status_display }}</span>
+        </p>
+
+        <p><strong>Источник:</strong>
+        <a href="{{ object.storage.get_absolute_url }}">{{ object.storage.title }}</a>
+        </p>
+
+        {% if object.tags %}
+        <p><strong>Теги:</strong> 
+        {% for tag in object.tags %}
+            <span class="badge bg-secondary">{{ tag }}</span>
+        {% endfor %}
+        </p>
+        {% endif %}
+
+        <div class="row row-cols-1 row-cols-md-2 g-2 mt-3">
+        <div><strong>Название:</strong> {{ object.title }}</div>
+        <div><strong>Описание:</strong> {{ object.description|default:"—" }}</div>
+        <div><strong>Формат передачи в базу знаний:</strong> {{ object.get_output_format_display }}</div>
+        <div><strong>Язык:</strong> {{ object.language|default:"—" }}</div>
+        <div><strong>Размер:</strong> {{ object.size|filesizeformat }}</div>
+        <div><strong>ID файла:</strong> {{ object.file_id|default:"—" }}</div>
+        <div><strong>Путь:</strong> <code>{{ object.path }}</code></div>
+        <div><strong>URL:</strong> <a href="{{ object.url }}">{{ object.url }}</a></div>
+        <div><strong>Обновлено в источнике:</strong> {{ object.remote_updated|date:"d.m.Y H:i" }}</div>
+        <div><strong>Обновлено в проекте:</strong> {{ object.local_updated|date:"d.m.Y H:i" }}</div>
+        <div><strong>Синхронизировано:</strong> {{ object.synchronized_at|date:"d.m.Y H:i" }}</div>
+        <div><strong>Создано:</strong> {{ object.created_at|date:"d.m.Y H:i" }}</div>
+        {% comment %} <div><strong>Обновлено:</strong> {{ object.updated_at|date:"d.m.Y H:i" }}</div> {% endcomment %}
+        <div><strong>Удалён мягко:</strong> 
+            {% if object.soft_deleted_at %}
+            {{ object.soft_deleted_at|date:"d.m.Y H:i" }}
+            {% else %}
+            —
+            {% endif %}
+        </div>
+        </div>
+
+        {% if object.error_message %}
+        <div class="alert alert-danger mt-4" role="alert">
+            <strong>Ошибка обработки:</strong><br>
+            {{ object.error_message }}
+        </div>
+        {% endif %}
+
+        {% if object.metadata %}
+        <div class="mt-4">
+        <h5>Метаданные</h5>
+        <pre class="bg-light p-2 rounded-3 small text-muted">{{ object.metadata|json_script:"metadata" }}</pre>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+
+<div class="container my-4">
+    <h4 class="mb-3">История обновлений источника</h4>
+    {{ url }}
+    {% for content in object.urlcontent_set.all %}
+        <div class="card mb-4 shadow-sm border-0 rounded-4{% if object.cleanedcontent %}  border-success bg-light {% endif %}">
+            <div class="card-body">
+                <div class="col-md-10">
+                    <dl class="row mb-0">
+                    <dt class="col-sm-4">Hash контента:</dt><dd class="col-sm-8"><code>{{ content.hash }}</code></dd>
+                    <dt class="col-sm-4">Создан:</dt><dd class="col-sm-8">{{ content.created_at|date:"d.m.Y H:i" }}</dd>
+                    <dt class="col-sm-4">Обновлен:</dt><dd class="col-sm-8">{{ content.updated_at|date:"d.m.Y H:i" }}</dd>
+                    <dt class="col-sm-4">Автор:</dt><dd class="col-sm-8">{{ content.author }}</dd>
+                    </dl>
+                    <a class="btn btn-primary" href="{% url 'chunks:create_chunks_from_url_content' content.pk %}">Создать чанки</a>
+                    <div class="border-top mt-3 pt-3">
+                    <div class="mb-4">
+                        <h5 class="text-primary">Content</h5>
+                        <div class="markdown-content">
+                            {{ content.body|linebreaksbr }}
+                            {% comment %} {{ testparser.testparsereport.parsed_data.content|linebreaks }} {% endcomment %}
+                            {% comment %} {% autoescape off %}
+                                {{ testparser.testparsereport.parsed_data.content|safe }}  {# Предполагаем, что content уже отрендерен #}
+                            {% endautoescape %} {% endcomment %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <p class="text-muted">Нет загруженного исходного контента.</p>
+    {% endfor %}
+</div>
+
+
+
+
+<hr>
+<h3>История изменений</h3>
+{% if object.history %}
+    <table class="table table-sm table-bordered">
+        <thead>
+            <tr>
+                <th>Когда</th>
+                <th>Кто</th>
+                <th>Действие</th>
+                <th>Изменения</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in object.history|dictsortreversed:"timestamp" %}
+                <tr>
+                    <td>{{ entry.timestamp }}</td>
+                    <td>{{ entry.username }}</td>
+                    <td>{{ entry.action }}</td>
+                    <td>
+                        <ul>
+                            {% for key, val in entry.changes.items %}
+                                <li>
+                                    <strong>{{ key }}</strong>:
+                                    {% if val.from and val.to %}
+                                        <span class="text-muted">{{ val.from }}</span> → <span class="text-success">{{ val.to }}</span>
+                                    {% elif val.added or val.removed %}
+                                        {% if val.added %}
+                                            добавлено:
+                                            <ul>
+                                                {% for item in val.added %}
+                                                    <li>{{ item.username }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        {% endif %}
+                                        {% if val.removed %}
+                                            удалено:
+                                            <ul>
+                                                {% for item in val.removed %}
+                                                    <li>{{ item.username }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        {% endif %}
+                                    {% else %}
+                                        {{ val }}
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p class="text-muted">История пуста.</p>
+{% endif %}
+
+{% endblock %}
+

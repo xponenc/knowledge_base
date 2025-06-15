@@ -21,30 +21,40 @@ class ParserDynamicConfigForm(forms.Form):
             field_type = meta.get("type", list[str])
             label = meta.get("label", field_name.replace("_", " ").capitalize())
             help_text = meta.get("help_text", "Вводите значения через запятую")
-
-            # Проверяем, является ли field_type параметризованным типом list
-            is_list_type = get_origin(field_type) is list
-            if is_list_type:
-                initial_value = self.initial_config.get(field_name, [])
-                if isinstance(initial_value, str):
-                    try:
-                        # Пытаемся десериализовать строку как Python список
-                        initial_value = ast.literal_eval(initial_value) if initial_value else []
-                        if not isinstance(initial_value, list):
-                            initial_value = []
-                    except (ValueError, SyntaxError):
-                        initial_value = initial_value.splitlines() if initial_value else []
-                initial = ", ".join(str(v) for v in initial_value)
+            if field_type == bool:
+                # Обрабатываем логическое значение
+                initial = bool(initial_value) if initial_value not in [None, ""] else False
+                self.fields[field_name] = forms.BooleanField(
+                    required=False,
+                    initial=initial,
+                    label=label,
+                    help_text=help_text,
+                    widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+                )
             else:
-                initial = str(self.initial_config.get(field_name, ""))
+                # Проверяем, является ли field_type параметризованным типом list
+                is_list_type = get_origin(field_type) is list
+                if is_list_type:
+                    initial_value = self.initial_config.get(field_name, [])
+                    if isinstance(initial_value, str):
+                        try:
+                            # Пытаемся десериализовать строку как Python список
+                            initial_value = ast.literal_eval(initial_value) if initial_value else []
+                            if not isinstance(initial_value, list):
+                                initial_value = []
+                        except (ValueError, SyntaxError):
+                            initial_value = initial_value.splitlines() if initial_value else []
+                    initial = ", ".join(str(v) for v in initial_value)
+                else:
+                    initial = str(self.initial_config.get(field_name, ""))
 
-            self.fields[field_name] = forms.CharField(
-                required=False,
-                initial=initial,
-                widget=forms.Textarea(attrs={"rows": 4, 'class': 'form-control'}),
-                label=label,
-                help_text=help_text
-            )
+                self.fields[field_name] = forms.CharField(
+                    required=False,
+                    initial=initial,
+                    widget=forms.Textarea(attrs={"rows": 4, 'class': 'form-control'}),
+                    label=label,
+                    help_text=help_text
+                )
 
     def clean(self):
         cleaned_data = super().clean()
@@ -77,12 +87,7 @@ class ParserDynamicConfigForm(forms.Form):
                     self.add_error(field_name, "Должны быть целые числа, по одному на строку")
 
             elif field_type == bool:
-                if raw_value.lower() in ("true", "1", "yes", "да"):
-                    result[field_name] = True
-                elif raw_value.lower() in ("false", "0", "no", "нет"):
-                    result[field_name] = False
-                else:
-                    self.add_error(field_name, "Введите True/False или Да/Нет")
+                result[field_name] = bool(raw_value)
 
             elif field_type == str:
                 result[field_name] = raw_value.strip()

@@ -46,17 +46,26 @@
                     Используется для массового парсинга всего сайта. Его конфигурация влияет на автоматическую обработку.
                 </p>
                 {% if website.mainparser %}
+                <div class="mb-3 border-bottom pb-2">
                     <h5 class="card-title">{{ website.mainparser.class_name }}</h5>
                     <p class="card-text"><strong>Описание:</strong> {{ website.mainparser.description|default:"—" }}</p>
                     <p class="card-text"><strong>Автор:</strong> {{ website.mainparser.author }}</p>
                     <p class="card-text"><strong>Создан:</strong> {{ website.mainparser.created_at }}</p>
                     <p class="card-text"><strong>Обновлён:</strong> {{ website.mainparser.updated_at }}</p>
+
+                    <a href="{% url 'parsers:mainparser_detail' website.mainparser.id %}" class="btn btn-sm btn-outline-primary mt-2" target="_blank">
+                        Посмотреть детали
+                    </a>
+                </div>
+                <a href="{% url 'sources:website_bulk_parse' website.pk %}" class="btn btn-success">
+                    📦 Парсинг по списку
+                </a>
+                <a href="{% url 'sources:website_synchronization' website.pk %}" class="btn btn-success">
+                    📦 Полная синхронизация
+                </a>
                 {% else %}
                     <p class="text-muted">Основной парсер не задан</p>
                 {% endif %}
-                <a href="{% url 'sources:website_parse' website.pk %}?mode=bulk" class="btn btn-success">
-                    📦 Массовый парсинг
-                </a>
             </div>
         </div>
     </div>
@@ -99,7 +108,7 @@
                 {% empty %}
                     <p class="text-muted">Тестовых парсеров нет</p>
                 {% endfor %}
-                <a href="{% url 'sources:website_parse' website.pk %}?mode=test" class="btn btn-outline-primary">
+                <a href="{% url 'sources:website_test_parse' website.pk %}" class="btn btn-outline-primary">
                     🧪 Тестовый парсинг
                 </a>
             </div>
@@ -116,9 +125,7 @@
         <ul>
             {% for report in website.reports.all %}
                 <li>
-                    <a href="">
-                        {{ report }}
-                    </a>
+                    <a href="{{ report.get_absolute_url }}">{{ report }}</a>
                 </li>
             {% endfor %}
         </ul>
@@ -126,51 +133,43 @@
 {% endif %}
 
 <h3 class="mb-4">🗂️ Контент хранилища</h3>
+<a class="btn btn-primary" href="{% url 'chunks:create_chunks_from_website' website.pk %}">Создать чанки</a>
 
 <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
     {% for url in website.url_set.all %}
-        {% with raw=url.rawcontent_set.first %}
-            <div class="col">
-                <div class="card h-100 shadow-sm {% if raw.cleanedcontent %}border-success{% endif %}">
-                    {% if raw and raw.is_image %}
-                        <img src="{{ raw.file.url }}" class="card-img-top" alt="preview" style="object-fit: cover; height: 200px;">
-                    {% endif %}
-                    <div class="card-body d-flex flex-column">
-                        <h5 class="card-title">
-                            <a href="{% url 'sources:url_detail' url.pk %}" class="text-decoration-none text-primary d-flex flex-column align-items-center">
-                                <i class="bi {{ raw.get_icon_class }} fs-3 mb-4"></i><span class="mb-2">{{ url.title|default:"Без имени" }}</span> 
-                            </a>
-                        </h5>
-                        <p class="mb-1"><strong>📌 Статус:</strong> {{ url.get_status_display }}</p>
-                        <p class="mb-1"><strong>📦 Размер:</strong> {{ url.size|filesizeformat }}</p>
+        <div class="col">
+            <div class="card h-100 shadow-sm border 
+                {% if url.latest_content_error_message %}
+                    border-danger bg-danger-subtle text-danger
+                {% else %}
+                    border-success
+                {% endif %}">
+                
+                <div class="card-body d-flex flex-column justify-content-between">
+                    <h5 class="card-title text-center">
+                        <a href="{% url 'sources:url_detail' url.pk %}"
+                            class="text-decoration-none text-primary d-flex flex-column align-items-center">
+                            <i class="bi {{ raw.get_icon_class }} fs-3 mb-3"></i>
+                            <span>{{ url.latest_content_title|default:"Без имени" }}</span>
+                        </a>
+                    </h5>
 
-                        {% if raw %}
-                            <p class="mb-1">
-                                <strong>📥 Исходный файл:</strong>
-                                <a href="{{ raw.file.url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
-                                    ⬇ Скачать
-                                </a>
-                            </p>
-                            {% with cleaned=raw.cleanedcontent %}
-                                {% if cleaned %}
-                                    <p class="mb-1">
-                                        <strong>🧹 Очищенный контент:</strong>
-                                        <a href="{{ cleaned.file.url }}" target="_blank" class="btn btn-sm btn-outline-success">
-                                            ⬇ Скачать
-                                        </a>
-                                    </p>
-                                {% else %}
-                                    <p class="text-muted">🧹 Очищенный контент: отсутствует</p>
-                                {% endif %}
-                            {% endwith %}
-                        {% else %}
-                            <p class="text-muted">📥 Исходный файл: отсутствует</p>
+                    <div class="small mt-3">
+                        <p class="mb-1"><strong>URL:</strong> <span class="text-muted">{{ url.url }}</span></p>
+                        <p class="mb-1"><strong>Статус обработки:</strong> {{ url.latest_content_status|default:"—" }}</p>
+                        <p class="mb-1"><strong>HTTP-ответ:</strong> {{ url.latest_content_response_status|default:"—" }}</p>
+                        <p class="mb-1"><strong>Тэги:</strong> {{ url.latest_content_tags|default:"—" }}</p>
+
+                        {% if url.latest_content_error_message %}
+                            <p class="mt-2 mb-0"><strong>Ошибка:</strong> {{ url.latest_content_error_message }}</p>
                         {% endif %}
                     </div>
                 </div>
             </div>
-        {% endwith %}
+        </div>
     {% endfor %}
 </div>
+
+
 
 {% endblock %}

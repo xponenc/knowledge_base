@@ -6,13 +6,14 @@ from django.contrib.auth import get_user_model
 from django.db.models import UniqueConstraint, Q
 from django.urls import reverse
 
-User = get_user_model()
-
+from knowledge_base.mixin_models import TrackableModel, SoftDeleteModel
 from app_core.models import KnowledgeBase
 
+User = get_user_model()
 
-class Storage(models.Model):
-    """Модель хранилища"""
+
+class Storage(TrackableModel, SoftDeleteModel):
+    """Абстрактная модель хранилища, предназначена для логического объединения источников и их обработки"""
 
     kb = models.ForeignKey(KnowledgeBase, verbose_name="база знаний", on_delete=models.CASCADE)
 
@@ -36,28 +37,21 @@ class WebSite(Storage):
     base_url = models.URLField(verbose_name="Основной URL сайта")
     xml_map_url = models.URLField(verbose_name="XML карта сайта", blank=True, null=True)
 
-    # parser = models.ForeignKey(Parser, verbose_name="текущий парсер сайта", on_delete=models.PROTECT,
-    #                            blank=True, null=True)
-    #
-    # test_parser = models.ForeignKey(Parser, verbose_name="тестовый парсер сайта", on_delete=models.PROTECT,
-    #                                 blank=True, null=True, related_name="websites_as_test_parser" )
-
     class Meta:
         verbose_name = "Web Site"
         verbose_name_plural = "Web Sites"
-        # Раскомментировать для PostgreSQL
-        # constraints = [
-        #     UniqueConstraint(
-        #         fields=['kb', 'name'],
-        #         condition=Q(kb__isnull=False, name__isnull=False),
-        #         name='unique_kb_and_name',
-        #     ),
-        #    UniqueConstraint(
-        #         fields=['kb', 'base_url'],
-        #         condition=Q(kb__isnull=False, base_url__isnull=False),
-        #         name='unique_kb_and_base_url',
-        #     )
-        # ]
+        constraints = [
+            UniqueConstraint(
+                fields=['kb', 'name'],
+                condition=Q(kb__isnull=False, name__isnull=False),
+                name='unique_kb_and_name_for_website',
+            ),
+            UniqueConstraint(
+                fields=['kb', 'base_url'],
+                condition=Q(kb__isnull=False, base_url__isnull=False),
+                name='unique_kb_and_base_url_for_website',
+            )
+        ]
 
     def get_absolute_url(self):
         return reverse("sources:website_detail", kwargs={"pk": self.pk, })
@@ -74,22 +68,19 @@ class WebSite(Storage):
                 raise ValidationError(f"Веб-сайт с URL {self.base_url} в базе знаний {self.kb.name} уже существует.")
 
 
-
-
 class URLBatch(Storage):
     """Модель Пакете ссылок для выборочного парсинга страниц"""
 
     class Meta:
         verbose_name = "URL Batch"
         verbose_name_plural = "URL Batches"
-        # Раскомментировать для PostgreSQL
-        # constraints = [
-        #     UniqueConstraint(
-        #         fields=['kb', 'name'],
-        #         condition=Q(kb__isnull=False, name__isnull=False),
-        #         name='unique_kb_and_name',
-        #     ),
-        # ]
+        constraints = [
+            UniqueConstraint(
+                fields=['kb', 'name'],
+                condition=Q(kb__isnull=False, name__isnull=False),
+                name='unique_kb_and_name_for_urlbatch',
+            ),
+        ]
 
     def get_absolute_url(self):
         return reverse("sources:webbatch_detail", kwargs={"pk": self.id, })
@@ -109,14 +100,13 @@ class LocalStorage(Storage):
     class Meta:
         verbose_name = "Local Storage"
         verbose_name_plural = "Local Storages"
-        # Раскомментировать для PostgreSQL
-        # constraints = [
-        #     UniqueConstraint(
-        #         fields=['kb', 'name'],
-        #         condition=Q(kb__isnull=False, name__isnull=False),
-        #         name='unique_kb_and_name',
-        #     )
-        # ]
+        constraints = [
+            UniqueConstraint(
+                fields=['kb', 'name'],
+                condition=Q(kb__isnull=False, name__isnull=False),
+                name='unique_kb_and_name_for_local_storage',
+            )
+        ]
 
     def get_absolute_url(self):
         return reverse("sources:localstorage_detail", kwargs={"pk": self.id, })
@@ -148,13 +138,13 @@ class CloudStorage(Storage):
         verbose_name = "Cloud Storage"
         verbose_name_plural = "Cloud Storages"
         # Раскомментировать для PostgreSQL
-        # constraints = [
-        #     UniqueConstraint(
-        #         fields=['kb', 'name'],
-        #         condition=Q(kb__isnull=False, name__isnull=False),
-        #         name='unique_kb_and_name',
-        #     )
-        # ]
+        constraints = [
+            UniqueConstraint(
+                fields=['kb', 'name'],
+                condition=Q(kb__isnull=False, name__isnull=False),
+                name='unique_kb_and_name_for_cloud_storage',
+            )
+        ]
 
     def __str__(self):
         return f"{self.name}(network)"
@@ -186,24 +176,3 @@ class CloudStorage(Storage):
             storage_class = getattr(module, class_name)
             return storage_class(self.credentials)
         raise ValueError(f"Неподдерживаемый api_type: {self.api_type}")
-
-
-class CloudStorageUpdateReport(models.Model):
-    """Отчет по обновлению файлов Облачного хранилища"""
-
-    storage = models.ForeignKey(CloudStorage, on_delete=models.CASCADE, related_name="reports")
-
-    content = models.JSONField(verbose_name="отчет", default=dict)
-    running_background_tasks = models.JSONField(verbose_name="выполняемые фоновые задачи по обработке отчета",
-                                                default=dict)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
-
-    def __str__(self):
-        return f"Отчет об обновлении облачного хранилища {self.storage}"
-
-    def get_absolute_url(self):
-        return reverse("sources:cloudstorageupdatereport_detail", kwargs={"pk": self.pk, })

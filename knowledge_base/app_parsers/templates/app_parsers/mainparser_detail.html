@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Основной парсер Веб-сайта {{ mainparser.site.name }} {% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">🛠 Основной парсер сайта</strong> 🔗<a class="text-dark" href="{{ mainparser.site.get_absolute_url }}" target="_blank">{{ mainparser.site.name }}</a></h6>
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <p><strong>Название парсера:</strong> {{ mainparser.class_name }}</p>
+            <p><strong>Конфигурация:</strong></p>
+            {% if mainparser.config %}
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Ключ</th>
+                            <th>Значение</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for key, value in mainparser.config.items %}
+                            <tr>
+                                <td>{{ key }}</td>
+                                <td>
+                                    {% if value is string %}
+                                        {{ value }}
+                                    {% elif value is iterable and value is not string %}
+                                        {{ value|join:", " }}
+                                    {% else %}
+                                        {{ value|default:"Нет данных" }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div class="d-flex gap-2">
+
+                </div>
+            {% else %}
+                <p class="text-muted">Конфигурация отсутствует.</p>
+            {% endif %}
+        </div>
+
+
+
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">✅ История обработок </h5>
+        </div>
+        
+    </div>
+</div>
+{% include "include/object_history.html" %}
+{% endblock %}

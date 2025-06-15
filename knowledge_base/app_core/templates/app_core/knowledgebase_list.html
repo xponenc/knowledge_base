@@ -14,9 +14,9 @@
             <li class="list-group-item d-flex justify-content-between align-items-center {% if kb.soft_deleted_at %}text-muted{% endif %}">
                 <div>
                     <a href="{{ kb.get_absolute_url }}" class="text-decoration-none">
-                        {{ kb.title }}
+                        {{ kb.name }}
                     </a>
-                    {% if kb.soft_deleted_at %}
+                    {% if kb.is_deleted %}
                         <span class="badge bg-secondary ms-2">Удалена</span>
                     {% endif %}
                 </div>

@@ -1,5 +1,4 @@
 from celery import shared_task
-from .models import Chunk
 from utils.chunking import generate_chunks
 
 @shared_task

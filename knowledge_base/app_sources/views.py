@@ -4,6 +4,8 @@ from pprint import pprint
 from dateutil.parser import parse
 from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 from django.core.files.base import ContentFile
+from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch
+from django.db.models.functions import Left, Coalesce, Substr
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse_lazy
@@ -14,13 +16,14 @@ from django.views.generic import DetailView, ListView, CreateView, UpdateView, D
 
 from app_core.models import KnowledgeBase
 from app_parsers.forms import TestParseForm, BulkParseForm, ParserDynamicConfigForm
-from app_parsers.models import Parser, TestParser, TestParseReport, MainParser, MainParserReport
-from app_parsers.services.parsers.core_parcer_engine import SeleniumDriver
-from app_parsers.tasks import test_single_url
+from app_parsers.models import TestParser, TestParseReport, MainParser
+from app_parsers.tasks import test_single_url, parse_urls_task
 from app_parsers.services.parsers.dispatcher import WebParserDispatcher
+from app_sources.content_models import URLContent, RawContent, CleanedContent
 from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedContentEditorForm
-from app_sources.models import NetworkDocument, RawContent, CleanedContent
-from app_sources.storage_models import CloudStorage, CloudStorageUpdateReport, Storage, LocalStorage, WebSite
+from app_sources.report_model import CloudStorageUpdateReport, WebSiteUpdateReport
+from app_sources.source_models import NetworkDocument, URL
+from app_sources.storage_models import CloudStorage, Storage, LocalStorage, WebSite
 from app_sources.tasks import process_cloud_files, download_and_create_raw_content, \
     download_and_create_raw_content_parallel
 from recognizers.dispatcher import ContentRecognizerDispatcher
@@ -224,6 +227,51 @@ class CloudStorageUpdateReportDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
+class WebSiteUpdateReportDetailView(LoginRequiredMixin, DetailView):
+    """Детальный просмотр отчёта о парсинге сайта"""
+    model = WebSiteUpdateReport
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        report = self.object
+        new_urls_id = self.object.content.get("result", {}).get("new_urls")
+        # new_urls = URL.objects.prefetch_related("urlcontent_set").filter(pk__in=new_urls_id).annotate(
+        #     body_preview=Subquery(
+        #         URLContent.objects.filter(url=OuterRef("pk"))
+        #         .order_by("-created_at")  # Сортировка по последней записи
+        #         .values("body")[:1]  # Берём только первую запись
+        #     ),
+        #     body_preview_100=Left("body_preview", 100)  # Обрезаем до 100 символов
+        # )
+        print(new_urls_id)
+        new_urls = URLContent.objects.filter(report=self.object).select_related("url").annotate(
+                max_created_at=Subquery(
+                    URLContent.objects.filter(url=OuterRef("url"))
+                    .values("url")
+                    .annotate(max_created=Max("created_at"))
+                    .values("max_created")[:1]
+                ),
+                body_preview_301=Coalesce(Substr("body", 1, 301), Value("")),
+                url_pk=F("url_id"),
+                url_str=F("url__url"),
+            ).filter(created_at=F("max_created_at"))
+
+        # Добавление контекста по исполняемым фоновым задачам Celery
+        running_background_tasks = report.running_background_tasks
+        task_context = []
+        for task_id, task_name in running_background_tasks.items():
+            task_context.append(
+                {
+                    "task_name": task_name,
+                    "task_id": task_id,
+                    "report": get_task_status(task_id)
+                }
+            )
+        context['task_context'] = task_context
+        context['new_urls'] = new_urls
+        return context
+
+
 class NetworkDocumentsMassCreateView(LoginRequiredMixin, View):
     """
     Создание документов (NetworkDocument) на основе отчёта синхронизации (CloudStorageUpdateReport).
@@ -351,6 +399,47 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
     """Детальный просмотр объекта модели Вебсайт (с проверкой прав доступа)"""
     model = WebSite
 
+    def get_queryset(self):
+        # Define subqueries for each field of the latest URLContent
+        latest_content_id = URLContent.objects.filter(
+            url=OuterRef('pk')
+        ).order_by('-created_at').values('id')[:1]
+
+        latest_content_title = URLContent.objects.filter(
+            url=OuterRef('pk')
+        ).order_by('-created_at').values('title')[:1]
+
+        latest_content_status = URLContent.objects.filter(
+            url=OuterRef('pk')
+        ).order_by('-created_at').values('status')[:1]
+
+        latest_content_response_status = URLContent.objects.filter(
+            url=OuterRef('pk')
+        ).order_by('-created_at').values('response_status')[:1]
+
+        latest_content_tags = URLContent.objects.filter(
+            url=OuterRef('pk')
+        ).order_by('-created_at').values('tags')[:1]
+
+        latest_content_error_message = URLContent.objects.filter(
+            url=OuterRef('pk')
+        ).order_by('-created_at').values('error_message')[:1]
+
+        # Annotate URL objects with the latest URLContent fields
+        return WebSite.objects.prefetch_related(
+            Prefetch(
+                'url_set',
+                queryset=URL.objects.annotate(
+                    latest_content_id=Subquery(latest_content_id),
+                    latest_content_title=Subquery(latest_content_title),
+                    latest_content_status=Subquery(latest_content_status),
+                    latest_content_response_status=Subquery(latest_content_response_status),
+                    latest_content_tags=Subquery(latest_content_tags),
+                    latest_content_error_message=Subquery(latest_content_error_message),
+                ).prefetch_related('urlcontent_set')
+            )
+        )
+
 
 class WebSiteCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateView):
     """Создание объекта модели Вебсайт"""
@@ -398,67 +487,228 @@ class WebSiteDeleteView(LoginRequiredMixin, DeleteView):
         return self.object.kb.get_absolute_url()
 
 
-class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
+class WebSiteTestParseView(LoginRequiredMixin, StoragePermissionMixin, View):
+    """Тестовый парсинг одной страницы с записью отчета"""
+    def get(self, request, pk, *args, **kwargs):
+        website = get_object_or_404(WebSite, pk=pk)
+        parser_dispatcher = WebParserDispatcher()
+        all_parsers = parser_dispatcher.discover_parsers()
+
+        test_url = request.GET.get("url")
+        if not test_url:
+            test_url = website.base_url
+        parse_form_initial = {"url": test_url}
+
+        try:
+            website_test_parser = TestParser.objects.get(site=website, author=request.user)
+        except TestParser.DoesNotExist:
+            website_test_parser = None
+
+        parser_config_form = None
+        if website_test_parser:
+            parse_form_initial["parser"] = website_test_parser.class_name
+            try:
+                parser_cls = parser_dispatcher.get_by_class_name(website_test_parser.class_name)
+                parser_config_schema = getattr(parser_cls, "config_schema", {})
+                parser_config_form = ParserDynamicConfigForm(
+                    schema=parser_config_schema,
+                    initial_config=website_test_parser.config
+                )
+            except ValueError:
+
+                logger.error(
+                    f"Для WebSite {website.name} не найден BaseWebParser по "
+                    f"class_name = {website_test_parser.class_name}"
+                )
+        parse_form = TestParseForm(parsers=all_parsers, initial=parse_form_initial)
+
+        return render(request, "app_sources/website_test_parse_form.html", {
+            "form": parse_form,
+            "config_form": parser_config_form,
+            "parser": website_test_parser,
+            "website": website,
+        })
+
+    def post(self, request, pk):
+        website = get_object_or_404(WebSite, id=pk)
+
+        parser_dispatcher = WebParserDispatcher()
+        all_parsers = parser_dispatcher.discover_parsers()
+        parse_form = TestParseForm(request.POST, parsers=all_parsers)
+
+        if not parse_form.is_valid():
+            return render(request, "app_sources/website_test_parse_form.html", {
+                "form": parse_form,
+                "config_form": None,
+                "website": website
+            })
+
+        clean_emoji = parse_form.cleaned_data["clean_emoji"]
+        clean_text = parse_form.cleaned_data["clean_text"]
+
+        parser_cls = parse_form.cleaned_data["parser"]
+        parser_config_schema = getattr(parser_cls, "config_schema", {})
+        parser_config_form = ParserDynamicConfigForm(request.POST, schema=parser_config_schema)
+
+        if not parser_config_form.is_valid():
+            return render(request, "app_sources/website_test_parse_form.html", {
+                "form": parse_form,
+                "config_form": parser_config_form,
+                "website": website
+            })
+
+        parser_config = parser_config_form.cleaned_data
+
+        url = parse_form.cleaned_data["url"]
+        test_parser, created = TestParser.create_or_update(
+            site=website,
+            author=request.user,
+            class_name=f"{parser_cls.__module__}.{parser_cls.__name__}",
+            config=parser_config,
+
+        )
+        test_parser_report, created = TestParseReport.objects.get_or_create(
+            parser=test_parser,
+            defaults={
+                "url": url,
+                "author": request.user,
+            }
+        )
+        if not created:
+            test_parser_report.url = url
+            test_parser_report.status = None
+            test_parser_report.html = ""
+            test_parser_report.parsed_data = {}
+            test_parser_report.error = ""
+            test_parser_report.author = request.user
+            test_parser_report.save()
+
+        task = test_single_url.delay(
+            url=url,
+            parser=test_parser,
+            author_id=request.user.pk,
+            webdriver_options=None,  # если не задать, то применятся дефолтные в классе
+            clean_text=clean_text,
+            clean_emoji=clean_emoji,
+        )
+
+        # test_single_url(
+        #     url=url,
+        #     parser=test_parser,
+        #     author_id=request.user.pk,
+        #     webdriver_options=None,  # если не задать, то применятся дефолтные в классе
+        #     clean_text=clean_text,
+        #     clean_emoji=clean_emoji,
+        # )
+        #
+        # return redirect(reverse_lazy("parsers:testparser_detail", kwargs={"pk": test_parser.pk}))
+
+        return render(request, "celery_task_progress.html", {
+            "task_id": task.id,
+            "task_name": f"Тестовый парсинг страницы {url}",
+            "task_object_url": reverse_lazy("sources:website_detail", kwargs={"pk": website.pk}),
+            "task_object_name": website.name,
+            "next_step_url": reverse_lazy("parsers:testparser_detail", kwargs={"pk": test_parser.pk}),
+        })
+
+
+class WebSiteBulkParseView(LoginRequiredMixin, StoragePermissionMixin, View):
+    """Парсинг списка ссылок"""
+    def get(self, request, pk, *args, **kwargs):
+        website = get_object_or_404(WebSite, pk=pk)
+        current_parser = None
+
+        parse_form_initial = {"urls": website.base_url}
+        website_main_parser = getattr(website, "mainparser", None)
+        if website_main_parser:
+            current_parser = website_main_parser
+            parse_form = BulkParseForm(initial=parse_form_initial)
+            try:
+                parser_cls = WebParserDispatcher().get_by_class_name(website_main_parser.class_name)
+            except ValueError:
+
+                logger.error(
+                    f"Для WebSite {website.name} не найден BaseWebParser по "
+                    f"class_name = {website_main_parser.class_name}"
+                )
+        else:
+            parse_form = None
+
+        return render(request, "app_sources/website_mass_parse_form.html", {
+            "form": parse_form,
+            "parser": current_parser,
+            "website": website,
+        })
+
+    def post(self, request, pk):
+        website = get_object_or_404(WebSite, id=pk)
+        website_main_parser = getattr(website, "mainparser", None)
+        if not website_main_parser:
+            pass
+        parse_form = BulkParseForm(request.POST)
+
+        if not parse_form.is_valid():
+            return render(request, "app_sources/website_mass_parse_form.html", {
+                "form": parse_form,
+                "parser": website_main_parser,
+                "website": website,
+            })
+
+        clean_emoji = parse_form.cleaned_data["clean_emoji"]
+        clean_text = parse_form.cleaned_data["clean_text"]
+        urls = parse_form.cleaned_data["urls"]
+
+        parser_config = website.mainparser.config
+
+        main_parser, created = MainParser.objects.update_or_create(
+            site=website,
+            defaults={
+                # "class_name": f"{parser_cls.__module__}.{parser_cls.__name__}",
+                "config": parser_config,
+                "author": request.user,
+            }
+        )
+
+        website_update_report = WebSiteUpdateReport.objects.create(
+            storage=website,
+            author=request.user,
+            content={
+                "urls": urls,
+                "parser_class": main_parser.class_name,
+                "parser_config": main_parser.config,
+            }
+        )
+
+        task = parse_urls_task.delay(
+            parser=main_parser,
+            urls=urls,
+            website_update_report_pk=website_update_report.pk,
+            webdriver_options=None,  # если не задать, то применятся дефолтные в классе
+            clean_text=clean_text,
+            clean_emoji=clean_emoji,
+        )
+
+        return render(request, "celery_task_progress.html", {
+            "task_id": task.id,
+            "task_name": f"Массовый парсинг страниц сайта {website.name}",
+            "task_object_url": reverse_lazy("sources:website_detail", kwargs={"pk": website.pk}),
+            "task_object_name": website.name,
+            "next_step_url": reverse_lazy("sources:websiteupdatereport_detail",
+                                          kwargs={"pk": website_update_report.pk}),
+        })
+
+
+class WebSiteSynchronizationView(LoginRequiredMixin, StoragePermissionMixin, View):
 
     def get(self, request, pk, *args, **kwargs):
         website = get_object_or_404(WebSite, pk=pk)
-        mode = request.GET.get("mode", "test")
-        parser_dispatcher = WebParserDispatcher()
-        all_parsers = parser_dispatcher.discover_parsers()
         current_parser = None
-        parser_config_form = None
 
-        if mode == "bulk":
-            parse_form_initial = {"urls": website.base_url}
-            website_main_parser = getattr(website, "mainparser", None)
-            if website_main_parser:
-                current_parser = website_main_parser
-                # parse_form_initial["parser"] = website_main_parser.class_name
-                try:
-                    parser_cls = WebParserDispatcher().get_by_class_name(website_main_parser.class_name)
-                    parser_config_schema = getattr(parser_cls, "config_schema", {})
-                    # parser_config_form = ParserDynamicConfigForm(
-                    #     schema=parser_config_schema,
-                    #     initial=website_main_parser.config
-                    # )
-                except ValueError:
-                    logger.error(
-                        f"Для WebSite {website.name} не найден BaseWebParser по "
-                        f"class_name = {website_main_parser.class_name}"
-                    )
-            parse_form = BulkParseForm(initial=parse_form_initial)
-
-        else:  # test mode
-            test_url = request.GET.get("url")
-            if not test_url:
-                test_url = website.base_url
-            parse_form_initial = {"url": test_url}
-            try:
-                website_test_parser = TestParser.objects.get(site=website, author=request.user)
-                print(website_test_parser)
-            except TestParser.DoesNotExist:
-                website_test_parser = None
-
-            if website_test_parser:
-                parse_form_initial["parser"] = website_test_parser.class_name
-                try:
-                    parser_cls = parser_dispatcher.get_by_class_name(website_test_parser.class_name)
-                    parser_config_schema = getattr(parser_cls, "config_schema", {})
-                    parser_config_form = ParserDynamicConfigForm(
-                        schema=parser_config_schema,
-                        initial_config=website_test_parser.config
-                    )
-                except ValueError:
-                    logger.error(
-                        f"Для WebSite {website.name} не найден BaseWebParser по "
-                        f"class_name = {website_test_parser.class_name}"
-                    )
-            parse_form = TestParseForm(parsers=all_parsers, initial=parse_form_initial)
+        website_main_parser = getattr(website, "mainparser", None)
+        if website_main_parser:
+            current_parser = website_main_parser
 
         return render(request, "app_sources/website_parse_form.html", {
-            "form": parse_form,
-            "config_form": parser_config_form,
-            "mode": mode,
             "parser": current_parser,
             "website": website,
         })
@@ -505,41 +755,52 @@ class WebSiteParseView(LoginRequiredMixin, StoragePermissionMixin, View):
 
         if mode == "bulk":
             urls = parse_form.cleaned_data["urls"]
-            # main_parser, created = MainParser.create_or_update(
-            #     site=website,
-            #     defaults={
-            #         "class_name": f"{parser_cls.__module__}.{parser_cls.__name__}",
-            #         "config": parser_config,
-            #         "author": request.user,
-            #     }
-            # )
-            #
-            # main_parser_report = MainParserReport.objects.create(
-            #     parser=main_parser,
-            #     author=request.user,
-            #     content={
-            #         "urls": urls,
-            #         "parser_class": main_parser.class_name,
-            #         "parser_config": main_parser.config,
-            #     }
-            # )
-            print(urls)
+            main_parser, created = MainParser.objects.update_or_create(
+                site=website,
+                defaults={
+                    # "class_name": f"{parser_cls.__module__}.{parser_cls.__name__}",
+                    "config": parser_config,
+                    "author": request.user,
+                }
+            )
 
-            return render(request, "app_sources/website_parse_form.html", {
-                "form": parse_form,
-                "config_form": None,
-                "mode": mode,
-                "website": website
+            website_update_report = WebSiteUpdateReport.objects.create(
+                storage=website,
+                author=request.user,
+                content={
+                    "urls": urls,
+                    "mode": mode,
+                    "parser_class": main_parser.class_name,
+                    "parser_config": main_parser.config,
+                }
+            )
+
+            task = parse_urls_task.delay(
+                urls=urls,
+                parser=main_parser,
+                author_id=request.user.pk,
+                website_update_report_pk=website_update_report.pk,
+                webdriver_options=None,  # если не задать, то применятся дефолтные в классе
+                clean_text=clean_text,
+                clean_emoji=clean_emoji,
+            )
+
+            return render(request, "celery_task_progress.html", {
+                "task_id": task.id,
+                "task_name": f"Массовый парсинг страниц сайта {website.name}",
+                "task_object_url": reverse_lazy("sources:website_detail", kwargs={"pk": website.pk}),
+                "task_object_name": website.name,
+                "next_step_url": reverse_lazy("sources:websiteupdatereport_detail",
+                                              kwargs={"pk": website_update_report.pk}),
             })
+
         else:
             url = parse_form.cleaned_data["url"]
             test_parser, created = TestParser.create_or_update(
                 site=website,
                 author=request.user,
-                defaults={
-                    "class_name": f"{parser_cls.__module__}.{parser_cls.__name__}",
-                    "config": parser_config,
-                },
+                class_name=f"{parser_cls.__module__}.{parser_cls.__name__}",
+                config=parser_config,
 
             )
             test_parser_report, created = TestParseReport.objects.get_or_create(
@@ -598,6 +859,11 @@ class WebSiteTestParseReportView(LoginRequiredMixin, View):
             "report": test_report,
         }
         return render(request, "app_sources/testparseresult_detail.html", context)
+
+
+class URLDetailView(LoginRequiredMixin, DocumentPermissionMixin, DetailView):
+    """Детальный просмотр объекта модели Модель страницы сайта URL (с проверкой прав доступа)"""
+    model = URL
 
 
 class RawContentRecognizeCreateView(LoginRequiredMixin, View):

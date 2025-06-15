@@ -1,5 +1,5 @@
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from chunks.models import Chunk
+# from chunks.models import Chunk
 
 def generate_chunks(source):
     """

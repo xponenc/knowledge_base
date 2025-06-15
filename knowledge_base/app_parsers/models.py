@@ -3,7 +3,7 @@ from django.db import models, transaction
 from django.urls import reverse_lazy
 
 from app_sources.storage_models import WebSite
-from knowledge_base.base_models import TrackableModel
+from knowledge_base.mixin_models import TrackableModel
 User = get_user_model()
 
 
@@ -39,19 +39,6 @@ class MainParser(Parser):
     class Meta:
         verbose_name = "Парсер сайта"
         verbose_name_plural = "Парсеры сайтов"
-
-
-class MainParserReport(models.Model):
-    """Класс отчета результатов работы MainParser"""
-
-    parser = models.OneToOneField(MainParser, on_delete=models.CASCADE, verbose_name="результат теста")
-
-    content = models.JSONField(verbose_name="отчет", default=dict)
-    running_background_tasks = models.JSONField(verbose_name="выполняемые фоновые задачи по обработке отчета",
-                                                default=dict)
-
-    author = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="автор теста")
-    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class TestParser(Parser):

@@ -1,0 +1,443 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    .table td {
+        max-width: 200px; /* Ограничьте максимальную ширину ячейки */
+        word-break: break-all; /* Переносит слова по любому символу */
+        overflow-wrap: break-word; /* Альтернатива для старых браузеров */
+        white-space: normal; /* Разрешает перенос текста */
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="mt-3 mb-3">
+    <ol class="breadcrumb container">
+        <li class="breadcrumb-item"><a href="{{ object.storage.kb.get_absolute_url }}">База знаний {{ object.storage.kb.title }}</a></li>
+        <li class="breadcrumb-item">
+            <a href="{% url 'sources:website_detail' object.storage.pk %}">
+                Веб-сайт {{ object.storage.name }}
+            </a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">Отчет по синхронизации</li>
+    </ol>
+</nav>
+{% endblock %}
+
+
+
+{% block title %}Отчет по синхронизации{% endblock %}
+
+{% block content %}
+{{ object.content.result }}
+<div class="sync-report">
+    <h1 class="sync-report__title mb-4">Отчет по синхронизации</h1>
+
+    <div class="sync-report__meta text-muted mb-3 d-flex justify-content-between">
+        <div class="sync-report__info text-start" style="flex:1;">
+            {{ object.created_at|date:"F j, Y, H:i" }}<br>
+            <a href="{% url 'sources:website_detail' object.storage.pk %}" class="link-primary fw-semibold">
+                {{ object.storage.name }}
+            </a>
+            <p>Тип синхронизации: {{ object.content.sync_type }}</p>
+            <p>Статус обработки: {{ object.content.current_status }}</p>
+        </div>
+        <div class="sync-report__tasks me-3" style="flex:1;">
+            <h5>Обрабатываемые фоновые задачи</h5>
+            <ul class="list-unstyled">
+                {% for task_data in task_context %}
+                <li class="d-flex align-items-center mb-2">
+                    <a href="{% url 'celery_progress_info' 'cloudstorageupdatereport' cloudstorageupdatereport.pk task_data.task_id %}" class="me-2">{{ task_data.task_name }}</a>
+                    {% if task_data.report.status == "PENDING" %}
+                        <span class="badge bg-secondary" title="Ожидает">⏳</span>
+                    {% elif task_data.report.status == "STARTED" %}
+                        <span class="badge bg-info text-dark" title="Выполняется">⚙️</span>
+                    {% elif task_data.report.status == "SUCCESS" %}
+                        <span class="badge bg-success" title="Успешно">✔️</span>
+                    {% elif task_data.report.status == "FAILURE" %}
+                        <span class="badge bg-danger" title="Ошибка">❌</span>
+                    {% elif task_data.report.status == "RETRY" %}
+                        <span class="badge bg-warning text-dark" title="Повтор">🔄</span>
+                    {% else %}
+                        <span class="badge bg-light text-dark" title="{{ task_data.report.status }}">{{ task_data.report.status }}</span>
+                    {% endif %}
+                </li>
+                {% empty %}
+                <li>Фоновых задач нет</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    {% with result=object.content.result %}
+    <h4 class="mt-4">Сводка по группам</h4>
+    <table class="table table-bordered mb-5 w-auto">
+        <thead class="table-light">
+            <tr>
+                <th>Группа</th>
+                <th>Обнаружено</th>
+                <th>Успешно обработано</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="table-success">
+                <td>Новые файлы</td>
+                <td>{{ result.new_urls|length }}</td>
+                <td>{{ cloudstorageupdatereport.content.created_docs|length|default:"0" }}</td>
+            </tr>
+            <tr class="table-warning">
+                <td>Обновлённые файлы</td>
+                <td>{{ result.updated_urls|length }}</td>
+                <td>-</td>
+            </tr>
+            <tr class="table-danger">
+                <td>Удалённые файлы</td>
+                <td>{{ result.deleted_urls|length }}</td>
+                <td>-</td>
+            </tr>
+            <tr class="table-primary">
+                <td>Восстановленные файлы</td>
+                <td>{{ result.restored_urls|length }}</td>
+                <td>-</td>
+            </tr>
+            <tr class="table-secondary">
+                <td>Исключённые файлы</td>
+                <td>{{ result.excluded_urls|length }}</td>
+                <td>-</td>
+            </tr>
+        </tbody>
+    </table>
+
+    {# === Блок: Новые файлы === #}
+    <div class="sync-report__section mb-5">
+        <h3 class="text-success">Новые файлы ({{ result.new_urls|length }})</h3>
+        {% if result.new_urls %}
+            <table class="table table-bordered table-hover">
+                <thead class="table-success">
+                    <tr>
+                        <th>Название</th>
+                        <th>URL</th>
+                        <th>Тэги</th>
+                        <th>Контент</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for url in new_urls %}
+                        <tr>
+                            <td><a href="{% url 'sources:url_detail' url.url_pk %}">{{ url.title }}</a></td>
+                            <td><a href="{{ url.url_str }}">{{ url.url_str }}</a></td>
+                            <td>{{ url.tags }}</td>
+                            <td>{{ url.body_preview_301|slice:":300" }}{% if url.body_preview_301|length > 300 %}...{% endif %}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+        <p class="text-muted">Новых файлов не найдено.</p>
+        {% endif %}
+    </div>
+
+    {# === Блок: Обновлённые файлы === #}
+    <div class="sync-report__section mb-5">
+        <h3 class="text-warning">Обновлённые файлы ({{ result.updated_files|length }})</h3>
+        {% if result.updated_files %}
+            {% with updated_docs=cloudstorageupdatereport.content.updated_docs|default:0 %}
+            {% if updated_docs != result.updated_files|length %}
+            <form method="post" action="{% url 'sources:documents-mass-update' cloudstorageupdatereport.pk %}" class="mb-3 p-3 border rounded bg-light">
+                {% csrf_token %}
+                <p class="form-text mb-2">Выберите, для каких файлов обновить документы:</p>
+                <div class="mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="toggleAllCheckboxes('updated_files')">Выбрать все</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAllCheckboxes('updated_files', false)">Отменить все</button>
+                </div>
+                <button type="submit" class="btn btn-warning mt-2 mb-4">Обновить выбранные документы</button>
+            {% else %}
+            <p class="text-muted">Все документы из обновлённых файлов уже обновлены.</p>
+            {% endif %}
+
+            <table class="table table-bordered table-hover">
+                <thead class="table-warning">
+                    <tr>
+                        {% if updated_docs != result.updated_files|length %}
+                        <th></th>
+                        {% endif %}
+                        <th>Имя</th>
+                        <th>Путь</th>
+                        <th>Размер</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file_id, file in result.updated_files.items %}
+                    <tr>
+                        {% if created_count != result.updated_files|length and not file.doc_id %}
+                        <td>
+                            <input type="checkbox" name="file_ids" value="{{ file_id }}" class="form-check-input updated_files-checkbox">
+                        </td>
+                        {% endif %}
+                        <td>{{ file.file_name }}</td>
+                        <td>{{ file.path }}</td>
+                        <td>{{ file.size|filesizeformat }}</td>
+                        <td>
+                            {% if file.doc_updated %}
+                            <span class="text-warning">обновлён</span>
+                            {% else %}
+                            {{ file.process_status|default:"готов к обновлению" }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if updated_docs != result.updated_files|length %}
+            </form>
+            {% endif %}
+            {% endwith %}
+        {% else %}
+        <p class="text-muted">Обновлённых файлов не найдено.</p>
+        {% endif %}
+    </div>
+
+    {# === Блок: Удалённые файлы === #}
+    <div class="sync-report__section mb-5">
+        <h3 class="text-danger">Удалённые файлы ({{ result.deleted_files|length }})</h3>
+        {% if result.deleted_files %}
+            {% with deleted_docs=cloudstorageupdatereport.content.deleted_docs|default:0 %}
+            {% if deleted_docs != result.deleted_files|length %}
+            <form method="post" action="{% url 'sources:documents-mass-delete' cloudstorageupdatereport.pk %}" class="mb-3 p-3 border rounded bg-light">
+                {% csrf_token %}
+                <p class="form-text mb-2">Выберите, для каких файлов удалить документы:</p>
+                <div class="mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="toggleAllCheckboxes('deleted_files')">Выбрать все</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAllCheckboxes('deleted_files', false)">Отменить все</button>
+                </div>
+                <button type="submit" class="btn btn-danger mt-2 mb-4">Удалить выбранные документы</button>
+            {% else %}
+            <p class="text-muted">Все документы из удалённых файлов уже удалены.</p>
+            {% endif %}
+
+            <table class="table table-bordered table-hover">
+                <thead class="table-danger">
+                    <tr>
+                        {% if deleted_docs != result.deleted_files|length %}
+                        <th></th>
+                        {% endif %}
+                        <th>Название</th>
+                        <th>Путь</th>
+                        <th>ID</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file_id, file in result.deleted_files.items %}
+                    <tr>
+                        {% if created_count != result.deleted_files|length and not file.doc_id %}
+                            <td>
+                                <input type="checkbox" name="file_ids" value="{{ file_id }}" class="form-check-input deleted_files-checkbox">
+                            </td>
+                        {% endif %}
+                        <td>{{ file.title }}</td>
+                        <td>{{ file.path }}</td>
+                        <td>{{ file.id }}</td>
+                        <td>
+                            {% if file.doc_deleted %}
+                            <span class="text-danger">удалён</span>
+                            {% else %}
+                            {{ file.process_status|default:"готов к удалению" }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if deleted_docs != result.deleted_files|length %}
+            </form>
+            {% endif %}
+            {% endwith %}
+        {% else %}
+        <p class="text-muted">Удалённых файлов не найдено.</p>
+        {% endif %}
+    </div>
+
+    {# === Блок: Восстановленные файлы === #}
+    <div class="sync-report__section mb-5">
+        <h3 class="text-primary">Восстановленные файлы ({{ result.restored_files|length }})</h3>
+        {% if result.restored_files %}
+            {% with restored_docs=cloudstorageupdatereport.content.restored_docs|default:0 %}
+            {% if restored_docs != result.restored_files|length %}
+            <form method="post" action="{% url 'sources:documents-mass-restore' cloudstorageupdatereport.pk %}" class="mb-3 p-3 border rounded bg-light">
+                {% csrf_token %}
+                <p class="form-text mb-2">Выберите, для каких файлов восстановить документы:</p>
+                <div class="mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="toggleAllCheckboxes('restored_files')">Выбрать все</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAllCheckboxes('restored_files', false)">Отменить все</button>
+                </div>
+                <button type="submit" class="btn btn-primary mt-2 mb-4">Восстановить выбранные документы</button>
+            {% else %}
+            <p class="text-muted">Все документы из восстановленных файлов уже восстановлены.</p>
+            {% endif %}
+
+            <table class="table table-bordered table-hover">
+                <thead class="table-primary">
+                    <tr>
+                        {% if restored_docs != result.restored_files|length %}
+                        <th></th>
+                        {% endif %}
+                        <th>Имя</th>
+                        <th>Путь</th>
+                        <th>Размер</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file_id, file in result.restored_files.items %}
+                    <tr>
+                        {% if created_count != result.restored_files|length and not file.doc_id %}
+                            <td>
+                                <input type="checkbox" name="file_ids" value="{{ file_id }}" class="form-check-input restored_files-checkbox">
+                            </td>
+                        {% endif %}
+                        <td>{{ file.file_name }}</td>
+                        <td>{{ file.path }}</td>
+                        <td>{{ file.size|filesizeformat }}</td>
+                        <td>
+                            {% if file.doc_restored %}
+                            <span class="text-primary">восстановлен</span>
+                            {% else %}
+                            {{ file.process_status|default:"готов к восстановлению" }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if restored_docs != result.restored_files|length %}
+            </form>
+            {% endif %}
+            {% endwith %}
+        {% else %}
+        <p class="text-muted">Восстановленных файлов не найдено.</p>
+        {% endif %}
+    </div>
+
+    {# === Блок: Исключённые файлы === #}
+    <div class="sync-report__section mb-5">
+        <h3 class="text-secondary">Исключённые файлы ({{ result.excluded_files|length }})</h3>
+        {% if result.excluded_files %}
+            {% with excluded_docs=cloudstorageupdatereport.content.excluded_docs|default:0 %}
+            {% if excluded_docs != result.excluded_files|length %}
+            <form method="post" action="{% url 'sources:documents-mass-exclude' cloudstorageupdatereport.pk %}" class="mb-3 p-3 border rounded bg-light">
+                {% csrf_token %}
+                <p class="form-text mb-2">Выберите, для каких файлов исключить документы:</p>
+                <div class="mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="toggleAllCheckboxes('excluded_files')">Выбрать все</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAllCheckboxes('excluded_files', false)">Отменить все</button>
+                </div>
+                <button type="submit" class="btn btn-secondary mt-2 mb-4">Исключить выбранные документы</button>
+            {% else %}
+            <p class="text-muted">Все документы из исключённых файлов уже исключены.</p>
+            {% endif %}
+
+            <table class="table table-bordered table-hover">
+                <thead class="table-secondary">
+                    <tr>
+                        {% if excluded_docs != result.excluded_files|length %}
+                        <th></th>
+                        {% endif %}
+                        <th>Имя</th>
+                        <th>Путь</th>
+                        <th>Причина</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file_id, file in result.excluded_files.items %}
+                    <tr>
+                        {% if created_count != result.excluded_files|length and not file.doc_id %}
+                            <td>
+                                <input type="checkbox" name="file_ids" value="{{ file_id }}" class="form-check-input excluded_files-checkbox">
+                            </td>
+                        {% endif %}
+                        <td>{{ file.file_name }}</td>
+                        <td>{{ file.path }}</td>
+                        <td>{{ file.reason|default:"-" }}</td>
+                        <td>
+                            {% if file.doc_excluded %}
+                            <span class="text-secondary">исключён</span>
+                            {% else %}
+                            {{ file.process_status|default:"готов к исключению" }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if excluded_docs != result.excluded_files|length %}
+            </form>
+            {% endif %}
+            {% endwith %}
+        {% else %}
+        <p class="text-muted">Исключённых файлов не найдено.</p>
+        {% endif %}
+    </div>
+
+    {% endwith %}
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    function toggleAllCheckboxes(section, checked = true) {
+        document.querySelectorAll(`.${section}-checkbox`).forEach(cb => cb.checked = checked);
+        console.log(`toggleAllCheckboxes: set all checkboxes in ${section} to ${checked}`);
+        updateButtonState(section);
+    }
+    
+    function updateButtonState(section) {
+        console.log(`.${section}-checkbox`)
+        const checkboxes = document.querySelectorAll(`.${section}-checkbox`);
+        console.log(checkboxes)
+        console.log(document.querySelector(`.${section}-checkbox`)?.closest('form'))
+        const submitButton = document.querySelector(`.${section}-checkbox`)?.closest('form')?.querySelector('button[type="submit"]');
+    
+        if (!submitButton) {
+            console.log(`updateButtonState: submit button for section ${section} not found`);
+            return;
+        }
+    
+        const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+        console.log(`updateButtonState: anyChecked = ${anyChecked}`);
+    
+        submitButton.disabled = !anyChecked;
+        console.log(`updateButtonState: submitButton.disabled = ${submitButton.disabled}`);
+    }
+    
+    // Добавляем слушатели на все чекбоксы при загрузке страницы
+    document.addEventListener('DOMContentLoaded', () => {
+        ['new_files', 'updated_files', 'deleted_files', 'restored_files', 'excluded_files'].forEach(section => {
+            const checkboxes = document.querySelectorAll(`.${section}-checkbox`);
+            checkboxes.forEach(cb => {
+                cb.addEventListener('change', () => {
+                    console.log(`Checkbox changed in section ${section}`);
+                    updateButtonState(section);
+                });
+            });
+            // Изначально установим состояние кнопки
+            updateButtonState(section);
+        });
+    });
+    
+
+    function toggleAllCheckboxes(section, checked = true) {
+        document.querySelectorAll(`.${section}-checkbox`).forEach(cb => {
+            cb.checked = checked;
+    
+            // Создаём и триггерим событие change
+            const event = new Event('change', { bubbles: true });
+            cb.dispatchEvent(event);
+        });
+    }
+</script>
+{% endblock %}

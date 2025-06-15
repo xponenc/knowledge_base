@@ -18,12 +18,9 @@ class KnowledgeBaseListView(LoginRequiredMixin, ListView):
     """Список баз знаний (только доступные пользователю)"""
     model = KnowledgeBase
 
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        if self.request.user.is_superuser:
-            return queryset
-        queryset = queryset.filter(soft_deleted_at__isnull=True).filter(owners=self.request.user)
-        return queryset
+    # def get_queryset(self):
+    #     queryset = KnowledgeBase.objects.all(include_deleted=self.request.user.is_superuser)
+    #     return queryset
 
 
 class KnowledgeBaseDetailView(LoginRequiredMixin, KBPermissionMixin, DetailView):
@@ -34,7 +31,7 @@ class KnowledgeBaseDetailView(LoginRequiredMixin, KBPermissionMixin, DetailView)
 class KnowledgeBaseCreateView(LoginRequiredMixin, CreateView):
     """Создание новой базы знаний"""
     model = KnowledgeBase
-    fields = ['title', 'description', 'owners']
+    fields = ['name', 'description', 'owners']
     success_url = reverse_lazy('core:knowledgebase_list')
 
     def form_valid(self, form):
@@ -65,7 +62,7 @@ class KnowledgeBaseDeleteView(LoginRequiredMixin, KBPermissionMixin, View):
     success_url = reverse_lazy('core:knowledgebase_list')
 
     def get_object(self):
-        return get_object_or_404(KnowledgeBase, pk=self.kwargs['pk'], soft_deleted_at__isnull=True)
+        return get_object_or_404(KnowledgeBase, pk=self.kwargs['pk'])
 
     def get(self, request, *args, **kwargs):
         obj = self.get_object()
@@ -73,7 +70,7 @@ class KnowledgeBaseDeleteView(LoginRequiredMixin, KBPermissionMixin, View):
 
     def post(self, request, *args, **kwargs):
         obj = self.get_object()
-        obj.soft_deleted_at = timezone.now()
+        obj.delete()
         obj.log_history(request.user, 'delete', {})
-        obj.save(update_fields=['soft_deleted_at', 'history'])
+        obj.save()
         return redirect(self.success_url)

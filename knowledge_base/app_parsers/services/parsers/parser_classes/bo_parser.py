@@ -1,3 +1,4 @@
+import logging
 import re
 from pprint import pprint
 from typing import Dict, Any, List, Tuple, Set
@@ -12,7 +13,7 @@ from utils.process_text import remove_emoji
 class BOWebParser(BaseWebParser):
     """
     Базовый конфиг под академию
-    BREADCRUMBS_CLASS = .breadcrumbs a.taxonomy.category
+    BREADCRUMBS_CLASS = .breadcrumbs a.home, .breadcrumbs a.taxonomy.category, .breadcrumbs span.taxonomy.category
 
     EXCLUDE_TAGS = footer, header, nav, menu, sidebar, popup, modal, banner, ad, subscribe, widget, cookie,
      social, share, logo, script, style, form, input, iframe, svg, noscript, button, select, option, canvas,
@@ -39,15 +40,18 @@ class BOWebParser(BaseWebParser):
             "label": "CSS-класс заголовка",
             "help_text": "Введите имя CSS-класса, если заголовок находится в конкретном классе. Можно оставить пустым.",
         },
-        "breadcrumbs_selector": {
+        "breadcrumbs_selectors": {
             "type": str,
-            "label": "CSS-селектор хлебных крошек",
+            "label": "CSS-селекторы хлебных крошек",
             "help_text": (
                 "Укажите CSS-селектор для извлечения ссылок категорий из навигации (хлебных крошек).\n"
                 "Формат: .класс_родителя тег.класс_элемента\n"
-                "Например: `.breadcrumbs a.taxonomy.category` — выбирает все ссылки <a> с классами "
-                "`taxonomy` и `category`, которые находятся внутри элемента с классом `breadcrumbs`.\n"
-                "Если вы не уверены — оставьте значение по незаполненным, по умолчанию будет выполнен поиск в .breadcrumbs a"
+                "Например: `.breadcrumbs a.home, .breadcrumbs a.taxonomy.category, .breadcrumbs span.taxonomy.category`"
+                " — выбирает все ссылки <a> с классами `home` и `taxonomy category`, а также элементы <span>"
+                " с этими классами, которые находятся внутри элемента с классом `breadcrumbs`.\n"
+                "Если вы не уверены — оставьте значение незаполненным: по умолчанию будет выполнен поиск"
+                " по `.breadcrumbs a`."
+
             ),
         },
         "exclude_tags": {
@@ -85,7 +89,7 @@ class BOWebParser(BaseWebParser):
         "remove_inter_page_links": {
             "type": bool,
             "label": "Удалять в контенте ссылки на другие страницы сайта",
-            "help_text": "Введите bool Значение (True/False, 1/0)"
+            "help_text": "В тестовом режиме ссылки после удаления будут выведены списком в metadata.internal_links"
         }
     }
 
@@ -245,7 +249,7 @@ class BOWebParser(BaseWebParser):
 
     def _extract_breadcrumb_categories(self, soup: BeautifulSoup) -> list[str]:
         """Извлекает список тегов страницы из хлебных крошек"""
-        selector = self.config.get("breadcrumbs_selector", ".breadcrumbs a")
+        selector = self.config.get("breadcrumbs_selectors", ".breadcrumbs a")
         elements = soup.select(selector)
         return [el.get_text(strip=True) for el in elements if el.get_text(strip=True)]
 
@@ -634,10 +638,6 @@ class BOWebParser(BaseWebParser):
 
         soup = BeautifulSoup(html, "html.parser")
 
-        for tag in soup.find_all(['strong', 'b', 'i', 'em', 'u', 'span']):
-            # элементы из списка растегируются, тег уничтожается, оставляя вместо себя текст
-            tag.unwrap()
-
         page_title = self._find_title_tag(soup)
 
         # Извлечение категорий из breadcrumbs
@@ -646,6 +646,11 @@ class BOWebParser(BaseWebParser):
         # Поиск основного контента
         content_element = self._extract_main_content(
             soup)  # extract_main_content выбирает тег с наибольшим количеством контента
+
+        for tag in soup.find_all(['strong', 'b', 'i', 'em', 'u', 'span']):
+            # элементы из списка растегируются, тег уничтожается, оставляя вместо себя текст
+            tag.unwrap()
+
         # print(f"{content_element=}")
         cleaned_content_element = self._clean_soup(soup=content_element,
                                                    url=url)  # clean_soup очищает HTML от ненужных элементов

@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Массовый парсинг сайта{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <h2 class="mb-4">Массовый парсинг сайта 🔗<a class="text-dark" href="{{ website.get_absolute_url }}" target="_blank">{{ website.name }}</a></h2>
+    <p><strong>Название парсера:</strong> {{ parser.class_name }}</p>
+    <p><strong>Конфигурация:</strong></p>
+    {% if parser.config %}
+        <table class="table table-striped mb-4">
+            <thead>
+                <tr>
+                    <th>Ключ</th>
+                    <th>Значение</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for key, value in parser.config.items %}
+                    <tr>
+                        <td>{{ key }}</td>
+                        <td>
+                            {% if value is string %}
+                                {{ value }}
+                            {% elif value is iterable and value is not string %}
+                                {{ value|join:", " }}
+                            {% else %}
+                                {{ value|default:"Нет данных" }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="text-muted">Конфигурация отсутствует.</p>
+    {% endif %}
+    
+    <form method="post" id="parse-form" class="needs-validation" novalidate>
+        {% csrf_token %}
+        <div class="d-flex gap-4 mb-4">
+            <div class="form-check">
+                {{ form.clean_emoji }}
+                <label for="{{ form.clean_emoji.id_for_label }}" class="form-check-label">
+                    {{ form.clean_emoji.label }}
+                </label>
+                {% if form.clean_emoji.help_text %}
+                    <div class="form-text">{{ form.clean_emoji.help_text }}</div>
+                {% endif %}
+            </div>
+    
+            <div class="form-check">
+                {{ form.clean_text }}
+                <label for="{{ form.clean_text.id_for_label }}" class="form-check-label">
+                    {{ form.clean_text.label }}
+                </label>
+                {% if form.clean_text.help_text %}
+                    <div class="form-text">{{ form.clean_text.help_text }}</div>
+                {% endif %}
+            </div>
+    
+        </div>
+        {% if form.clean_emoji.errors %}
+            <div class="invalid-feedback d-block">{{ form.clean_emoji.errors }}</div>
+        {% endif %}
+        {% if form.clean_text.errors %}
+            <div class="invalid-feedback d-block">{{ form.clean_text.errors }}</div>
+        {% endif %}
+        <!-- Условное отображение поля URL или URLs -->
+        <div class="mb-3">
+            <label for="{{ form.urls.id_for_label }}" class="form-label">{{ form.urls.label }}</label>
+            {% if form.urls.help_text %}
+                <div class="form-text">{{ form.urls.help_text }}</div>
+            {% endif %}
+            {{ form.urls }}
+            {% if form.urls.errors %}
+                <div class="invalid-feedback">{{ form.urls.errors }}</div>
+            {% endif %}
+        </div>
+        <!-- Кнопка отправки -->
+        <button type="submit" class="btn btn-primary">Запустить тест</button>
+    </form>
+</div>
+{% endblock content %}
+
+{% block script %}
+{% endblock script %}
+

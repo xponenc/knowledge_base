@@ -12,7 +12,7 @@ from app_sources.storage_models import WebSite
 
 
 class TestParserDetailView(LoginRequiredMixin, DetailView):
-    """Детальный просмотр объекта класс :models:app_parsers.TestParser (Тесовый Парсер)"""
+    """Детальный просмотр объекта класс :models:app_parsers.TestParser (Тестовый Парсер)"""
     model = TestParser
 
 
@@ -38,6 +38,11 @@ class ParserConfigView(LoginRequiredMixin, View):
         }, request=request)
 
         return HttpResponse(html)
+
+
+class MainParserDetailView(LoginRequiredMixin, DetailView):
+    """Детальный просмотр объекта класс :models:app_parsers.MainParser (Основной Парсер)"""
+    model = MainParser
 
 
 class ParserSetTestAsMainView(LoginRequiredMixin, View):

@@ -2,6 +2,7 @@ import asyncio
 import platform
 import shutil
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from typing import Dict, Any
 
 from selenium import webdriver
@@ -57,3 +58,13 @@ class SeleniumDriver:
         service = Service(executable_path=chromedriver_path)
         return webdriver.Chrome(service=service, options=options)
 
+    @contextmanager
+    def driver(self):
+        driver = self.get_driver()
+        try:
+            yield driver
+        finally:
+            try:
+                driver.quit()
+            except Exception:
+                pass

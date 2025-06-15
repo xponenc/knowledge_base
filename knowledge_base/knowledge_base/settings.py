@@ -35,12 +35,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'debug_toolbar',
     'rest_framework',
     # 'app_parsers',
     'app_core',
     'app_sources',
     'app_parsers',
-    # 'app_chunks',
+    'app_chunks',
     # 'app_embeddings',
     # 'app_retriever',
     "django.contrib.humanize",
@@ -56,6 +57,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
 ROOT_URLCONF = 'knowledge_base.urls'
@@ -197,3 +199,14 @@ except ImportError:
         from .product_settings import *
     except ImportError:
         pass
+
+# if not DEBUG:
+#     INSTALLED_APPS = [
+#         *INSTALLED_APPS,
+#         "debug_toolbar",
+#     ]
+#     MIDDLEWARE = [
+#         "debug_toolbar.middleware.DebugToolbarMiddleware",
+#         *MIDDLEWARE,
+#     ]
+

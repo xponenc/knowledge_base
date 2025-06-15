@@ -1,3 +1,4 @@
+from debug_toolbar.toolbar import debug_toolbar_urls
 from django.contrib import admin
 from django.conf import settings
 from django.urls import path, include, re_path
@@ -29,8 +30,10 @@ urlpatterns = [
     path('', include('app_core.urls')),
     path('sources/', include('app_sources.urls')),
     path('', include('app_parsers.urls')),
+    path('chunks', include('app_chunks.urls')),
 ]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+urlpatterns += debug_toolbar_urls()
