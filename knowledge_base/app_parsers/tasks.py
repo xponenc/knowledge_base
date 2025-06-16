@@ -303,7 +303,7 @@ def fetch_page_with_selenium(url: str, driver) -> Dict[str, Any]:
 
     return {
         "url": url,
-        "status": http_status,
+        "response_status": http_status,
         "html": html,
         "error": error
     }
@@ -404,7 +404,7 @@ def parse_urls_task(self,
             try:
                 driver_result = future.result()
                 current_url = driver_result.get('url')
-                response_status = driver_result.get('http_status')
+                response_status = driver_result.get('response_status')
                 html = driver_result.get('html')
                 error = driver_result.get('error')
 
@@ -619,6 +619,7 @@ def test_single_url(self,
     try:
         with SeleniumDriver(options=webdriver_options).driver() as driver:
             progress_recorder.set_progress(50, 100, description="Страница загружается")
+
             fetch_result = fetch_page_with_selenium(url, driver)
 
             result["status"] = fetch_result["status"]

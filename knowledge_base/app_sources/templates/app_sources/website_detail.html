@@ -1,5 +1,10 @@
 {% extends 'base.html' %}
+{% load static %}
 {% load humanize %}
+
+{% block extra_css %}
+<link href="{% static 'css/pagination.css' %}" rel="stylesheet">
+{% endblock extra_css %}
 
 {% block breadcrumbs %}
 <nav aria-label="breadcrumb" class="mt-5">
@@ -27,13 +32,14 @@
 
             <dt class="col-sm-3">🔌 Основная ссылка</dt>
             <dd class="col-sm-9">{{ website.base_url }}</dd>
-            
+
             <dt class="col-sm-3">🔌 ССылка на XML карту</dt>
             <dd class="col-sm-9">{{ website.base_url }}</dd>
 
         </dl>
     </div>
 </div>
+
 <div class="row">
     <!-- Основной парсер -->
     <div class="col-md-6 mb-4">
@@ -132,11 +138,76 @@
     </div>
 {% endif %}
 
+
 <h3 class="mb-4">🗂️ Контент хранилища</h3>
-<a class="btn btn-primary" href="{% url 'chunks:create_chunks_from_website' website.pk %}">Создать чанки</a>
+<div class="mb-4 border-primary border-1 rounded-1">
+    <p class="text-muted fst-italic mb-2">
+        Пока заглушка - получение файла c сериализованными pickle чанкам (формат Langchain Document) по отфильтрованному контенту 
+    </p>
+    <p class="font-monospace bg-light p-3 rounded">
+            with open(file_path, 'rb') as f:<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;# Загружаем (десериализуем) список документов из файла<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;all_documents = pickle.load(f)
+        </p>
+    <form method="post" action="{% url 'chunks:create_chunks_from_website' website.pk %}" class="mb-3" id="create-chunks-form">
+        {% csrf_token %}
+        {% for key, value in request.GET.items %}
+            <input type="hidden" name="{{ key }}" value="{{ value }}">
+        {% endfor %}
+        <button type="submit" class="btn btn-primary" id="submit-btn">
+            Создать чанки
+            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="loader"></span>
+        </button>
+    </form>
+</div>
+
+<!-- Форма фильтра и сортировки -->
+<form method="get" class="mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label for="status" class="form-label">Статус обработки</label>
+            <select id="status" name="status" class="form-select">
+                <option value="">---</option>
+                {% for value, name in status_choices %}
+                    <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="response_status" class="form-label">Код HTTP ответа</label>
+            <input type="text" id="response_status" name="response_status" class="form-control" value="{{ request.GET.response_status }}">
+        </div>
+        <div class="col-md-3">
+            <label for="min_body_length" class="form-label">Длина контента от</label>
+            <input type="number" id="min_body_length" name="min_body_length" class="form-control" value="{{ request.GET.min_body_length }}">
+        </div>
+        <div class="col-md-3">
+            <label for="min_body_length" class="form-label">Длина контента до</label>
+            <input type="number" id="min_body_length" name="max_body_length" class="form-control" value="{{ request.GET.max_body_length }}">
+        </div>
+        <div class="col-md-3">
+            <label for="ordering" class="form-label">Сортировка</label>
+            <select id="ordering" name="ordering" class="form-select">
+                <option value="">---</option>
+                <option value="latest_content_status" {% if request.GET.ordering == 'latest_content_status' %}selected{% endif %}>Статус обработки ↑</option>
+                <option value="-latest_content_status" {% if request.GET.ordering == '-latest_content_status' %}selected{% endif %}>Статус обработки ↓</option>
+                <option value="latest_content_response_status" {% if request.GET.ordering == 'latest_content_response_status' %}selected{% endif %}>HTTP-ответ ↑</option>
+                <option value="-latest_content_response_status" {% if request.GET.ordering == '-latest_content_response_status' %}selected{% endif %}>HTTP-ответ ↓</option>
+                <option value="latest_content_body_length" {% if request.GET.ordering == 'latest_content_body_length' %}selected{% endif %}>Длина body ↑</option>
+                <option value="-latest_content_body_length" {% if request.GET.ordering == '-latest_content_body_length' %}selected{% endif %}>Длина body ↓</option>
+            </select>
+        </div>
+        <div class="col-md-12">
+            <button type="submit" class="btn btn-primary">Применить</button>
+        </div>
+    </div>
+</form>
+
+{% include "include/pagination.html" %}
+
 
 <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
-    {% for url in website.url_set.all %}
+    {% for url in page_obj %}
         <div class="col">
             <div class="card h-100 shadow-sm border 
                 {% if url.latest_content_error_message %}
@@ -144,7 +215,7 @@
                 {% else %}
                     border-success
                 {% endif %}">
-                
+
                 <div class="card-body d-flex flex-column justify-content-between">
                     <h5 class="card-title text-center">
                         <a href="{% url 'sources:url_detail' url.pk %}"
@@ -159,6 +230,7 @@
                         <p class="mb-1"><strong>Статус обработки:</strong> {{ url.latest_content_status|default:"—" }}</p>
                         <p class="mb-1"><strong>HTTP-ответ:</strong> {{ url.latest_content_response_status|default:"—" }}</p>
                         <p class="mb-1"><strong>Тэги:</strong> {{ url.latest_content_tags|default:"—" }}</p>
+                        <p class="mb-1"><strong>Количество символов в контенте:</strong> {{ url.latest_content_body_length|default:"—" }}</p>
 
                         {% if url.latest_content_error_message %}
                             <p class="mt-2 mb-0"><strong>Ошибка:</strong> {{ url.latest_content_error_message }}</p>
@@ -167,9 +239,66 @@
                 </div>
             </div>
         </div>
+    {% empty %}
+        <p class="text-muted">Нет подходящих URL</p>
     {% endfor %}
 </div>
 
-
-
+{% include "include/pagination.html" %}
 {% endblock %}
+
+{% block script %}
+    <script>
+        document.getElementById('create-chunks-form').addEventListener('submit', function(event) {
+            event.preventDefault(); // Предотвращаем стандартную отправку формы
+
+            const submitBtn = document.getElementById('submit-btn');
+            const loader = document.getElementById('loader');
+            const form = this;
+
+            // Блокируем кнопку
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'Обработка... <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+            loader.classList.remove('d-none');
+
+            // Отправляем форму через fetch
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                // Создаём ссылку для скачивания файла
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'chunk.pickle'; // Имя файла
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+
+                // Разблокируем кнопку
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Создать чанки';
+                loader.classList.add('d-none');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ошибка при создании чанков');
+                // Разблокируем кнопку при ошибке
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Создать чанки';
+                loader.classList.add('d-none');
+            });
+        });
+    </script>
+{% endblock script%}

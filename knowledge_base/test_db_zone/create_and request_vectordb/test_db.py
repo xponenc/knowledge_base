@@ -1,3 +1,5 @@
+import os
+
 from langchain_community.vectorstores import Chroma, FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_core.documents import Document
@@ -5,6 +7,9 @@ from langchain_core.documents import Document
 # Если хочешь использовать invoke вместо get_relevant_documents
 from langchain_core.runnables import Runnable
 from langchain_openai import OpenAIEmbeddings
+from dotenv import load_dotenv
+
+load_dotenv()
 
 FAISS_DB_PATH = "./faiss_index_db"
 OAI_FAISS_DB_PATH = "./openai_faiss_index_db"
@@ -19,7 +24,8 @@ vector_db = FAISS.load_local(FAISS_DB_PATH, embeddings=embedding, index_name="in
 retriever: Runnable = vector_db.as_retriever(search_kwargs={"k": 5})
 
 # Запрос пользователя
-query = "Хочу пройти курс по охране окружающей среды для проектирования"
+# query = "Хочу пройти курс по охране окружающей среды для проектирования"
+query = "Какие документы я получу после курсов?"
 
 # Новый способ поиска — через invoke
 results = retriever.invoke(query)
@@ -30,21 +36,21 @@ for i, doc in enumerate(results, 1):
     print(doc.page_content)
 
 print("OpenAIEmbeddings")
-#
-# # Загрузка базы FAISS
-# oai_vector_db = FAISS.load_local(OAI_FAISS_DB_PATH, embeddings=OpenAIEmbeddings(
-#     openai_api_key=""),
-#                                  index_name="index", allow_dangerous_deserialization=True, )
-#
-# # Новый способ поиска — через invoke
-# results = oai_vector_db.similarity_search(query, k=5)
-#
-# # Выводим найденные документы
-# for i, doc in enumerate(results, 1):
-#     print(f"--- Документ {i} ---")
-#     print(doc.page_content)
-#
-# print("ai-forever/sbert_large_nlu_ru")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# Загрузка базы FAISS
+oai_vector_db = FAISS.load_local(OAI_FAISS_DB_PATH, embeddings=OpenAIEmbeddings(),
+                                 index_name="index", allow_dangerous_deserialization=True, )
+
+# Новый способ поиска — через invoke
+results = oai_vector_db.similarity_search(query, k=5)
+
+# Выводим найденные документы
+for i, doc in enumerate(results, 1):
+    print(f"--- Документ {i} ---")
+    print(doc.page_content)
+
+print("ai-forever/sbert_large_nlu_ru")
 
 SBER_FAISS_DB_PATH = "./sber_faiss_index_db"
 embedding = HuggingFaceEmbeddings(

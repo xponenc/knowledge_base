@@ -5,7 +5,7 @@ from dateutil.parser import parse
 from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 from django.core.files.base import ContentFile
 from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch
-from django.db.models.functions import Left, Coalesce, Substr
+from django.db.models.functions import Left, Coalesce, Substr, Length
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse_lazy
@@ -13,6 +13,7 @@ from django.utils import timezone
 from django.views import View
 from django.contrib import messages
 from django.views.generic import DetailView, ListView, CreateView, UpdateView, DeleteView
+from django.core.paginator import Paginator
 
 from app_core.models import KnowledgeBase
 from app_parsers.forms import TestParseForm, BulkParseForm, ParserDynamicConfigForm
@@ -22,7 +23,7 @@ from app_parsers.services.parsers.dispatcher import WebParserDispatcher
 from app_sources.content_models import URLContent, RawContent, CleanedContent
 from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedContentEditorForm
 from app_sources.report_model import CloudStorageUpdateReport, WebSiteUpdateReport
-from app_sources.source_models import NetworkDocument, URL
+from app_sources.source_models import NetworkDocument, URL, SourceStatus
 from app_sources.storage_models import CloudStorage, Storage, LocalStorage, WebSite
 from app_sources.tasks import process_cloud_files, download_and_create_raw_content, \
     download_and_create_raw_content_parallel
@@ -398,47 +399,83 @@ class LocalStorageCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateV
 class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
     """Детальный просмотр объекта модели Вебсайт (с проверкой прав доступа)"""
     model = WebSite
+    paginate_by = 9
 
-    def get_queryset(self):
-        # Define subqueries for each field of the latest URLContent
-        latest_content_id = URLContent.objects.filter(
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        request = self.request
+        website = self.object
+
+        # Подзапросы для аннотаций последнего URLContent
+        latest_content = URLContent.objects.filter(
             url=OuterRef('pk')
-        ).order_by('-created_at').values('id')[:1]
+        ).order_by('-created_at')
 
-        latest_content_title = URLContent.objects.filter(
-            url=OuterRef('pk')
-        ).order_by('-created_at').values('title')[:1]
+        urls_qs = URL.objects.filter(site=website).annotate(
+            latest_content_id=Subquery(latest_content.values('id')[:1]),
+            latest_content_title=Subquery(latest_content.values('title')[:1]),
+            latest_content_status=Subquery(latest_content.values('status')[:1]),
+            latest_content_response_status=Subquery(latest_content.values('response_status')[:1]),
+            latest_content_tags=Subquery(latest_content.values('tags')[:1]),
+            latest_content_error_message=Subquery(latest_content.values('error_message')[:1]),
+            latest_content_body_length=Subquery(
+                latest_content.annotate(body_length=Length('body')).values('body_length')[:1]
+            ),
+        ).prefetch_related('urlcontent_set')
 
-        latest_content_status = URLContent.objects.filter(
-            url=OuterRef('pk')
-        ).order_by('-created_at').values('status')[:1]
+        # Фильтрация
+        sort_by = request.GET.get('ordering', 'id')
+        status = request.GET.get('status')
+        response_status = request.GET.get('response_status')
+        body_length_min = request.GET.get('min_body_length')
+        body_length_max = request.GET.get('max_body_length')
 
-        latest_content_response_status = URLContent.objects.filter(
-            url=OuterRef('pk')
-        ).order_by('-created_at').values('response_status')[:1]
+        if status:
+            urls_qs = urls_qs.filter(latest_content_status=status)
+        if response_status:
+            urls_qs = urls_qs.filter(latest_content_response_status=response_status)
+        if body_length_min:
+            urls_qs = urls_qs.filter(latest_content_body_length__gte=int(body_length_min))
+        if body_length_max:
+            urls_qs = urls_qs.filter(latest_content_body_length__lte=int(body_length_max))
 
-        latest_content_tags = URLContent.objects.filter(
-            url=OuterRef('pk')
-        ).order_by('-created_at').values('tags')[:1]
+        # Сортировка
+        allowed_sorts = {
+            'id', 'latest_content_status', 'latest_content_response_status', 'latest_content_body_length'
+        }
+        if sort_by.lstrip('-') in allowed_sorts:
+            urls_qs = urls_qs.order_by(sort_by)
 
-        latest_content_error_message = URLContent.objects.filter(
-            url=OuterRef('pk')
-        ).order_by('-created_at').values('error_message')[:1]
+        # Пагинация
+        paginator = Paginator(urls_qs, self.paginate_by)
+        page_number = request.GET.get("page")
+        page_obj = paginator.get_page(page_number)
 
-        # Annotate URL objects with the latest URLContent fields
-        return WebSite.objects.prefetch_related(
-            Prefetch(
-                'url_set',
-                queryset=URL.objects.annotate(
-                    latest_content_id=Subquery(latest_content_id),
-                    latest_content_title=Subquery(latest_content_title),
-                    latest_content_status=Subquery(latest_content_status),
-                    latest_content_response_status=Subquery(latest_content_response_status),
-                    latest_content_tags=Subquery(latest_content_tags),
-                    latest_content_error_message=Subquery(latest_content_error_message),
-                ).prefetch_related('urlcontent_set')
-            )
-        )
+        # Формируем query string без page
+        query_params = request.GET.copy()
+        query_params.pop('page', None)
+        paginator_query = query_params.urlencode()
+        if paginator_query:
+            paginator_query += '&'
+
+        context['status_choices'] = [
+            (status.value, status.display_name) for status in SourceStatus
+        ]
+
+        context.update({
+            'page_obj': page_obj,  # для шаблона, чтобы не менять много
+            'is_paginated': page_obj.has_other_pages(),
+            'paginator': paginator,
+            'paginator_query': paginator_query,
+            'filters': {
+                'sort': sort_by,
+                'status': status,
+                'response_status': response_status,
+                'body_length_min': body_length_min,
+                'body_length_max': body_length_max,
+            }
+        })
+        return context
 
 
 class WebSiteCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateView):

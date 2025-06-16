@@ -1,17 +1,23 @@
 import os
 import pickle
 import re
+import tempfile
 from pprint import pprint
 
 import tiktoken
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.views import View
+from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch
+from django.db.models.functions import Left, Coalesce, Substr, Length
+from django.http import StreamingHttpResponse
+
 from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 from rest_framework import viewsets
 
 from app_sources.content_models import URLContent
+from app_sources.source_models import URL
 
 
 def split_markdown_text(markdown_text,
@@ -52,10 +58,10 @@ def split_text(text, max_count):
     # plt.xlabel('Token Count')
     # plt.ylabel('Frequency')
     # plt.show()
-    print(fragment_token_counts)
-    for fragment in fragments:
-        if num_tokens_from_string(fragment.page_content, "cl100k_base") > max_count:
-            print(fragment)
+    # print(fragment_token_counts)
+    # for fragment in fragments:
+    #     if num_tokens_from_string(fragment.page_content, "cl100k_base") > max_count:
+    #         print(fragment)
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=max_count,
@@ -76,7 +82,7 @@ def split_text(text, max_count):
     # plt.xlabel('Token Count')
     # plt.ylabel('Frequency')
     # plt.show()
-    print(source_chunk_token_counts)
+    # print(source_chunk_token_counts)
 
     return source_chunks, fragments
 
@@ -172,6 +178,56 @@ def save_documents_to_file(all_documents, filename):
     print(f"Документы сохранены в файл: {file_path}")
 
 
+def save_documents_to_response(request, documents, is_ajax=False):
+    """Сохраняет документы во временный файл и возвращает его в HTTP-ответе с потоковой передачей."""
+    if not documents:
+        if is_ajax:
+            return JsonResponse({"error": "No documents to save"}, status=400)
+        return HttpResponse("No documents to save", status=400)
+
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pickle', dir=os.path.dirname(os.path.abspath(__file__)))
+    temp_file_path = temp_file.name
+
+    try:
+        # Сериализуем документы и закрываем файл
+        pickle.dump(documents, temp_file)
+        temp_file.close()
+
+        if is_ajax:
+            # Для AJAX: читаем содержимое файла и возвращаем как Blob с JSON
+            file_content = temp_file.read()
+            response = JsonResponse({
+                "status": "success",
+                "filename": "chunk.pickle",
+                "content_type": "application/octet-stream"
+            })
+            response['Content-Disposition'] = 'attachment; filename="chunk.pickle"'
+            response.content = file_content  # Передаём содержимое файла
+            return response
+
+        def file_iterator(path):
+            try:
+                with open(path, 'rb') as f:
+                    while chunk := f.read(8192):
+                        yield chunk
+            finally:
+                # Удаляем файл после завершения передачи
+                if os.path.exists(path):
+                    os.unlink(path)
+
+        response = StreamingHttpResponse(
+            file_iterator(temp_file_path),
+            content_type='application/octet-stream'
+        )
+        response['Content-Disposition'] = 'attachment; filename="chunk.pickle"'
+        return response
+
+    except Exception as e:
+        # Удаляем файл только в случае ошибки
+        if os.path.exists(temp_file_path):
+            os.unlink(temp_file_path)
+        return HttpResponse(f"Error serializing documents: {str(e)}", status=500)
+
 class ChunkCreateFromURLContentView(LoginRequiredMixin, View):
     """Создание чанков из URLContent"""
 
@@ -200,7 +256,7 @@ class ChunkCreateFromURLContentView(LoginRequiredMixin, View):
             chunk.page_content = total_header + chunk.page_content
             chunk.metadata = flatten_metadata(chunk.metadata)
 
-        pprint(source_chunks)
+        # pprint(source_chunks)
 
         save_documents_to_file(source_chunks, "chunk.pickle")
 
@@ -210,12 +266,56 @@ class ChunkCreateFromURLContentView(LoginRequiredMixin, View):
 class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
     """Создание чанков из URLContent"""
 
-    def get(self, request, pk):
-        url_contents = URLContent.objects.select_related("url").filter(url__site=pk)[:50]
+    def post(self, request, pk):
+        #    # Получаем параметры из POST-запроса
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        status = request.POST.get('status')
+        response_status = request.POST.get('response_status')
+
+        def parse_int_param(param):
+            try:
+                return int(request.POST.get(param)) if request.POST.get(param) else None
+            except (ValueError, TypeError):
+                return None
+
+        body_length_min = parse_int_param('min_body_length')
+        body_length_max = parse_int_param('max_body_length')
+
+        # Подзапросы для получения последнего URLContent
+        latest_content = URLContent.objects.filter(
+            url=OuterRef('pk')
+        ).order_by('-created_at')
+
+        urls_qs = URL.objects.filter(site_id=pk).annotate(
+            latest_content_id=Subquery(latest_content.values('id')[:1]),
+            latest_content_title=Subquery(latest_content.values('title')[:1]),
+            latest_content_status=Subquery(latest_content.values('status')[:1]),
+            latest_content_response_status=Subquery(latest_content.values('response_status')[:1]),
+            latest_content_tags=Subquery(latest_content.values('tags')[:1]),
+            latest_content_error_message=Subquery(latest_content.values('error_message')[:1]),
+            latest_content_body_length=Subquery(
+                latest_content.annotate(body_length=Length('body')).values('body_length')[:1]
+            ),
+        )
+
+        # Фильтрация
+        if status:
+            urls_qs = urls_qs.filter(latest_content_status=status)
+        if response_status:
+            urls_qs = urls_qs.filter(latest_content_response_status=response_status)
+        if body_length_min is not None:
+            urls_qs = urls_qs.filter(latest_content_body_length__gte=body_length_min)
+        if body_length_max is not None:
+            urls_qs = urls_qs.filter(latest_content_body_length__lte=body_length_max)
+
+        # Получаем только последние URLContent для отфильтрованных URL
+        latest_ids = urls_qs.values_list("latest_content_id", flat=True)
+        url_contents = URLContent.objects.select_related("url").filter(id__in=latest_ids)
+
         documents = []
         for url_content in url_contents:
             url = url_content.url.url
-            print(url)
+            # print(url)
             body = url_content.body
             metadata = url_content.metadata
             metadata.pop("internal_links")
@@ -240,6 +340,6 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
 
             documents.extend(source_chunks)
 
-        save_documents_to_file(documents, "chunk.pickle")
-
-        return HttpResponse("ok")
+        # save_documents_to_file(documents, "chunk.pickle")
+        response = save_documents_to_response(request, documents, is_ajax)
+        return response
