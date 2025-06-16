@@ -59,8 +59,12 @@ if __name__ == "__main__":
     #     model_name="ai-forever/sbert_large_nlu_ru",
     #     encode_kwargs={"normalize_embeddings": True, "batch_size": 8}  # Меньший батч
     # )
+    # embedding = HuggingFaceEmbeddings(
+    #     model_name="intfloat/multilingual-e5-base",
+    #     encode_kwargs={"normalize_embeddings": True, "batch_size": 8}  # Меньший батч
+    # )
     embedding = HuggingFaceEmbeddings(
-        model_name="intfloat/multilingual-e5-base",
+        model_name="ai-forever/FRIDA",
         encode_kwargs={"normalize_embeddings": True, "batch_size": 8}  # Меньший батч
     )
 

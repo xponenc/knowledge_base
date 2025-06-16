@@ -30,21 +30,21 @@ for i, doc in enumerate(results, 1):
     print(doc.page_content)
 
 print("OpenAIEmbeddings")
-
-# Загрузка базы FAISS
-oai_vector_db = FAISS.load_local(OAI_FAISS_DB_PATH, embeddings=OpenAIEmbeddings(
-    openai_api_key=""),
-                                 index_name="index", allow_dangerous_deserialization=True, )
-
-# Новый способ поиска — через invoke
-results = oai_vector_db.similarity_search(query, k=5)
-
-# Выводим найденные документы
-for i, doc in enumerate(results, 1):
-    print(f"--- Документ {i} ---")
-    print(doc.page_content)
-
-print("ai-forever/sbert_large_nlu_ru")
+#
+# # Загрузка базы FAISS
+# oai_vector_db = FAISS.load_local(OAI_FAISS_DB_PATH, embeddings=OpenAIEmbeddings(
+#     openai_api_key=""),
+#                                  index_name="index", allow_dangerous_deserialization=True, )
+#
+# # Новый способ поиска — через invoke
+# results = oai_vector_db.similarity_search(query, k=5)
+#
+# # Выводим найденные документы
+# for i, doc in enumerate(results, 1):
+#     print(f"--- Документ {i} ---")
+#     print(doc.page_content)
+#
+# print("ai-forever/sbert_large_nlu_ru")
 
 SBER_FAISS_DB_PATH = "./sber_faiss_index_db"
 embedding = HuggingFaceEmbeddings(
@@ -72,6 +72,23 @@ e5_vector_db = FAISS.load_local(e5_FAISS_DB_PATH, embeddings=embedding,
                                 index_name="index", allow_dangerous_deserialization=True, )
 
 results = e5_vector_db.similarity_search(query, k=5)
+
+# Выводим найденные документы
+for i, doc in enumerate(results, 1):
+    print(f"--- Документ {i} ---")
+    print(doc.page_content)
+
+print("ai-forever/FRIDA")
+
+frida_FAISS_DB_PATH = "./frida_faiss_index_db"
+embedding = HuggingFaceEmbeddings(
+    model_name="ai-forever/FRIDA",
+    encode_kwargs={"normalize_embeddings": True, "batch_size": 8}  # Меньший батч
+)
+frida_vector_db = FAISS.load_local(frida_FAISS_DB_PATH, embeddings=embedding,
+                                index_name="index", allow_dangerous_deserialization=True, )
+
+results = frida_vector_db.similarity_search(query, k=5)
 
 # Выводим найденные документы
 for i, doc in enumerate(results, 1):

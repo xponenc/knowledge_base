@@ -51,7 +51,7 @@ def create_vector_db(
             documents=chunks,
             embedding=embedding
         )
-        vectordb_index.save_local('e5_faiss_index_db')
+        vectordb_index.save_local('frida_faiss_index_db')
     elif db_type == VectorDbType.qdrant:
         uuids = [str(uuid4()) for _ in range(len(chunks))]
         client = QdrantClient(path="./langchain_qdrant")
