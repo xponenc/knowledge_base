@@ -85,10 +85,10 @@ class Content(models.Model):
 def get_raw_file_path(instance, filename):
     """Генерирует путь и имя файла для RawContent"""
     timestamp = datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
-    if instance.url:
-        base_path = 'source_content/url_content'
-        return f'{base_path}/url_{instance.url.id}_{timestamp}_raw_content.txt'
-    elif instance.local_document:
+    # if instance.url:
+    #     base_path = 'source_content/url_content'
+    #     return f'{base_path}/url_{instance.url.id}_{timestamp}_raw_content.txt'
+    if instance.local_document:
         base_path = 'source_content/document_content'
         original_filename = filename or 'document'
         sanitized_filename = slugify(os.path.splitext(original_filename)[0]) + os.path.splitext(original_filename)[1]
@@ -137,10 +137,10 @@ class RawContent(Content):
 def get_cleaned_file_path(instance, filename):
     """Генерирует путь и имя файла для CleanedContent"""
     timestamp = datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
-    if instance.url:
-        base_path = 'source_content/url_content'
-        return f'{base_path}/url_{instance.url.id}_{timestamp}_cleaned_content.txt'
-    elif instance.local_document or instance.network_document:
+    # if instance.url:
+    #     base_path = 'source_content/url_content'
+    #     return f'{base_path}/url_{instance.url.id}_{timestamp}_cleaned_content.txt'
+    if instance.local_document or instance.network_document:
         document = instance.local_document if instance.local_document else instance.network_document
         base_path = 'source_content/document_content'
         return f'{base_path}/document_{document.id}_{timestamp}_cleaned_content.txt'
@@ -197,7 +197,7 @@ class URLContent(Content):
                             default=list,
                             blank=True,
                             help_text="Категории в формате JSON, например ['news', 'tech', ]")
-    error_message = models.CharField(verbose_name="ошибка при обрабоотке",
+    error_message = models.CharField(verbose_name="ошибка при обработке",
                                      max_length=1000,
                                      null=True,
                                      blank=True,

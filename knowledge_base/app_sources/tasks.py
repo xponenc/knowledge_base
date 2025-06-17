@@ -12,6 +12,7 @@ from celery_progress.backend import ProgressRecorder
 from django.core.files import File
 from django.utils import timezone
 
+from app_sources.content_models import ContentStatus, RawContent
 from app_sources.report_model import CloudStorageUpdateReport
 from app_sources.source_models import NetworkDocument
 from app_sources.storage_models import CloudStorage
@@ -118,9 +119,9 @@ def process_cloud_files(
         if url not in db_urls_set:
             result['new_files'][index] = file
         else:
-            if doc.status == Status.DELETED.value:
+            if doc.status == ContentStatus.DELETED.value:
                 result['restored_files'][index] = file
-            elif doc.status == Status.EXCLUDED.value:
+            elif doc.status == ContentStatus.EXCLUDED.value:
                 result['excluded_files'][index] = file
             else:
                 result['updated_files'][index] = file
