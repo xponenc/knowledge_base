@@ -394,10 +394,23 @@ class TestAskFridaView(LoginRequiredMixin, View):
 
         return render(request, self.template_name, {'chat_history': chat_history})
 
-class ClearChatView(View):
+
+class ClearChatView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         # Очищаем историю чата в сессии
         if 'chat_history' in request.session:
             del request.session['chat_history']
             request.session.modified = True
         return redirect(reverse_lazy('chunks:ask_frida'))
+
+
+class CurrentTestChunksView(LoginRequiredMixin, View):
+    def get(self, *args, **kwargs):
+        all_documents = None
+        chunk_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chunk.pickle")
+        with open(chunk_file, 'rb') as f:
+            # Загружаем (десериализуем) список документов из файла
+            all_documents = pickle.load(f)
+        context = {"all_documents": all_documents, }
+        return render(request=self.request, template_name="app_chunks/current_documents.html", context=context)
+

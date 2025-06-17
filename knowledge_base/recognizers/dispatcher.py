@@ -102,5 +102,4 @@ class ContentRecognizerDispatcher:
         all_classes = set()
         for classes in RECOGNIZER_REGISTRY.values():
             all_classes.update(classes)
-        print(all_classes)
         return list(all_classes)

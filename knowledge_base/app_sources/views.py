@@ -173,7 +173,6 @@ class CloudStorageSyncView(View):
                 storage_files = cloud_storage_api.list_directory(path=cloud_storage_api.root_path)
                 for file in storage_files:
                     file["process_status"] = "awaiting processing"
-                pprint(storage_files)
 
             storage_update_report.content["current_status"] = "file list retrieved"
             storage_update_report.save()
@@ -244,7 +243,6 @@ class WebSiteUpdateReportDetailView(LoginRequiredMixin, DetailView):
         #     ),
         #     body_preview_100=Left("body_preview", 100)  # Обрезаем до 100 символов
         # )
-        print(new_urls_id)
         new_urls = URLContent.objects.filter(report=self.object).select_related("url").annotate(
                 max_created_at=Subquery(
                     URLContent.objects.filter(url=OuterRef("url"))
@@ -402,16 +400,6 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
     paginate_by = 9
 
     def get_context_data(self, **kwargs):
-
-        from django.apps import apps
-        from app_sources.source_models import URL
-
-        # Поиск всех моделей с внешними ключами на URL
-        for model in apps.get_models():
-            for field in model._meta.get_fields():
-                if isinstance(field, ForeignKey) and field.remote_field.model == URL:
-                    print(f"{model.__name__} -> {field.name}")
-
         context = super().get_context_data(**kwargs)
         request = self.request
         website = self.object
@@ -501,7 +489,6 @@ class WebSiteCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateView):
     def form_valid(self, form):
         """Установка связи с базой знаний перед валидацией"""
         kb_pk = self.kwargs.get("kb_pk")
-        print("Dfkblfwbz")
         if not kb_pk:
             form.add_error(None, "Не передан ID базы знаний")
             return self.form_invalid(form)
@@ -941,11 +928,11 @@ class RawContentRecognizeCreateView(LoginRequiredMixin, View):
         if form.is_valid():
             recognizer_class = form.cleaned_data['recognizer']
             file_path = raw_content.file.path
-            print(file_path)
             # print(recognizer_name)
             # recognizer = dispatcher.get_by_name(recognizer_name)
             try:
                 recognizer = recognizer_class(file_path)
+                print(recognizer)
                 recognizer_report = recognizer.recognize()
                 recognized_text = recognizer_report.get("text", "")
                 recognition_method = recognizer_report.get("method", "")

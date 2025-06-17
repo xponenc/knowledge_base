@@ -20,7 +20,6 @@ from retrying import retry
 from selenium.webdriver.support.wait import WebDriverWait
 
 from app_parsers.models import Parser, TestParser, MainParser
-from app_parsers.services.parsers.base import BaseWebParser
 from app_parsers.services.parsers.core_parcer_engine import SeleniumDriver
 from app_parsers.services.parsers.dispatcher import WebParserDispatcher
 
@@ -29,7 +28,6 @@ from django.contrib.auth import get_user_model
 from app_sources.content_models import URLContent, ContentStatus
 from app_sources.report_model import WebSiteUpdateReport
 from app_sources.source_models import URL, SourceStatus
-from utils.process_files import compute_sha512
 from utils.process_text import normalize_text, remove_emoji
 
 User = get_user_model()

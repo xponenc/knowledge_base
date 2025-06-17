@@ -28,9 +28,9 @@
             <dt class="col-sm-3">🔌 Тип API</dt>
             <dd class="col-sm-9">{{ cloudstorage.api_type }}</dd>
 
-            <dt class="col-sm-3">🔐 Учетные данные</dt>
+            <dt class="col-sm-3 ">🔐 Учетные данные (токен хеширован)</dt>
             <dd class="col-sm-9">
-                <pre class="bg-light p-2 rounded">{{ cloudstorage.credentials|default:"—" }}</pre>
+                <pre class="bg-light p-2 rounded text-break" style="white-space:pre-wrap;">{{ cloudstorage.credentials|default:"—" }}</pre>
             </dd>
         </dl>
     </div>
