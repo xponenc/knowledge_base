@@ -12,6 +12,7 @@ from celery_progress.backend import ProgressRecorder
 from django.core.files import File
 from django.utils import timezone
 
+from app_sources.report_model import CloudStorageUpdateReport
 from app_sources.source_models import NetworkDocument
 from app_sources.storage_models import CloudStorage
 from utils.process_files import compute_sha512
