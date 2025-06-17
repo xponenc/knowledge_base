@@ -4,7 +4,7 @@ from pprint import pprint
 from dateutil.parser import parse
 from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 from django.core.files.base import ContentFile
-from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch
+from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch, ForeignKey
 from django.db.models.functions import Left, Coalesce, Substr, Length
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render, redirect
@@ -402,6 +402,16 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
     paginate_by = 9
 
     def get_context_data(self, **kwargs):
+
+        from django.apps import apps
+        from app_sources.source_models import URL
+
+        # Поиск всех моделей с внешними ключами на URL
+        for model in apps.get_models():
+            for field in model._meta.get_fields():
+                if isinstance(field, ForeignKey) and field.remote_field.model == URL:
+                    print(f"{model.__name__} -> {field.name}")
+
         context = super().get_context_data(**kwargs)
         request = self.request
         website = self.object

@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load status_tags %}
 {% load humanize %}
 
 {% block extra_css %}
@@ -227,7 +228,7 @@
 
                     <div class="small mt-3">
                         <p class="mb-1"><strong>URL:</strong> <span class="text-muted">{{ url.url }}</span></p>
-                        <p class="mb-1"><strong>Статус обработки:</strong> {{ url.latest_content_status|default:"—" }}</p>
+                        <p class="mb-1"><strong>Статус обработки:</strong> {{ url.latest_content_status|get_status_display }}</p>
                         <p class="mb-1"><strong>HTTP-ответ:</strong> {{ url.latest_content_response_status|default:"—" }}</p>
                         <p class="mb-1"><strong>Тэги:</strong> {{ url.latest_content_tags|default:"—" }}</p>
                         <p class="mb-1"><strong>Количество символов в контенте:</strong> {{ url.latest_content_body_length|default:"—" }}</p>
