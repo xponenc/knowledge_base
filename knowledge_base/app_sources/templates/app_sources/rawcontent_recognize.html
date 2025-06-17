@@ -23,17 +23,39 @@
                 <a href="{{ raw_content.file.url }}" target="_blank" class="btn btn-outline-primary btn-sm mt-2">Скачать файл</a>
             </p>
 
-            <form method="post" class="mt-4">
+            <form method="post" class="mt-4" id="start-recognize">
                 {% csrf_token %}
                 <div class="mb-3">
                     {{ form.recognizer.label_tag }}
                     {{ form.recognizer }}
                 </div>
-                <button type="submit" class="btn btn-success">
+                <button type="submit" class="btn btn-success" id="submit-btn">
                     <i class="bi bi-magic"></i> Запустить распознавание
+                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="loader"></span>
                 </button>
             </form>
         </div>
     </div>
 </div>
 {% endblock %}
+
+
+{% block script %}
+    <script>
+        document.querySelector('#start-recognize').addEventListener('submit', function(event) {
+            event.preventDefault(); // Предотвращаем стандартную отправку формы
+
+            const submitBtn = document.getElementById('submit-btn');
+            const loader = document.getElementById('loader');
+            const form = this;
+
+            // Блокируем кнопку
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'Обработка... <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+            loader.classList.remove('d-none');
+
+            form.submit();
+
+        });
+    </script>
+{% endblock script%}
