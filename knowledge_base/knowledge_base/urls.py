@@ -30,7 +30,7 @@ urlpatterns = [
     path('', include('app_core.urls')),
     path('sources/', include('app_sources.urls')),
     path('', include('app_parsers.urls')),
-    path('chunks', include('app_chunks.urls')),
+    path('chunks/', include('app_chunks.urls')),
 ]
 
 if settings.DEBUG:
