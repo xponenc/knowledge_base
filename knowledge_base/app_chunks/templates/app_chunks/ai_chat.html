@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load status_tags %}
+{% load humanize %}
+
+{% block extra_css %}
+<style>
+        .chat-container {
+            max-width: 600px;
+            margin: 20px auto;
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .chat-history {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background-color: #e3f2fd;
+            margin-left: 20%;
+            margin-right: 5%;
+        }
+        .ai-message {
+            background-color: #f0f0f0;
+            margin-right: 20%;
+            margin-left: 5%;
+        }
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+        .chat-input input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .chat-input button {
+            padding: 8px 16px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .chat-input button:hover {
+            background-color: #0056b3;
+        }
+        .clear-button {
+            background-color: #dc3545;
+            margin-top: 10px;
+        }
+        .clear-button:hover {
+            background-color: #c82333;
+        }
+    </style>
+{% endblock extra_css %}
+
+
+{% block title %}Чат с AI{% endblock %}
+
+{% block content %}
+    <div class="chat-container">
+        <div class="chat-history" id="chat-history">
+            {% for message in chat_history %}
+                <div class="message user-message">{{ message.user }}</div>
+                <div class="message ai-message">{{ message.ai }}</div>
+            {% endfor %}
+        </div>
+        <form id="chat-form" method="post">
+            {% csrf_token %}
+            <div class="chat-input">
+                <input type="text" name="message" id="message-input" placeholder="Введите ваше сообщение..." required>
+                <button type="submit">Отправить</button>
+            </div>
+        </form>
+        <form action="{% url 'chunks:clear_frida' %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="clear-button">Очистить чат</button>
+        </form>
+    </div>
+
+{% endblock content %}
+
+{% block script %}
+
+    <script>
+        document.getElementById('chat-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const response = await fetch('{% url 'chunks:ask_frida' %}', {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            // Добавляем новые сообщения в историю
+            const chatHistory = document.getElementById('chat-history');
+            const userMessage = document.createElement('div');
+            userMessage.className = 'message user-message';
+            userMessage.textContent = data.user_message;
+            chatHistory.appendChild(userMessage);
+            
+            const aiMessage = document.createElement('div');
+            aiMessage.className = 'message ai-message';
+            aiMessage.textContent = data.ai_response;
+            chatHistory.appendChild(aiMessage);
+            
+            // Прокручиваем к последнему сообщению
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+            
+            // Очищаем поле ввода
+            document.getElementById('message-input').value = '';
+            
+            // Удаляем старые сообщения, если их больше 5 пар
+            const messages = chatHistory.getElementsByClassName('message');
+            while (messages.length > 10) { // 5 пар (пользователь + AI)
+                messages[0].remove();
+            }
+        });
+    </script>
+{% endblock script %}

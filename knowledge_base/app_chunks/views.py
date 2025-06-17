@@ -2,6 +2,7 @@ import os
 import pickle
 import re
 import tempfile
+from pathlib import Path
 from pprint import pprint
 
 import tiktoken
@@ -11,13 +12,23 @@ from django.views import View
 from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch
 from django.db.models.functions import Left, Coalesce, Substr, Length
 from django.http import StreamingHttpResponse
+from django.shortcuts import get_object_or_404, render, redirect
+from django.urls import reverse_lazy
 
 from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 from rest_framework import viewsets
 
+# from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma, FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
+
+from openai import OpenAI
+
 from app_sources.content_models import URLContent
 from app_sources.source_models import URL
+from knowledge_base.settings import BASE_DIR
+from test_db_zone.create_and_request_vectordb.test_db import answer_index, system_instruction, frida_vector_db
 
 
 def split_markdown_text(markdown_text,
@@ -343,3 +354,50 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
         # save_documents_to_file(documents, "chunk.pickle")
         response = save_documents_to_response(request, documents, is_ajax)
         return response
+
+
+class TestAskFridaView(LoginRequiredMixin, View):
+    template_name = "app_chunks/ai_chat.html"
+
+    def get(self, request, *args, **kwargs):
+        # Получаем историю чата из сессии или создаем пустую
+        chat_history = request.session.get('chat_history', [])
+        return render(request, self.template_name, {'chat_history': chat_history})
+
+    def post(self, request):
+        # Получаем историю чата из сессии
+        chat_history = request.session.get('chat_history', [])
+
+        # Получаем сообщение пользователя
+        user_message = request.POST.get('message', '').strip()
+
+        if user_message:
+            ai_message = answer_index(system_instruction, user_message, frida_vector_db)
+            ai_response = f"AI ответ: {ai_message}"
+
+            # Добавляем сообщения в историю
+            chat_history.append({'user': user_message, 'ai': ai_response})
+
+            # Ограничиваем историю 5 последними сообщениями
+            chat_history = chat_history[-5:]
+
+            # Сохраняем обновленную историю в сессии
+            request.session['chat_history'] = chat_history
+            request.session.modified = True
+
+            # Возвращаем JSON-ответ для AJAX
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'user_message': user_message,
+                    'ai_response': ai_response
+                })
+
+        return render(request, self.template_name, {'chat_history': chat_history})
+
+class ClearChatView(View):
+    def post(self, request, *args, **kwargs):
+        # Очищаем историю чата в сессии
+        if 'chat_history' in request.session:
+            del request.session['chat_history']
+            request.session.modified = True
+        return redirect(reverse_lazy('chunks:ask_frida'))
