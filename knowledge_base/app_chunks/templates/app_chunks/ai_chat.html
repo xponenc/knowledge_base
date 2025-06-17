@@ -79,11 +79,14 @@
         {% endfor %}
     </div>
 
-    <form id="chat-form" method="post" class="mb-2">
+    <form id="chat-form" method="post" class="mb-2" id="chat-form">
         {% csrf_token %}
         <div class="chat-input d-flex gap-2">
             <input type="text" name="message" id="message-input" class="form-control" placeholder="Введите ваше сообщение..." required>
-            <button type="submit" class="btn btn-primary">Отправить</button>
+            <button type="submit" class="btn btn-primary" id="submit-btn">
+                Отправить
+                <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="loader"></span>
+            </button>
         </div>
     </form>
 
@@ -101,6 +104,22 @@
         if (chatHistory) {
             chatHistory.scrollTop = chatHistory.scrollHeight;
         }
+
+        document.querySelector('#chat-form').addEventListener('submit', function(event) {
+            event.preventDefault(); // Предотвращаем стандартную отправку формы
+
+            const submitBtn = document.getElementById('submit-btn');
+            const loader = document.getElementById('loader');
+            const form = this;
+
+            // Блокируем кнопку
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'Обработка... <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+            loader.classList.remove('d-none');
+
+            form.submit();
+
+        });
     });
 </script>
 {% endblock script %}
