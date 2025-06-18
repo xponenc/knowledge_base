@@ -2,6 +2,7 @@ import os
 import re
 from pathlib import Path
 
+import torch
 from langchain_community.vectorstores import Chroma, FAISS
 # from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -11,6 +12,8 @@ from langchain_core.documents import Document
 from langchain_core.runnables import Runnable
 from langchain_openai import OpenAIEmbeddings
 from dotenv import load_dotenv
+from sentence_transformers import CrossEncoder
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 from knowledge_base.settings import BASE_DIR
 
@@ -89,6 +92,21 @@ load_dotenv()
 #     print(f"--- Документ {i} ---")
 #     print(doc.page_content)
 
+# Загружаем Cross-Encoder (CEDR)
+# reranker_model_id = "cointegrated/rubert-tiny2-cedr-msmarco"
+# tokenizer = AutoTokenizer.from_pretrained(reranker_model_id)
+# model = AutoModelForSequenceClassification.from_pretrained(reranker_model_id)
+# model.eval()  # выключаем dropout
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# model = model.to(device)
+
+reranker = CrossEncoder(
+    "DiTy/cross-encoder-russian-msmarco",
+    max_length=512,
+    device="cuda" if torch.cuda.is_available() else "cpu"
+)
+
+
 print("ai-forever/FRIDA")
 
 # frida_FAISS_DB_PATH = "./frida_faiss_index_db"
@@ -102,7 +120,7 @@ embedding = HuggingFaceEmbeddings(
     encode_kwargs={"normalize_embeddings": True, "batch_size": 8}  # Меньший батч
 )
 frida_vector_db = FAISS.load_local(frida_FAISS_DB_PATH, embeddings=embedding,
-                                index_name="index", allow_dangerous_deserialization=True, )
+                                   index_name="index", allow_dangerous_deserialization=True, )
 
 # results = frida_vector_db.similarity_search(query, k=5)
 #
@@ -112,7 +130,7 @@ frida_vector_db = FAISS.load_local(frida_FAISS_DB_PATH, embeddings=embedding,
 #     print(doc.page_content)
 
 
-system_instruction="""
+system_instruction = """
 Ты - опытный консультант Академии дополнительного профессионального образования.
 Академия оказывает следующие услуги:
 Консалтинговые услуги
@@ -143,17 +161,36 @@ system_instruction="""
 
 from openai import OpenAI
 
-def answer_index(system, topic, search_index, verbose=False):
 
+def answer_index(system, topic, search_index, verbose=True):
     # Поиск релевантных отрезков из базы знаний
     docs = search_index.similarity_search(topic, k=5)
-    if verbose: print('\n ===========================================: ')
-    message_content = re.sub(r'\n{2}', ' ', '\n '.join([f'\nОтрывок документа №{i+1}\n=====================' + doc.page_content + '\n' for i, doc in enumerate(docs)]))
-    if verbose: print('message_content :\n ======================================== \n', message_content)
+    # реранкинг
+    pairs = [(topic, doc.page_content) for doc in docs]
+    scores = reranker.predict(pairs)
+
+    reranked = sorted(zip(docs, scores), key=lambda x: x[1], reverse=True)
+
+    # Возвращаем только топ-N
+    top_docs = [doc for doc, score in reranked[:5]]
+    print(top_docs)
+
+    if verbose:
+        print('\n ===========================================: ')
+    # message_content = re.sub(r'\n{2}', ' ', '\n '.join(
+    #     [f'\nОтрывок документа №{i + 1}\n=====================' + doc.page_content + '\n' for i, doc in
+    #      enumerate(docs[:5])]))
+    message_content = re.sub(r'\n{2}', ' ', '\n '.join(
+        [f'\nОтрывок документа №{i + 1}\n=====================' + doc.page_content + '\n' for i, doc in
+         enumerate(top_docs[:5])]))
+
+    if verbose:
+        print('message_content :\n ======================================== \n', message_content)
     client = OpenAI()
     messages = [
         {"role": "system", "content": system},
-        {"role": "user", "content": f"Ответь на вопрос. Документ с информацией для ответа: {message_content}\n\nВопрос пользователя: \n{topic}"}
+        {"role": "user",
+         "content": f"Ответь на вопрос. Документ с информацией для ответа: {message_content}\n\nВопрос пользователя: \n{topic}"}
     ]
 
     if verbose: print('\n ===========================================: ')

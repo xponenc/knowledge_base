@@ -46,7 +46,7 @@ class KnowledgeBaseCreateView(LoginRequiredMixin, CreateView):
 class KnowledgeBaseUpdateView(LoginRequiredMixin, KBPermissionMixin, UpdateView):
     """Редактирование базы знаний с логированием изменений"""
     model = KnowledgeBase
-    fields = ['title', 'description', 'owners']
+    fields = ['name', 'description', 'owners']
     success_url = reverse_lazy('core:knowledgebase_list')
 
     def form_valid(self, form):

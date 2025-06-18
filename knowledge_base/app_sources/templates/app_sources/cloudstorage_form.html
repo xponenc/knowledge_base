@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
-{% block title %}Создать хранилище{% endblock %}
+{% block title %}{{ view.object.pk|yesno:"Редактировать,Создать" }} облачное хранилище{% endblock %}
 {% block content %}
-<h2>Создать облачное хранилище</h2>
+<h2>{{ view.object.pk|yesno:"Редактировать,Создать" }} облачное хранилище</h2>
 
 <form method="post">
     {{ form.kb }}
@@ -11,33 +11,39 @@
         <label for="{{ form.name.id_for_label }}" class="form-label">Название</label>
         {{ form.name }}
     </div>
+    {% if not object %}
+        <div class="mb-3">
+            <label for="{{ form.api_type.id_for_label }}" class="form-label">Тип API</label>
+            {{ form.api_type }}
+        </div>
+        <div class="mb-3">
+            <label for="{{ form.url.id_for_label }}" class="form-label">URL</label>
+            {{ form.url }}
+        </div>
+        <div class="mb-3">
+            <label for="{{ form.root_path.id_for_label }}" class="form-label">Корневая директория</label>
+            {{ form.root_path }}
+        </div>
+        <div class="mb-3">
+            <label for="{{ form.auth_type.id_for_label }}" class="form-label">Тип авторизации</label>
+            {{ form.auth_type }}
+        </div>
+        <div class="mb-3">
+            <label for="{{ form.token.id_for_label }}" class="form-label">Токен</label>
+            {{ form.token }}
+        </div>
+        <div class="mb-3">
+            <label for="{{ form.username.id_for_label }}" class="form-label">Имя пользователя</label>
+            {{ form.username }}
+        </div>
+        <div class="mb-3">
+            <label for="{{ form.password.id_for_label }}" class="form-label">Пароль</label>
+            {{ form.password }}
+        </div>
+    {% endif %}
     <div class="mb-3">
-        <label for="{{ form.api_type.id_for_label }}" class="form-label">Тип API</label>
-        {{ form.api_type }}
-    </div>
-    <div class="mb-3">
-        <label for="{{ form.url.id_for_label }}" class="form-label">URL</label>
-        {{ form.url }}
-    </div>
-    <div class="mb-3">
-        <label for="{{ form.root_path.id_for_label }}" class="form-label">Корневая директория</label>
-        {{ form.root_path }}
-    </div>
-    <div class="mb-3">
-        <label for="{{ form.auth_type.id_for_label }}" class="form-label">Тип авторизации</label>
-        {{ form.auth_type }}
-    </div>
-    <div class="mb-3">
-        <label for="{{ form.token.id_for_label }}" class="form-label">Токен</label>
-        {{ form.token }}
-    </div>
-    <div class="mb-3">
-        <label for="{{ form.username.id_for_label }}" class="form-label">Имя пользователя</label>
-        {{ form.username }}
-    </div>
-    <div class="mb-3">
-        <label for="{{ form.password.id_for_label }}" class="form-label">Пароль</label>
-        {{ form.password }}
+        <label for="{{ form.description.id_for_label }}" class="form-label">Описание</label>
+        {{ form.description }}
     </div>
     <button type="submit" class="btn btn-primary">Создать</button>
 </form>

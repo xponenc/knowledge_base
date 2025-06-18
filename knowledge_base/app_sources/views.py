@@ -2,6 +2,7 @@ import logging
 from pprint import pprint
 
 from dateutil.parser import parse
+from django import forms
 from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 from django.core.files.base import ContentFile
 from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch, ForeignKey,Q
@@ -129,7 +130,14 @@ class CloudStorageCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateV
 
 
 class CloudStorageUpdateView(LoginRequiredMixin, UpdateView):
-    pass
+    model = CloudStorage
+    fields = ("name", "description")
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields["name"].widget.attrs["class"] = "form-control"
+        form.fields["description"].widget = forms.Textarea(attrs={"rows": 4, "class": "form-control"})
+        return form
 
 
 class CloudStorageDeleteView(LoginRequiredMixin, DeleteView):

@@ -3,7 +3,7 @@
 ##  тестовый модуль для поиска идентичных векторов
 ##
 ###
-
+import re
 import sqlite3
 import faiss
 import numpy as np

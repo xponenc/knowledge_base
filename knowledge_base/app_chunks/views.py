@@ -479,5 +479,4 @@ class TestModelScoreReportView(LoginRequiredMixin, View):
                 test_report[test_name]["chunks_counter"] = all_urls_counts.get(test_data.get("url"))
                 test_report[test_name]["used_chunks"] = len(list(doc for doc in test_data.get("ai_documents", []) if doc.get("metadata", {}).get("url") == test_data.get("url")))
 
-
         return render(self.request, 'app_chunks/test_model_results.html', {'tests': test_report})
