@@ -386,3 +386,4 @@ def download_and_create_raw_content(document_ids: list[int], update_report_id: i
     failed = [pk for pk, status in results if status == "fail"]
 
     logger.info(f"Обработка завершена. Успешно: {len(success)}, Ошибки: {len(failed)}")
+

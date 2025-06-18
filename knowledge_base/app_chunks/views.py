@@ -1,7 +1,9 @@
+import json
 import os
 import pickle
 import re
 import tempfile
+from collections import Counter
 from pathlib import Path
 from pprint import pprint
 
@@ -25,6 +27,8 @@ from langchain_huggingface import HuggingFaceEmbeddings
 
 from openai import OpenAI
 
+from app_chunks.forms import ModelScoreTestForm
+from app_chunks.tasks import test_model_answer
 from app_sources.content_models import URLContent
 from app_sources.source_models import URL
 from knowledge_base.settings import BASE_DIR
@@ -372,7 +376,8 @@ class TestAskFridaView(LoginRequiredMixin, View):
         user_message = request.POST.get('message', '').strip()
 
         if user_message:
-            ai_message = answer_index(system_instruction, user_message, frida_vector_db)
+            docs, ai_message = answer_index(system_instruction, user_message, frida_vector_db)
+            docs_serialized = [{"metadata": doc.metadata, "content": doc.page_content, } for doc in docs]
             ai_response = f"AI ответ: {ai_message}"
 
             # Добавляем сообщения в историю
@@ -389,7 +394,8 @@ class TestAskFridaView(LoginRequiredMixin, View):
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
                     'user_message': user_message,
-                    'ai_response': ai_response
+                    'ai_response': ai_response,
+                    'current_docs': docs_serialized,
                 })
 
         return render(request, self.template_name, {'chat_history': chat_history})
@@ -414,3 +420,64 @@ class CurrentTestChunksView(LoginRequiredMixin, View):
         context = {"all_documents": all_documents, }
         return render(request=self.request, template_name="app_chunks/current_documents.html", context=context)
 
+
+class TestModelScoreView(LoginRequiredMixin, View):
+    """тестирование ответов"""
+
+    def get(self, *args, **kwargs):
+        all_documents = None
+        chunk_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chunk.pickle")
+        with open(chunk_file, 'rb') as f:
+            # Загружаем (десериализуем) список документов из файла
+            all_documents = pickle.load(f)
+        all_urls = list(set(doc.metadata.get("url") for doc in all_documents))
+        form = ModelScoreTestForm(all_urls=all_urls, initial={'urls': all_urls[:5]})
+        context = {
+            "form": form
+        }
+        return render(request=self.request, template_name="app_chunks/test_model_answer.html", context=context)
+
+    def post(self, *args, **kwargs):
+        all_documents = None
+        chunk_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chunk.pickle")
+        with open(chunk_file, 'rb') as f:
+            # Загружаем (десериализуем) список документов из файла
+            all_documents = pickle.load(f)
+        all_urls = list(set(doc.metadata.get("url") for doc in all_documents))
+        form = ModelScoreTestForm(self.request.POST, all_urls=all_urls)
+        if form.is_valid():
+            test_urls = form.cleaned_data.get("urls")
+            task = test_model_answer.delay(test_urls=test_urls)
+            return render(self.request, "celery_task_progress.html", {
+                "task_id": task.id,
+                "task_name": f"Тестирование ответов модели",
+                "task_object_url": reverse_lazy("chunks:test_model_report"),
+                "task_object_name": "FRIDA",
+                "next_step_url": reverse_lazy("chunks:test_model_report"),
+            })
+
+        context = {
+            "form": form
+        }
+        return render(request=self.request, template_name="app_chunks/test_model_answer.html", context=context)
+
+
+class TestModelScoreReportView(LoginRequiredMixin, View):
+    def get(self, *args, **kwargs):
+        test_report = None
+        all_documents = None
+        chunk_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chunk.pickle")
+        with open(chunk_file, 'rb') as f:
+            # Загружаем (десериализуем) список документов из файла
+            all_documents = pickle.load(f)
+        all_urls = list(doc.metadata.get("url") for doc in all_documents)
+        all_urls_counts = Counter(all_urls)
+
+        with open("test_report.json", encoding="utf-8") as f:
+            test_report = json.load(f)
+            for test_name, test_data in test_report.items():
+                test_report[test_name]["chunks_counter"] = all_urls_counts.get(test_data.get("url"))
+                test_report[test_name]["used_chunks"] = len(list(doc for doc in test_data.get("ai_documents", []) if doc.get("metadata", {}).get("url") == test_data.get("url")))
+
+
+        return render(self.request, 'app_chunks/test_model_results.html', {'tests': test_report})

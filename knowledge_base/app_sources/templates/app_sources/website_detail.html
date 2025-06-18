@@ -152,6 +152,7 @@
         </p>
     <form method="post" action="{% url 'chunks:create_chunks_from_website' website.pk %}" class="mb-3" id="create-chunks-form">
         {% csrf_token %}
+       
         {% for key, value in request.GET.items %}
             <input type="hidden" name="{{ key }}" value="{{ value }}">
         {% endfor %}
@@ -165,6 +166,10 @@
 <!-- Форма фильтра и сортировки -->
 <form method="get" class="mb-4">
     <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label for="search" class="form-label">Поиск</label>
+            <input type="text" id="search" name="search" class="form-control" value="{{ search_query }}">
+        </div>
         <div class="col-md-3">
             <label for="status" class="form-label">Статус обработки</label>
             <select id="status" name="status" class="form-select">
@@ -208,6 +213,14 @@
 
 
 <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
+    {% if search_query %}
+        <div class="alert alert-info">
+            Результаты поиска по <strong>"{{ search_query }}"</strong>
+            {% if request.GET.status or request.GET.response_status or request.GET.min_body_length or request.GET.max_body_length or request.GET.ordering %}
+                с применёнными фильтрами и сортировкой
+            {% endif %}
+        </div>
+    {% endif %}
     {% for url in page_obj %}
         <div class="col">
             <div class="card h-100 shadow-sm border 

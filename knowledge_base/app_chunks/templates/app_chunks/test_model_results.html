@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}Результаты тестов{% endblock %}
+{% block content %}
+<div class="container my-5 p-5">
+    <h2 class="mb-4">Результаты тестов</h2>
+
+    {% for test_name, test_data in tests.items %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <strong>{{ test_name }}</strong>
+        </div>
+        <div class="card-body">
+            <p>Тестируемая страница:<a href="{{ test_data.url }}" target="blank">{{ test_data.url }}</a></p>
+            <p><strong>Эталонный вопрос: </strong> {{ test_data.benchmark_question }}</p>
+            <p><strong>Эталонный ответ: </strong> {{ test_data.benchmark_answer }}</p>
+            <p><strong>Ответ модели: </strong> {{ test_data.ai_answer }}</p>
+            <p>Оценка ответа: <strong>{{ test_data.evaluation_report.answer_score }}</strong></p>
+            <p>Резюме по ответу: {{ test_data.evaluation_report.answer_resume }}</p>
+            <p>Оценка соответствия инструкции: {{ test_data.evaluation_report.prompt_score }}</p>
+            <p>Резюме по инструкции: {{ test_data.evaluation_report.prompt_resume }}</p>
+
+            <h5 class="mt-4">Подтянутые документы</h5>
+            <div class="row row-cols-1 g-4">
+                <p>Для страницы создано <strong>{{ test_data.chunks_counter }}</strong> и подтянуто при обработке <strong>{{ test_data.used_chunks }}</strong></p>
+
+                {% for document in test_data.ai_documents %}
+                    <div class="col">
+                        <div class="card shadow-sm border-0 {% if document.metadata.url != test_data.url %} bg-light{% endif %}">
+                            <div class="card-body">
+                                <h5 class="card-title">Метаданные</h5>
+                                <pre class="card-text bg-light p-2 rounded text-break" style="white-space:pre-wrap;">{{ document.metadata }}</pre>
+                                <h6 class="mt-3">Контент:</h6>
+                                <p class="card-text">{{ document.content }}</p>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -4,7 +4,7 @@ from pprint import pprint
 from dateutil.parser import parse
 from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 from django.core.files.base import ContentFile
-from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch, ForeignKey
+from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch, ForeignKey,Q
 from django.db.models.functions import Left, Coalesce, Substr, Length
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render, redirect
@@ -444,6 +444,13 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
         if sort_by.lstrip('-') in allowed_sorts:
             urls_qs = urls_qs.order_by(sort_by)
 
+        search_query = request.GET.get('search')
+        if search_query:
+            urls_qs = urls_qs.filter(
+                Q(url__icontains=search_query) |
+                Q(latest_content_title__icontains=search_query)
+            )
+
         # Пагинация
         paginator = Paginator(urls_qs, self.paginate_by)
         page_number = request.GET.get("page")
@@ -471,6 +478,7 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
                 'response_status': response_status,
                 'body_length_min': body_length_min,
                 'body_length_max': body_length_max,
+                'search': search_query,
             }
         })
         return context

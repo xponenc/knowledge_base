@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Тестирование ответов модели{% endblock %}
+{% block content %}
+<div class="container my-5 p-5">
+    <h2>Тестирование ответов модели</h2>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        <div class="mb-3">
+            <label for="{{ form.urls.id_for_label }}" class="form-label">Выберите до 5 ссылок</label>
+            {{ form.urls }}
+            {{ form.urls.errors }}
+            <small class="form-text text-muted">Можно выбрать максимум 5 ссылок</small>
+        </div>
+        <button type="submit" class="btn btn-primary">Запустить</button>
+    </form>
+</div>
+{% endblock %}
