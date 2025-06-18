@@ -92,8 +92,8 @@ load_dotenv()
 print("ai-forever/FRIDA")
 
 # frida_FAISS_DB_PATH = "./frida_faiss_index_db"
-frida_FAISS_DB_PATH = os.path.join(r"e:\\", "temp", "frida_faiss_index_db")
-# frida_FAISS_DB_PATH = os.path.join(BASE_DIR, "test_db_zone", "create_and_request_vectordb", "frida_faiss_index_db")
+# frida_FAISS_DB_PATH = os.path.join(r"e:\\", "temp", "frida_faiss_index_db")
+frida_FAISS_DB_PATH = os.path.join(BASE_DIR, "test_db_zone", "create_and_request_vectordb", "frida_faiss_index_db")
 # frida_FAISS_DB_PATH = (
 #     Path(BASE_DIR) / "test_db_zone" / "create_and_request_vectordb" / "frida_faiss_index_db"
 # )
