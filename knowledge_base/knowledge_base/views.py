@@ -3,9 +3,11 @@ from django.http import Http404
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_GET
 
+from app_sources.report_model import CloudStorageUpdateReport
+from app_sources.storage_models import CloudStorage
+
 
 def get_parent_instance(parent_type: str, parent_pk: int):
-    from app_sources.models import CloudStorage, CloudStorageUpdateReport
 
     model_map = {
         "cloudstorage": CloudStorage,

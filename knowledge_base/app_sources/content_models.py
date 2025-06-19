@@ -11,7 +11,7 @@ from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from django.utils.text import slugify
 
-from app_sources.report_model import WebSiteUpdateReport
+from app_sources.report_model import WebSiteUpdateReport, CloudStorageUpdateReport
 from app_sources.source_models import NetworkDocument, LocalDocument, URL
 
 User = get_user_model()
@@ -49,6 +49,9 @@ class Content(models.Model):
     """Абстрактная модель объекта файла с данными из источника"""
     network_document = models.ForeignKey(NetworkDocument, on_delete=models.CASCADE, null=True, blank=True)
     local_document = models.ForeignKey(LocalDocument, on_delete=models.CASCADE, null=True, blank=True)
+
+    report = models.ForeignKey(CloudStorageUpdateReport, verbose_name="создано в отчете", on_delete=models.CASCADE,
+                               blank=True, null=True)
 
     hash_content = models.CharField(max_length=64, null=True, blank=True)
 

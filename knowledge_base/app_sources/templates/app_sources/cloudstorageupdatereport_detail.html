@@ -38,8 +38,8 @@
             <a href="{% url 'sources:cloudstorage_detail' cloudstorageupdatereport.storage.pk %}" class="link-primary fw-semibold">
                 {{ cloudstorageupdatereport.storage.name }}
             </a>
-            <p>Тип синхронизации: {{ cloudstorageupdatereport.content.sync_type }}</p>
-            <p>Статус обработки: {{ cloudstorageupdatereport.content.current_status }}</p>
+            <p>Тип синхронизации: {{ cloudstorageupdatereport.content.type }}</p>
+            <p>Статус обработки: {{ cloudstorageupdatereport.get_status_display }}</p>
         </div>
         <div class="sync-report__tasks me-3" style="flex:1;">
             <h5>Обрабатываемые фоновые задачи</h5>
@@ -67,7 +67,7 @@
             </ul>
         </div>
     </div>
-
+    {{ cloudstorageupdatereport.content.result }}
     {% with result=cloudstorageupdatereport.content.result %}
     <h4 class="mt-4">Сводка по группам</h4>
     <table class="table table-bordered mb-5 w-auto">

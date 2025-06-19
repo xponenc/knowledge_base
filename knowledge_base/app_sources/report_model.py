@@ -1,3 +1,5 @@
+from enum import Enum
+
 from django.contrib.auth import get_user_model
 from django.db import models
 from django.urls import reverse
@@ -7,11 +9,33 @@ from knowledge_base.mixin_models import TrackableModel, SoftDeleteModel
 
 User = get_user_model()
 
+class ReportStatus(Enum):
+    """Статус Отчета"""
+    CREATED = "cr"
+    FINISHED = "fi"
+    ERROR = "er"
+
+    @property
+    def display_name(self):
+        """Русское название статуса для отображения."""
+        display_names = {
+            "cr": "В работе",
+            "fi": "Завершен",
+            "er": "Ошибка"
+        }
+        return display_names.get(self.value, self.value)
+
 
 class WebSiteUpdateReport(TrackableModel):
     """Отчет по обновлению файлов Вебсайта"""
 
     storage = models.ForeignKey(WebSite, on_delete=models.CASCADE, related_name="reports")
+    status = models.CharField(
+        verbose_name="статус обработки",
+        max_length=2,
+        choices=[(status.value, status.display_name) for status in ReportStatus],
+        default=ReportStatus.CREATED.value,
+    )
 
     content = models.JSONField(verbose_name="отчет", default=dict)
     running_background_tasks = models.JSONField(verbose_name="выполняемые фоновые задачи по обработке отчета",
@@ -33,6 +57,12 @@ class CloudStorageUpdateReport(models.Model):
     """Отчет по обновлению файлов Облачного хранилища"""
 
     storage = models.ForeignKey(CloudStorage, on_delete=models.CASCADE, related_name="reports")
+    status = models.CharField(
+        verbose_name="статус обработки",
+        max_length=2,
+        choices=[(status.value, status.display_name) for status in ReportStatus],
+        default=ReportStatus.CREATED.value,
+    )
 
     content = models.JSONField(verbose_name="отчет", default=dict)
     running_background_tasks = models.JSONField(verbose_name="выполняемые фоновые задачи по обработке отчета",
@@ -48,3 +78,5 @@ class CloudStorageUpdateReport(models.Model):
 
     def get_absolute_url(self):
         return reverse("sources:cloudstorageupdatereport_detail", kwargs={"pk": self.pk, })
+
+    objects = models.Manager()

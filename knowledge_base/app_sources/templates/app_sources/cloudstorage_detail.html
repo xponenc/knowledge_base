@@ -46,18 +46,44 @@
 {% if cloudstorage.reports.all %}
     <div class="mb-4">
         <h5>📊 Отчеты</h5>
-        <ul>
-            {% for report in cloudstorage.reports.all %}
-                <li>
-                    <a href="{% url 'sources:cloudstorageupdatereport_detail' report.pk %}">
-                        {{ report }}
-                    </a>
-                </li>
-            {% endfor %}
-        </ul>
+        <table class="table-auto w-full text-sm">
+            <tbody>
+                {% for report in cloudstorage.reports.all %}
+                    <tr class="border-b">
+                        <td class="px-3 py-1">
+                            <a href="{% url 'sources:cloudstorageupdatereport_detail' report.pk %}" class="text-blue-600 hover:underline">
+                                {{ report }}
+                            </a>
+                        </td>
+                        <td class="px-3 py-1 text-gray-600 whitespace-nowrap">
+                            {{ report.created_at|date:"d.m.Y H:i" }}
+                        </td>
+                        <td class="px-3 py-1 text-gray-600 whitespace-nowrap">
+                            {{ report.author.get_full_name|default:report.author }}
+                        </td>
+                        <td class="py-1 whitespace-nowrap">
+                            {% with report.get_status_display as status %}
+                                {% if report.status == "cr" %}
+                                    <span class="badge bg-success ms-2">
+                                        {{ status }}
+                                    </span>
+                                {% elif report.status == "er" %}
+                                    <span class="badge bg-danger ms-2">
+                                        {{ status }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary ms-2">
+                                        {{ status }}
+                                    </span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 {% endif %}
-
 <h3 class="mb-4">🗂️ Контент хранилища</h3>
 
 <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">

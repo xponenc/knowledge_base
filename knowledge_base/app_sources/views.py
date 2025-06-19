@@ -23,7 +23,7 @@ from app_parsers.tasks import test_single_url, parse_urls_task
 from app_parsers.services.parsers.dispatcher import WebParserDispatcher
 from app_sources.content_models import URLContent, RawContent, CleanedContent
 from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedContentEditorForm
-from app_sources.report_model import CloudStorageUpdateReport, WebSiteUpdateReport
+from app_sources.report_model import CloudStorageUpdateReport, WebSiteUpdateReport, ReportStatus
 from app_sources.source_models import NetworkDocument, URL, SourceStatus
 from app_sources.storage_models import CloudStorage, Storage, LocalStorage, WebSite
 from app_sources.tasks import process_cloud_files, download_and_create_raw_content, \
@@ -151,48 +151,21 @@ class CloudStorageSyncView(View):
     """
 
     def post(self, request, pk):
+
         cloud_storage = get_object_or_404(CloudStorage, pk=pk)
         synced_documents = request.POST.getlist("synced_documents")
+        logger.info(f"Начало синхронизации хранилища: {cloud_storage.name}, запущена {request.user}")
         storage_update_report = CloudStorageUpdateReport.objects.create(storage=cloud_storage, author=self.request.user)
 
         try:
-            cloud_storage_api = cloud_storage.get_storage()
-            logger.info(f"Хранилище инициализировано: {cloud_storage.name}")
-            storage_update_report.content["current_status"] = "api successfully initialized"
-        except ValueError as e:
-            logger.error(f"Ошибка инициализации: {e}")
-            storage_update_report.content["current_status"] = "api initialization failed"
-            storage_update_report.content.setdefault("errors", []).append(str(e))
-            storage_update_report.save()
-            return render(request, 'app_sources/sync_result.html', {
-                'result': {'error': f'Ошибка инициализации: {e}'},
-                'cloud_storage': cloud_storage
-            })
-
-        storage_update_report.save()
-
-        try:
-            if synced_documents:
-                storage_update_report.content["sync_type"] = "custom"
-                storage_files = []  # cloud_storage_api.sync_selected(synced_documents)
-            else:
-                storage_update_report.content["sync_type"] = "all"
-                # TODO надо выводить процесс в фон
-                storage_files = cloud_storage_api.list_directory(path=cloud_storage_api.root_path)
-                for file in storage_files:
-                    file["process_status"] = "awaiting processing"
-
-            storage_update_report.content["current_status"] = "file list retrieved"
-            storage_update_report.save()
-            storage_update_report.save(update_fields=["content", ])
-
             task = process_cloud_files.delay(
-                files=storage_files,
-                cloud_storage=cloud_storage,
-                update_report_pk=storage_update_report.pk
+                files=synced_documents,
+                cloud_storage_pk=cloud_storage.pk,
+                update_report_pk=storage_update_report.pk,
+                author_pk=request.user.pk,
             )
 
-            storage_update_report.running_background_tasks[task.id] = "Сортировка полученных файлов"
+            storage_update_report.running_background_tasks[task.id] = "Синхронизация файлов"
             storage_update_report.save(update_fields=["running_background_tasks", ])
 
             return render(request, 'app_sources/cloudstorage_progress_report.html', {
