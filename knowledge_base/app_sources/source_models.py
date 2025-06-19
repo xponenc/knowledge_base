@@ -3,9 +3,10 @@ from enum import Enum
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import UniqueConstraint, Q
 from django.urls import reverse_lazy
 
-from app_sources.report_model import WebSiteUpdateReport, CloudStorageUpdateReport
+from app_sources.report_models import WebSiteUpdateReport, CloudStorageUpdateReport
 from app_sources.storage_models import WebSite, URLBatch, CloudStorage, LocalStorage
 from knowledge_base.mixin_models import TrackableModel, SoftDeleteModel
 
@@ -126,7 +127,7 @@ class NetworkDocument(AbstractSource):
     """Документ связанный с сетевым хранилищем"""
 
     storage = models.ForeignKey(CloudStorage, on_delete=models.CASCADE, related_name="network_documents")
-    report = models.ForeignKey(CloudStorageUpdateReport, verbose_name="создано в отчете", on_delete=models.CASCADE)
+    report = models.ForeignKey(CloudStorageUpdateReport, verbose_name="создано в отчете", on_delete=models.CASCADE, blank=True, null=True)
     path = models.URLField(verbose_name="путь к источнику", max_length=500)
     file_id = models.CharField(verbose_name="id файла в облаке", max_length=200, blank=True, null=True)
     output_format = models.CharField(
@@ -140,14 +141,13 @@ class NetworkDocument(AbstractSource):
     class Meta:
         verbose_name = "Network Document"
         verbose_name_plural = "Network Documents"
-        # Раскомментировать для PostgreSQL и убрать из clean
-        # constraints = [
-        #     UniqueConstraint(
-        #         fields=['storage', 'path'],
-        #         condition=Q(storage__isnull=False, path__isnull=False),
-        #         name='unique_cloudstorage_path_not_null'
-        #     )
-        # ]
+        constraints = [
+            UniqueConstraint(
+                fields=['storage', 'path'],
+                condition=Q(storage__isnull=False, path__isnull=False),
+                name='unique_cloudstorage_path_not_null'
+            )
+        ]
 
     def __str__(self):
         return f"[NetworkDocument] {super().__str__()}"

@@ -67,7 +67,7 @@
             </ul>
         </div>
     </div>
-    {{ cloudstorageupdatereport.content.result }}
+    
     {% with result=cloudstorageupdatereport.content.result %}
     <h4 class="mt-4">Сводка по группам</h4>
     <table class="table table-bordered mb-5 w-auto">
@@ -82,7 +82,7 @@
             <tr class="table-success">
                 <td>Новые файлы</td>
                 <td>{{ result.new_files|length }}</td>
-                <td>{{ cloudstorageupdatereport.content.created_docs|length|default:"0" }}</td>
+                <td>{{ cloudstorageupdatereport.networkdocument_set|length|default:"0" }}</td>
             </tr>
             <tr class="table-warning">
                 <td>Обновлённые файлы</td>

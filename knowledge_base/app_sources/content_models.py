@@ -11,36 +11,34 @@ from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from django.utils.text import slugify
 
-from app_sources.report_model import WebSiteUpdateReport, CloudStorageUpdateReport
+from app_sources.report_models import WebSiteUpdateReport, CloudStorageUpdateReport
 from app_sources.source_models import NetworkDocument, LocalDocument, URL
 
 User = get_user_model()
 
 
 class ContentStatus(Enum):
-    CREATED = "cr"
-    IGNORED = "ig"
-    PARSED = "pa"
-    CHUNKED = "ch"
-    EMBEDDED = "em"
-    ADDED_TO_KB = "ad"
-    DELETED = "de"
-    EXCLUDED = "ex"
-    ERROR = "er"
+    READY = "ready"
+    ERROR = "error"
+    CANCELED = "canceled"
+    #
+    # PARSED = "pa"
+    # CHUNKED = "ch"
+    # EMBEDDED = "em"
+    # ADDED_TO_KB = "ad"
 
     @property
     def display_name(self):
         """Русское название статуса для отображения."""
         display_names = {
-            "cr": "Создан",
-            "ig": "Проигнорирован",
-            "pa": "Обработан",
-            "ch": "Разбит на чанки",
-            "em": "Эмбеддинг выполнен",
-            "ad": "Добавлен в базу знаний",
-            "de": "Удален",
-            "ex": "Исключен из базы знаний",
-            "er": "Ошибка"
+            "ready": "В работе",
+            "error": "Ошибка",
+            "canceled": "Отменен",
+            # "pa": "Обработан",
+            # "ch": "Разбит на чанки",
+            # "em": "Эмбеддинг выполнен",
+            # "ad": "Добавлен в базу знаний",
+
         }
         return display_names.get(self.value, self.value)
 
@@ -49,6 +47,12 @@ class Content(models.Model):
     """Абстрактная модель объекта файла с данными из источника"""
     network_document = models.ForeignKey(NetworkDocument, on_delete=models.CASCADE, null=True, blank=True)
     local_document = models.ForeignKey(LocalDocument, on_delete=models.CASCADE, null=True, blank=True)
+    status = models.CharField(
+        verbose_name="статус обработки",
+        max_length=15,
+        choices=[(status.value, status.display_name) for status in ContentStatus],
+        default=ContentStatus.READY.value,
+    )
 
     report = models.ForeignKey(CloudStorageUpdateReport, verbose_name="создано в отчете", on_delete=models.CASCADE,
                                blank=True, null=True)
@@ -181,13 +185,6 @@ class URLContent(Content):
 
     url = models.ForeignKey(URL, on_delete=models.CASCADE)
     response_status = models.IntegerField(null=True, blank=True, help_text="HTTP-код ответа")
-
-    status = models.CharField(
-        verbose_name="статус обработки",
-        max_length=2,
-        choices=[(status.value, status.display_name) for status in ContentStatus],
-        default=ContentStatus.CREATED.value,
-    )
 
     body = models.TextField(verbose_name="полезный контент", null=True, blank=True)
     metadata = models.JSONField(verbose_name="метаданные", null=True, blank=True)

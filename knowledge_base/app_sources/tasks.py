@@ -7,17 +7,19 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
 from math import ceil
 from pprint import pprint
+from typing import List, Tuple
 
 from celery import shared_task
 from celery_progress.backend import ProgressRecorder
 from django.core.files import File
+from django.db.models import Subquery, OuterRef
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from dateutil.parser import parse
 
 from app_sources.content_models import ContentStatus, RawContent
-from app_sources.report_model import CloudStorageUpdateReport, ReportStatus
-from app_sources.source_models import NetworkDocument
+from app_sources.report_models import CloudStorageUpdateReport, ReportStatus
+from app_sources.source_models import NetworkDocument, SourceStatus
 from app_sources.storage_models import CloudStorage
 from utils.process_files import compute_sha512
 from django.contrib.auth import get_user_model
@@ -26,124 +28,166 @@ User = get_user_model()
 
 logger = logging.getLogger(__name__)
 
+
+def get_documents_for_redownload(
+        documents: List[NetworkDocument],
+        cloud_storage: CloudStorage,
+        progress_recorder: ProgressRecorder = None,
+        total: int = None,
+) -> List[Tuple[int, str | None, str | None]]:
+    """
+    Проверяет, какие документы нужно перезагрузить из облачного хранилища.
+
+    Для каждого документа скачивается временный файл, вычисляется SHA512-хеш.
+    Если хеш отличается от сохранённого, документ попадает в результат.
+    При ошибках также документ включается для перезагрузки.
+
+    :param documents: список документов NetworkDocument с аннотацией last_hash
+    :param cloud_storage: объект облачного хранилища с get_storage()
+    :param progress_recorder: (optional) объект ProgressRecorder из Celery
+    :param total: (optional) общее число документов для прогресса
+    :return: список (doc.id, temp_path или None, file_name или None)
+    """
+    docs_to_download = []
+    total = total or len(documents)
+
+    for i, doc in enumerate(documents, 1):
+        try:
+            temp_path, file_name = cloud_storage.get_storage().download_file_to_disk_sync(doc.url)
+            current_hash = compute_sha512(temp_path)
+
+            if doc.last_hash != current_hash:
+                logger.info(f"NetworkDocument [id {doc.pk}] Хеш изменился, файл будет перезаписан")
+                docs_to_download.append((doc.id, temp_path, file_name))
+            else:
+                logger.info(f"NetworkDocument [id {doc.pk}] Хеш совпадает, файл пропускается")
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+        except Exception as e:
+            logger.warning(f"NetworkDocument [id {doc.pk}] Ошибка при проверке хеша: {e}")
+            docs_to_download.append((doc.id, None, None))
+
+        if progress_recorder and i % 10 == 0:
+            progress_recorder.set_progress(i, total, description="Проверка документов на изменение")
+
+    return docs_to_download
+
+
 @shared_task(bind=True)
 def process_cloud_files(
-    self,
-    files: list[dict],
-    cloud_storage_pk: int,
-    update_report_pk: int,
-    author_pk: int
+        self,
+        files: list[dict],
+        update_report_pk: int,
 ):
     """
-    Синхронизирует список файлов из облачного хранилища с локальной базой данных.
+    Синхронизирует файлы из облака с локальной базой, обновляет документы и их содержимое.
 
-    Производится предварительная категоризация файлов для последующей обработки:
-    - `new_files`: файлы, которых ещё нет в БД
-    - `updated_files`: файлы, уже существующие в БД и не имеющие особого статуса
-    - `deleted_files`: файлы, которые были в БД, но больше не существуют в облаке
-    - `restored_files`: файлы, ранее помеченные как DELETED, но снова появившиеся в облаке
-    - `excluded_files`: файлы со статусом EXCLUDED, которые есть в облаке
+    Основные этапы:
+    1. Инициализация API облачного хранилища.
+    2. Определение типа синхронизации:
+       - 'bulk' — выборочная синхронизация по списку файлов (передаются ID документов).
+       - 'all' — полная синхронизация всего хранилища.
+    3. Получение текущих документов из базы и списка файлов из облака.
+    4. Категоризация файлов по статусу: новые, существующие, удалённые и т.п.
+    5. Создание новых записей NetworkDocument для новых файлов.
+    6. Проверка существующих документов на необходимость обновления контента.
+       Сравнение хешей для выявления изменённых файлов.
+    7. Создание новых RawContent только для изменённых файлов, пропуск неизменённых.
+    8. Обновление отчёта о синхронизации.
 
-    :param update_report_pk: id объекта отчета CloudStorageUpdateReport для хранения результата синхронизации
-    :param synchronization_type: тип синхронизации 'bulk' частичный по списку, 'all' - полный по хранилищу
-    :param self: Контекст Celery-задачи
-    :param files: Список словарей с метаинформацией по файлам из облачного хранилища
-    :param cloud_storage: Объект CloudStorage, с которым идёт синхронизация
-    :return: Строка статуса завершения
+    :param self: Контекст задачи Celery.
+    :param files: Список файлов для выборочной синхронизации по id документов (bulk).
+        Если пустой список, происходит полная синхронизация.
+    :param update_report_pk: ID объекта отчёта CloudStorageUpdateReport для логирования.
+    :return: Строка с результатом обработки.
     :raises: None
     """
-    cloud_storage = get_object_or_404(CloudStorage, pk=cloud_storage_pk)
-    storage_update_report = CloudStorageUpdateReport.objects.get(pk=update_report_pk)
+    # Получаем объект отчёта обновления для записи результатов и доступа к storage
+    storage_update_report = CloudStorageUpdateReport.objects.select_related("storage").get(pk=update_report_pk)
+    cloud_storage = storage_update_report.storage
 
+    # Инициализация API облачного хранилища (S3, WebDAV и т.п.)
     try:
         cloud_storage_api = cloud_storage.get_storage()
         logger.info(f"API хранилища {cloud_storage.name} успешно инициализировано")
     except ValueError as e:
+        # Если не удалось инициализировать API, записываем ошибку в отчёт и завершаем задачу
         logger.error(f"Ошибка инициализации API хранилища {cloud_storage.name}: {e}")
         storage_update_report.content.setdefault("errors", []).append(str(e))
         storage_update_report.status = ReportStatus.ERROR.value
         storage_update_report.save()
         return f"Ошибка инициализации API хранилища {cloud_storage.name}: {e}, обработка прервана"
 
-
+    # Определяем режим синхронизации: bulk — выборочная по списку, all — полная
     if files:
-        #Выборочная синхронизация Облачного хранилища по списку id существующих сетевых документов
         synchronization_type = "bulk"
         storage_update_report.content["type"] = "bulk"
+        # Получаем документы из базы по списку ID
         db_documents = NetworkDocument.objects.filter(storage=cloud_storage, pk__in=files)
-        storage_files = None # TODO
+        storage_files = None  # TODO: реализовать получение метаинформации по bulk
     else:
-        # Полная синхронизация Облачного хранилища с сетевым диском
         synchronization_type = "all"
         storage_update_report.content["type"] = "all"
+        # Получаем все документы из базы и полный список файлов из облака
         db_documents = NetworkDocument.objects.filter(storage=cloud_storage)
         storage_files = cloud_storage_api.list_directory(path=cloud_storage_api.root_path)
 
-
-    total_counter = len(storage_files)
+    total_counter = len(storage_files) if storage_files else 0
     if total_counter == 0:
+        # Если файлов нет, завершаем работу
         return "Обработка завершена"
 
+    # Инициализируем прогресс-бар Celery
     progress_recorder = ProgressRecorder(self)
     progress_now, current = 0, 0
-    progress_step = ceil(total_counter / 100)
+    progress_step = max(1, ceil(total_counter / 100))
     progress_description = f'Обрабатывается {total_counter} объектов'
 
+    # Подготовка структуры результата синхронизации
     result = {
         'new_files': [],
-        'updated_files': [],
-        'deleted_files': [],
-        'restored_files': [],
-        'excluded_files': [],
+        'exist_files': [],
+        'skipped_documents': [],
+        'updated_documents': [],
         'error': None
     }
 
+    # Словарь для быстрого доступа к документам по url
     db_documents_by_url = {doc.url: doc for doc in db_documents}
-    db_urls_set = set(db_documents_by_url.keys())
-
     incoming_urls_set = set(file["url"] for file in storage_files)
 
-    # DELETED: те, что были в базе, но отсутствуют в облаке
-    if synchronization_type == "all": #TODO надо обдумать вариант bulk
-        deleted_urls_set = db_urls_set - incoming_urls_set
+    # Определяем документы, отсутствующие в облаке, считаем их удалёнными
+    if synchronization_type == "all":
+        deleted_urls_set = set(db_documents_by_url) - incoming_urls_set
         deleted_docs = db_documents.filter(url__in=deleted_urls_set)
         for doc in deleted_docs:
-            result["deleted_files"].append(
-                {
-                    "url": doc.url,
-                    "name": doc.name,
-                    "status": doc.status,
-                    # можно добавить другие поля по необходимости
-                }
-            )
+            result.setdefault("deleted_files", []).append({
+                "url": doc.url,
+                "name": doc.title if hasattr(doc, "title") else "",
+                "status": doc.status,
+            })
 
-    # NEW / UPDATED / RESTORED / EXCLUDED
+    # Классифицируем файлы: новые и существующие
     for index, file in enumerate(storage_files):
         url = file.get('url')
-        doc = db_documents_by_url.get(url)
-
-        if url not in db_urls_set:
+        if url not in db_documents_by_url:
             result['new_files'].append(file)
         else:
-            if doc.status == ContentStatus.DELETED.value:
-                result['restored_files'].append(file)
-            elif doc.status == ContentStatus.EXCLUDED.value:
-                result['excluded_files'].append(file)
-            else:
-                result['updated_files'].append(file)
+            result['exist_files'].append(db_documents_by_url[url])
 
+        # Обновляем прогресс
         if current == (progress_now + 1) * progress_step:
             progress_now += 1
             progress_recorder.set_progress(progress_now, 100, description=progress_description)
-    # print(result)
 
+    # Сохраняем промежуточный результат в отчёте
     storage_update_report.content["result"] = result
     storage_update_report.save(update_fields=["content"])
 
+    created_ids = []
+    # Обрабатываем новые файлы — создаём документы
     if result.get("new_files"):
-        created_ids = []
         bulk_container = []
-        # Формируем объекты для массового создания, пропуская дубликаты
         for file_data in result.get("new_files"):
             bulk_container.append(NetworkDocument(
                 storage=cloud_storage,
@@ -156,17 +200,95 @@ def process_cloud_files(
             if len(bulk_container) >= 500:
                 created_docs = NetworkDocument.objects.bulk_create(bulk_container)
                 created_ids.extend([doc.id for doc in created_docs])
+                bulk_container.clear()
         if bulk_container:
             created_docs = NetworkDocument.objects.bulk_create(bulk_container)
             created_ids.extend([doc.id for doc in created_docs])
+
+        # Запускаем фоновую задачу для загрузки контента новых файлов
         if created_ids:
-            # Запускаем фоновую задачу для скачивания и создания raw content
             task = download_and_create_raw_content_parallel.delay(
                 document_ids=created_ids,
                 update_report_pk=update_report_pk,
             )
-            storage_update_report.running_background_tasks[task.id] = "Загрузка контента новых файлов с облачного хранилища"
+            storage_update_report.running_background_tasks[
+                task.id] = "Загрузка контента новых файлов с облачного хранилища"
             storage_update_report.save(update_fields=["running_background_tasks"])
+
+    # Обрабатываем существующие документы, проверяя их хеши для обновления RawContent
+    if result.get("exist_files"):
+        # Выбираем документы для проверки обновлений
+        doc_ids_to_check = [
+            db_documents_by_url[file["url"]].id
+            for file in result.get("exist_files")
+            if file["url"] in db_documents_by_url
+        ]
+        docs_to_check = NetworkDocument.objects.filter(pk__in=doc_ids_to_check).annotate(
+            last_hash=Subquery(
+                RawContent.objects.filter(
+                    network_document=OuterRef("pk"),
+                    status=ContentStatus.READY.value,
+                ).order_by("-created_at").values("hash_content")[:1]
+            )
+        )
+
+        # Обновляем прогресс до вызова get_documents_for_redownload
+        progress_recorder = ProgressRecorder(self)
+
+        # Проверяем какие документы требуют перезагрузки контента
+        docs_to_download = get_documents_for_redownload(
+            documents=docs_to_check,
+            cloud_storage=cloud_storage,
+            progress_recorder=progress_recorder,
+        )
+
+        # Разбиваем на документы с готовыми временными файлами и без
+        docs_with_files = [item for item in docs_to_download if item[1] is not None]
+        docs_without_files = [item for item in docs_to_download if item[1] is None]
+
+        # Выделяем id документов, контент которых не изменился — их пропускаем
+        skipped_doc_ids = [doc.pk for doc in docs_to_check if
+                           doc.pk not in [doc_id for doc_id, _, _ in docs_to_download]]
+        result['skipped_documents'].extend(skipped_doc_ids)
+
+        updated_doc_ids = []
+
+        # Для документов с временными файлами — сразу создаём RawContent
+        for doc_id, temp_path, file_name in docs_with_files:
+            try:
+                doc = NetworkDocument.objects.get(pk=doc_id)
+                raw_content = RawContent.objects.create(
+                    network_document=doc,
+                    report=storage_update_report,
+                    author=storage_update_report.author,
+                )
+                with open(temp_path, "rb") as f:
+                    raw_content.file.save(file_name, File(f), save=False)
+                raw_content.hash_content = compute_sha512(temp_path)
+                raw_content.save()
+                updated_doc_ids.append(doc_id)
+                logger.info(f"[Document {doc.pk}] RawContent обновлён из кэша temp_path")
+            except Exception as e:
+                logger.error(f"[Document {doc_id}] Ошибка при создании RawContent из temp_path: {e}")
+            finally:
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
+
+        # Для документов без временных файлов — ставим задачу на загрузку
+        if docs_without_files:
+            document_ids_to_dl = [doc_id for doc_id, _, _ in docs_without_files]
+            task = download_and_create_raw_content_parallel.delay(
+                document_ids=document_ids_to_dl,
+                update_report_pk=update_report_pk,
+            )
+            storage_update_report.running_background_tasks[task.id] = "Загрузка контента для обновления файлов"
+            storage_update_report.save(update_fields=["running_background_tasks"])
+
+        result['updated_documents'].extend(updated_doc_ids)
+
+    # Обновляем отчёт с итогами обработки
+    storage_update_report.content["result"] = result
+    storage_update_report.save(update_fields=["content"])
 
     return "Обработка завершена"
 
@@ -250,7 +372,8 @@ def download_and_create_raw_content_parallel(self,
     Returns:
         str: сообщение об окончании задачи.
     """
-    storage_update_report = CloudStorageUpdateReport.objects.select_related("storage", "author").get(pk=update_report_pk)
+    storage_update_report = CloudStorageUpdateReport.objects.select_related("storage", "author").get(
+        pk=update_report_pk)
     cloud_storage = storage_update_report.storage
     documents = NetworkDocument.objects.filter(pk__in=document_ids)
     author = storage_update_report.author
@@ -312,4 +435,3 @@ def download_and_create_raw_content(document_ids: list[int], update_report_id: i
     failed = [pk for pk, status in results if status == "fail"]
 
     logger.info(f"Обработка завершена. Успешно: {len(success)}, Ошибки: {len(failed)}")
-

@@ -26,7 +26,7 @@ from app_parsers.services.parsers.dispatcher import WebParserDispatcher
 from django.contrib.auth import get_user_model
 
 from app_sources.content_models import URLContent, ContentStatus
-from app_sources.report_model import WebSiteUpdateReport
+from app_sources.report_models import WebSiteUpdateReport
 from app_sources.source_models import URL, SourceStatus
 from utils.process_text import normalize_text, remove_emoji
 

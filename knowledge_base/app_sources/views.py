@@ -23,7 +23,7 @@ from app_parsers.tasks import test_single_url, parse_urls_task
 from app_parsers.services.parsers.dispatcher import WebParserDispatcher
 from app_sources.content_models import URLContent, RawContent, CleanedContent
 from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedContentEditorForm
-from app_sources.report_model import CloudStorageUpdateReport, WebSiteUpdateReport, ReportStatus
+from app_sources.report_models import CloudStorageUpdateReport, WebSiteUpdateReport, ReportStatus
 from app_sources.source_models import NetworkDocument, URL, SourceStatus
 from app_sources.storage_models import CloudStorage, Storage, LocalStorage, WebSite
 from app_sources.tasks import process_cloud_files, download_and_create_raw_content, \
@@ -160,9 +160,7 @@ class CloudStorageSyncView(View):
         try:
             task = process_cloud_files.delay(
                 files=synced_documents,
-                cloud_storage_pk=cloud_storage.pk,
                 update_report_pk=storage_update_report.pk,
-                author_pk=request.user.pk,
             )
 
             storage_update_report.running_background_tasks[task.id] = "Синхронизация файлов"
@@ -174,10 +172,9 @@ class CloudStorageSyncView(View):
                 "next_step_url": storage_update_report.get_absolute_url()
             })
 
-
         except Exception as e:
-            logger.exception("Ошибка синхронизации файлов")
-            storage_update_report.content["current_status"] = "failed to get file list from cloud"
+            logger.exception(f"Ошибка синхронизации хранилища: {cloud_storage.name}, запущена {request.user},"
+                             f" отчет [CloudStorageUpdateReport id {storage_update_report.pk}]")
             storage_update_report.content.setdefault("errors", []).append(str(e))
             storage_update_report.save()
             return render(request, 'app_sources/sync_result.html', {
@@ -189,6 +186,7 @@ class CloudStorageSyncView(View):
 class CloudStorageUpdateReportDetailView(LoginRequiredMixin, DetailView):
     """Детальный просмотр отчёта о синхронизации облачного хранилища"""
     model = CloudStorageUpdateReport
+    queryset = CloudStorageUpdateReport.objects.prefetch_related("networkdocument_set")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

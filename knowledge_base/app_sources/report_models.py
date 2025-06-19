@@ -9,6 +9,7 @@ from knowledge_base.mixin_models import TrackableModel, SoftDeleteModel
 
 User = get_user_model()
 
+
 class ReportStatus(Enum):
     """Статус Отчета"""
     CREATED = "cr"

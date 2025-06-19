@@ -3,7 +3,7 @@ from django.http import Http404
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_GET
 
-from app_sources.report_model import CloudStorageUpdateReport
+from app_sources.report_models import CloudStorageUpdateReport
 from app_sources.storage_models import CloudStorage
 
 
