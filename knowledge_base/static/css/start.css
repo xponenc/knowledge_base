@@ -1,0 +1,368 @@
+:root {
+  --container-max-width: 1400px;
+  --index: max(20px, calc(1vh + 1vw));
+  --gap: var(--index);
+  --gap-half: calc(var(--gap) / 2);
+  --gap-third: calc(var(--gap) / 3);
+  --bg-color: #eee;
+
+  --major-fsz: 14px;
+  --h1fsz: calc(var(--major-fsz) * 2.986);
+  --h2fsz: calc(var(--major-fsz) * 2.486);
+  --h3fsz: calc(var(--major-fsz) * 2.074);
+  --h4fsz: calc(var(--major-fsz) * 1.728);
+  --h5fsz: calc(var(--major-fsz) * 1.44);
+  --h6fsz: calc(var(--major-fsz) * 1.2);
+  --small-fsz: calc(var(--major-fsz) * 0.833);
+  --mini-fsz: calc(var(--major-fsz) * 0.694);
+
+  /* Блоки */
+  --block-bg-color: #fbfbfb;
+  --block-border-color: #e5e5e5;
+
+
+  /* Текст */
+  --text-color: #333;
+  --text-color-shadow: #727272;
+  --text-color-mute: #727272;
+  --text-dark: #727272;
+  --text-light: #c5c4c4;
+  --text-inverse-color: #eee;
+  --text-on-accent-bg-color: #eee;
+
+  --accent-color: #2e8247;
+
+  --header-color: #1a35b5;
+  --subheader-bg-color: #f7f6f6;
+
+
+  /* Цвета состояний */
+  --success-color: #4fc473e8;
+  --success-bg-color: #65dd8b;
+  --alarm-color: #f88383;
+  --alarm-bg-color: #f59391;
+  --error-color: #f88383;
+  --error-bg-color: #f88383;
+  --error-text-color: #333;
+  --warning-color: #f9a55d;
+  --warning-bg-color: #ffa044;
+  --frozen-color: #3d63b1;
+  --frozen-bg-color: #ecf2ff;
+  --disabled-color: #3b3c3f;
+  --disabled-bg-color: #3b3c3f;
+  --deleted-color: #16171d;
+  --deleted-bg-color: #16171d;
+  --deleted-text-color: #b7baca;
+
+  --offline-color: #fbd9d9;
+  --valid-color: #4fc473e8;
+  --active-step-color: #ff6347;
+
+  
+  /* Кнопки */
+  --btn-text-color: #d1d1d1db;
+
+  --btn-color: #c5c3c3;
+  --btn-accent-color: var(--btn-color);
+  --btn-bg-color: #fff;
+  --btn-border-color: #e1e1e1;
+
+  --btn-active-color: var(--text-on-accent-bg-color);
+  --btn-active-border-color: var(--accent-color);
+  --btn-active-bg-color: var(--accent-color);
+
+  --btn-hover-text-color: #727272;
+  --btn-accent-hover-text-color: #eee;
+  --btn-hover-border-color: #7c7c7c;
+  --btn-hover-bg-color: #111;
+
+  --button-inverse-text-color: deeppink;
+  --button-hover-inverse-text-color: deeppink;
+
+  /* Ссылки */
+  --link-color: #333;
+  --link-hover-color: #075f8d;
+  --link-active-color: #999;
+
+  --title-link-hover-color: #42e375;
+  --http-link-hover-color: #0a7f2f;
+  --link-shadow-color: #eeeeee42;
+  
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+body {
+  margin: 0;
+  font-family: "Montserrat", sans-serif;
+  font-size: var(--major-fsz);
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--text-color);
+  background-color: var(--bg-color);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+  outline: none;
+}
+
+/* Удалить крестик в поиске */
+input[type="text"]::-ms-clear {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+input[type="text"]::-ms-reveal {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+  display: none;
+}
+
+/* Убирает стрелки для type=number в Chrome */
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Убирает стрелки для type=number в Firefox */
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input[type="number"]:hover,
+input[type="number"]:focus {
+  -moz-appearance: number-input;
+}
+
+/* Change Autocomplete styles in Chrome*/
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  border: 1px solid transparent;
+  -webkit-text-fill-color: #333;
+  -webkit-box-shadow: 0 0 0px 1000px #fff inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+textarea:focus,
+input:focus {
+  outline: none;
+}
+
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  clip: rect(1px 1px 1px 1px);
+  clip: rect(1px, 1px, 1px, 1px);
+  padding: 0 !important;
+  border: 0 !important;
+  height: 1px !important;
+  width: 1px !important;
+  overflow: hidden;
+}
+
+
+.heading {
+  margin-bottom: calc(0.5 * var(--index));
+  width: 100%;
+  line-height: 1.2;
+  text-align: center;
+  font-family: "Ubuntu", sans-serif;
+  font-weight: 700;
+}
+
+.subheading {
+  margin-bottom: var(--gap-half);
+  font-style: normal;
+  font-size: 1em;
+  line-height: 1.2;
+  font-weight: 600;
+  text-align: center;
+}
+
+
+.btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-half);
+
+}
+
+.btn {
+  display: inline-block;
+  text-align: center;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.8em;
+  font-weight: 500;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: var(--text-color);
+  transition: color ease-in-out 0.3s;
+}
+
+.btn--reset {
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  outline: none;
+  border: none;
+  background-color: transparent;
+}
+
+
+.btn--round {
+  flex: 0 0 45px;
+  padding: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 45px;
+  height: 45px;
+  color: var(--btn-color);
+  font-size: 32px;
+  line-height: 2;
+  background-color: inherit;
+  border-radius: 50%;
+  border: 1px solid var(--btn-border-color);
+  opacity: 0.8;
+  transition-property: opacity, color, background-color, border-color;
+  transition-timing-function: ease-in-out;
+  transition-duration: 0.3s;
+}
+
+.btn--round:focus,
+.btn--round:hover {
+  opacity: 1;
+  color: var(--btn-hover-text-color);
+  border-color: var(--btn-hover-border-color);
+}
+
+.btn--round:active {
+  color: var(--btn-active-color);
+  border-color: var(--btn-active-border-color);
+  background-color: var(--btn-active-bg-color);
+}
+
+.btn--disabled {
+  /* pointer-events: none; */
+  cursor: default;
+  opacity: 0.3 !important;
+}
+
+.btn__icon {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: 25px;
+    max-height: 25px;
+    pointer-events: none;
+}
+
+
+.link-marker {
+  position: relative;
+  padding-right: 35px;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  text-align: start;
+  line-height: 1;
+  transition: color ease-in-out 0.3s;
+}
+
+.link-marker::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  width: 5px;
+  height: 5px;
+  opacity: 0.1;
+  border-radius: 50%;
+  background-color: var(--text-color);
+  transform: translateY(-50%);
+  transition-property: opacity, transform;
+  transition-timing-function: ease-in-out;
+  transition-duration: 0.3s;
+}
+
+.link-marker:focus, .link-marker:hover {
+  color: var(--accent-color)
+}
+.link-marker:focus .link-marker__marker, .link-marker:hover .link-marker__marker {
+  opacity: 1;
+  transform: scale(1) translateY(-50%);
+}
+.link-marker:focus::after, .link-marker:hover::after {
+  opacity: 0;
+  transform: scale(0) translateY(-50%);
+}
+
+.link-marker * {
+  pointer-events: none;
+}
+
+.link-marker__marker {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  width: 20px;
+  height: 20px;
+  opacity: 0.2;
+  color: inherit;
+  transform: scale(0) translateY(-50%);
+  transform-origin: top center;
+  transition-property: opacity, transform;
+  transition-timing-function: ease-in-out;
+  transition-duration: 0.3s;
+}
+
+
+._jc--fe {
+  justify-content: flex-end;
+}
+
+

@@ -146,7 +146,7 @@ def process_cloud_files(
     # Подготовка структуры результата синхронизации
     result = {
         'new_files': [],
-        'exist_files': [],
+        'exist_documents': [],
         'skipped_documents': [],
         'updated_documents': [],
         'error': None
@@ -173,7 +173,7 @@ def process_cloud_files(
         if url not in db_documents_by_url:
             result['new_files'].append(file)
         else:
-            result['exist_files'].append(db_documents_by_url[url])
+            result['exist_documents'].append(db_documents_by_url[url])
 
         # Обновляем прогресс
         if current == (progress_now + 1) * progress_step:
@@ -216,11 +216,11 @@ def process_cloud_files(
             storage_update_report.save(update_fields=["running_background_tasks"])
 
     # Обрабатываем существующие документы, проверяя их хеши для обновления RawContent
-    if result.get("exist_files"):
+    if result.get("exist_documents"):
         # Выбираем документы для проверки обновлений
         doc_ids_to_check = [
             db_documents_by_url[file["url"]].id
-            for file in result.get("exist_files")
+            for file in result.get("exist_documents")
             if file["url"] in db_documents_by_url
         ]
         docs_to_check = NetworkDocument.objects.filter(pk__in=doc_ids_to_check).annotate(
@@ -269,6 +269,9 @@ def process_cloud_files(
                 updated_doc_ids.append(doc_id)
                 logger.info(f"[Document {doc.pk}] RawContent обновлён из кэша temp_path")
             except Exception as e:
+                storage_update_report.content.setdefault("errors", []).append(
+                    f"[Document {doc_id}] Ошибка при создании RawContent из temp_path: {e}")
+                storage_update_report.status = ReportStatus.ERROR.value
                 logger.error(f"[Document {doc_id}] Ошибка при создании RawContent из temp_path: {e}")
             finally:
                 if temp_path and os.path.exists(temp_path):
@@ -318,8 +321,10 @@ def download_and_process_file(
         temp_path, file_name = cloud_storage_api.download_file_to_disk_sync(doc.url)
         logger.info(f"[Document {doc.pk}] Файл успешно загружен во временное хранилище: {temp_path}")
     except Exception as e:
-        doc.error_message = f"Ошибка при загрузке файла: {e}"
-        doc.save()
+        storage_update_report.content.setdefault("errors", []).append(
+            f"[Document {doc.pk}] Ошибка при загрузке: {e}")
+        storage_update_report.status = ReportStatus.ERROR.value
+
         logger.error(f"[Document {doc.pk}] Ошибка при загрузке: {e}")
         return doc.pk, "fail"
 
@@ -337,12 +342,13 @@ def download_and_process_file(
         # Вычисляем и сохраняем хеш
         raw_content.hash_content = compute_sha512(temp_path)
         raw_content.save()
-        doc.save()
 
         logger.info(f"[Document {doc.pk}] Файл успешно обработан и сохранён.")
     except Exception as e:
-        doc.error_message = f"Ошибка при сохранении файла в БД: {e}"
-        doc.save()
+        storage_update_report.content.setdefault("errors", []).append(
+            f"[Document {doc.pk}] Ошибка при сохранении файла в БД: {e}")
+        storage_update_report.status = ReportStatus.ERROR.value
+
         logger.error(f"[Document {doc.pk}] Ошибка при сохранении в БД: {e}")
         return doc.pk, "fail"
     finally:

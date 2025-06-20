@@ -34,12 +34,13 @@
 
     <div class="sync-report__meta text-muted mb-3 d-flex justify-content-between">
         <div class="sync-report__info text-start" style="flex:1;">
-            {{ cloudstorageupdatereport.created_at|date:"F j, Y, H:i" }}<br>
             <a href="{% url 'sources:cloudstorage_detail' cloudstorageupdatereport.storage.pk %}" class="link-primary fw-semibold">
                 {{ cloudstorageupdatereport.storage.name }}
             </a>
-            <p>Тип синхронизации: {{ cloudstorageupdatereport.content.type }}</p>
-            <p>Статус обработки: {{ cloudstorageupdatereport.get_status_display }}</p>
+            <p class="text-muted fst-italic mb-1">Автор синхронизации: {{ cloudstorageupdatereport.created_at }}</p>
+            <p class="text-muted fst-italic mb-1">Дата синхронизации: {{ cloudstorageupdatereport.author.get_full_name|default:cloudstorageupdatereport.author }}</p>
+            <p class="text-muted fst-italic mb-1">Тип синхронизации: {{ cloudstorageupdatereport.content.type }}</p>
+            <p class="text-muted mb-1">Статус обработки: {{ cloudstorageupdatereport.get_status_display }}</p>
         </div>
         <div class="sync-report__tasks me-3" style="flex:1;">
             <h5>Обрабатываемые фоновые задачи</h5>
@@ -82,11 +83,11 @@
             <tr class="table-success">
                 <td>Новые файлы</td>
                 <td>{{ result.new_files|length }}</td>
-                <td>{{ cloudstorageupdatereport.networkdocument_set|length|default:"0" }}</td>
+                <td>{{ created_network_documents|length }}</td>
             </tr>
             <tr class="table-warning">
-                <td>Обновлённые файлы</td>
-                <td>{{ result.updated_files|length }}</td>
+                <td>Существующие файлы</td>
+                <td>{{ result.exist_documents|length }}</td>
                 <td>-</td>
             </tr>
             <tr class="table-danger">
@@ -110,61 +111,59 @@
     {# === Блок: Новые файлы === #}
     <div class="sync-report__section mb-5">
         <h3 class="text-success">Новые файлы ({{ result.new_files|length }})</h3>
-        {% if result.new_files %}
-            {% with created_count=cloudstorageupdatereport.content.created_docs|length %}
-                {% if created_count != result.new_files|length %}
-                <form method="post" action="{% url 'sources:documents-mass-create' cloudstorageupdatereport.pk %}" class="mb-3 p-3 border rounded bg-light">
-                    {% csrf_token %}
-                    <p class="form-text mb-2">Выберите, для каких файлов создать документы:</p>
-                    <div class="mb-2">
-                        <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="toggleAllCheckboxes('new_files')">Выбрать все</button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAllCheckboxes('new_files', false)">Отменить все</button>
-                    </div>
-                    <button type="submit" class="btn btn-success mt-2 mb-4">Создать выбранные документы</button>
-                {% else %}
-                <p class="text-muted">Все документы из новых файлов уже созданы.</p>
-                {% endif %}
-
-                <table class="table table-bordered table-hover">
-                    <thead class="table-success">
+        {% if created_network_documents %}
+            <table class="table table-bordered table-hover">
+                <thead class="table-success">
+                    <tr>
+                        <th>Имя</th>
+                        <th>Контент</th>
+                        <th>Инфо</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for networkdocument in created_network_documents %}
                         <tr>
-                            {% if created_count != result.new_files|length %}
-                            <th></th>
-                            {% endif %}
-                            <th>Имя</th>
-                            <th>Путь</th>
-                            <th>Размер</th>
-                            <th>Статус</th>
+                            <td>{{ networkdocument.title|default:networkdocument.path }}</td>
+                            <td>
+                                {% if networkdocument.created_rawcontent %}
+                                    <p class="mb-1">
+                                        <strong>📥 Исходный файл ({{ networkdocument.created_rawcontent.file.size|filesizeformat }}): </strong>
+                                        <a href="{{ networkdocument.created_rawcontent.file.url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                            ⬇ Скачать
+                                        </a>
+                                    </p>
+                                {% else %}
+                                    ОШИБКА
+                                {% endif %}
+                            </td>
+                            <td>
+                                <p class="mb-0">Статус: {{ networkdocument.status }}</p>
+                                <p class="mb-0">URL: {{ networkdocument.url }}</p>
+                                <p class="mb-0">Язык: {{ networkdocument.language }}</p>
+                                <p class="mb-0">Название: {{ networkdocument.title }}</p>
+                                <p class="mb-0">Тэги: {{ networkdocument.tags }}</p>
+                                <p class="mb-0">Ошибки: {{ networkdocument.error_message }}</p>
+                                <p class="mb-0">Метаданные: {{ networkdocument.metadata }}</p>
+                                <p class="mb-0">Дата обновления в источнике: {{ networkdocument.remote_updated }}</p>
+                                <p class="mb-0">Дата локального обновления ?:?{{ networkdocument.local_updated }}</p>
+                                <p class="mb-0">Дата синхронизации ?:?{{ networkdocument.synchronized_at }}</p>
+                                <p class="mb-0">Дата создания: {{ networkdocument.created_at }}</p>
+                                <p class="mb-0">Дата обновления: {{ networkdocument.updated_at }}</p>
+                                <p class="mb-0">Дата мягкого удаления: {{ networkdocument.soft_deleted_at }}</p>
+                                <p class="mb-0">Хранилище: {{ networkdocument.storage }}</p>
+                                <p class="mb-0">Создан в рамках отчета: {{ networkdocument.report }}</p>
+                                <p class="mb-0">Путь: {{ networkdocument.path }}</p>
+                                <p class="mb-0">ID на облачном диск:е{{ networkdocument.file_id }}</p>
+                                <p class="mb-0">Формат вывода в БД: {{ networkdocument.output_format }}</p>
+                                <p class="mb-0">Описание: {{ networkdocument.description }}</p>
+                            </td>
+                            
                         </tr>
-                    </thead>
-                    <tbody>
-                        {% for file_id, file in result.new_files.items %}
-                            <tr>
-                                <td>
-                                    {% if created_count != result.new_files|length and not file.doc_id %}
-                                        <input type="checkbox" name="file_ids" value="{{ file_id }}" class="form-check-input new_files-checkbox">
-                                    {% endif %}
-                                </td>
-                                <td>{{ file.file_name }}</td>
-                                <td>{{ file.path }}</td>
-                                <td>{{ file.size|filesizeformat }}</td>
-                                <td>
-                                    {% if file.doc_id %}
-                                    <span class="text-success">создан</span>
-                                    {% else %}
-                                    {{ file.process_status|default:"готов к созданию" }}
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% if created_count != result.new_files|length %}
-                </form>
-                {% endif %}
-            {% endwith %}
+                    {% endfor %}
+                </tbody>
+            </table>
         {% else %}
-        <p class="text-muted">Новых файлов не найдено.</p>
+            <p class="text-muted">Новых файлов не найдено.</p>
         {% endif %}
     </div>
 

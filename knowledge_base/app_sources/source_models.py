@@ -117,8 +117,8 @@ class OutputDataType(Enum):
     def display_name(self):
         """Русское название статуса для отображения."""
         display_names = {
-            "t": "Документ передается в базу знаний в виде текста",
-            "f": "Документ передается в базу знаний в виде файла",
+            "t": "текст",
+            "f": "файл",
         }
         return display_names.get(self.value, self.value)
 

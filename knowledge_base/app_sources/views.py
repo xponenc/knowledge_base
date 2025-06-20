@@ -5,8 +5,8 @@ from dateutil.parser import parse
 from django import forms
 from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 from django.core.files.base import ContentFile
-from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch, ForeignKey,Q
-from django.db.models.functions import Left, Coalesce, Substr, Length
+from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch, ForeignKey, Q, IntegerField, Count
+from django.db.models.functions import Left, Coalesce, Substr, Length, Cast
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse_lazy
@@ -21,7 +21,7 @@ from app_parsers.forms import TestParseForm, BulkParseForm, ParserDynamicConfigF
 from app_parsers.models import TestParser, TestParseReport, MainParser
 from app_parsers.tasks import test_single_url, parse_urls_task
 from app_parsers.services.parsers.dispatcher import WebParserDispatcher
-from app_sources.content_models import URLContent, RawContent, CleanedContent
+from app_sources.content_models import URLContent, RawContent, CleanedContent, ContentStatus
 from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedContentEditorForm
 from app_sources.report_models import CloudStorageUpdateReport, WebSiteUpdateReport, ReportStatus
 from app_sources.source_models import NetworkDocument, URL, SourceStatus
@@ -68,6 +68,31 @@ class DocumentPermissionMixin(UserPassesTestMixin):
 class CloudStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
     """Детальный просмотр объекта модели Облачное хранилище"""
     model = CloudStorage
+
+    def get_context_data(self, **kwargs):
+        network_storage = self.object
+        context = super().get_context_data()
+        # Префетчим один RawContent на каждый NetworkDocument, если он есть
+        rawcontent_qs = RawContent.objects.filter(
+            status=ContentStatus.READY.value
+        ).select_related(
+            'cleanedcontent'
+        ).order_by("-created_at")[:1]
+
+        # Prefetch rawcontent_set → в each networkdocument.related_rawcontents будет список из 0 или 1
+        network_documents = network_storage.network_documents.select_related(
+            "report__storage", "storage"
+        ).prefetch_related(
+            Prefetch('rawcontent_set', queryset=rawcontent_qs, to_attr='related_rawcontents')
+        ).annotate(
+            rawcontent_total_count=Count('rawcontent')
+        )
+
+        # Назначаем явно (0 или 1 элемент)
+        for doc in network_documents:
+            doc.active_rawcontent = doc.related_rawcontents[0] if doc.related_rawcontents else None
+        context["network_documents"] = network_documents
+        return context
 
 
 class CloudStorageListView(LoginRequiredMixin, ListView):
@@ -186,11 +211,24 @@ class CloudStorageSyncView(View):
 class CloudStorageUpdateReportDetailView(LoginRequiredMixin, DetailView):
     """Детальный просмотр отчёта о синхронизации облачного хранилища"""
     model = CloudStorageUpdateReport
-    queryset = CloudStorageUpdateReport.objects.prefetch_related("networkdocument_set")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         report = self.object
+        # Префетчим один RawContent на каждый NetworkDocument, если он есть
+        rawcontent_qs = RawContent.objects.filter(report=report)
+
+        # Prefetch rawcontent_set → в each networkdocument.related_rawcontents будет список из 0 или 1
+        network_documents = report.networkdocument_set.select_related("report__storage", "storage").prefetch_related(
+            Prefetch('rawcontent_set', queryset=rawcontent_qs, to_attr='related_rawcontents')
+        )
+
+        # Назначаем явно (0 или 1 элемент)
+        for doc in network_documents:
+            doc.created_rawcontent = doc.related_rawcontents[0] if doc.related_rawcontents else None
+
+        context["created_network_documents"] = network_documents
+
         # Добавление контекста по исполняемым фоновым задачам Celery
         running_background_tasks = report.running_background_tasks
         task_context = []
@@ -919,7 +957,6 @@ class RawContentRecognizeCreateView(LoginRequiredMixin, View):
             # recognizer = dispatcher.get_by_name(recognizer_name)
             try:
                 recognizer = recognizer_class(file_path)
-                print(recognizer)
                 recognizer_report = recognizer.recognize()
                 recognized_text = recognizer_report.get("text", "")
                 recognition_method = recognizer_report.get("method", "")
@@ -932,6 +969,7 @@ class RawContentRecognizeCreateView(LoginRequiredMixin, View):
                     raw_content=raw_content,
                     recognition_method=recognition_method,
                     recognition_quality=recognition_quality_report,
+                    preview=recognized_text[:200] if recognized_text else None,
                     author=request.user,
                 )
                 raw_content_source = next(
@@ -948,7 +986,6 @@ class RawContentRecognizeCreateView(LoginRequiredMixin, View):
                 return redirect("sources:cleanedcontent_detail", pk=cleaned_content.pk)
             except Exception as e:
                 messages.error(request, f"Ошибка при обработке файла: {e}")
-        print(form.errors)
         return render(request, "app_sources/rawcontent_recognize.html", {
             "raw_content": raw_content,
             "form": form,

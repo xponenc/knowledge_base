@@ -21,6 +21,7 @@ class ContentStatus(Enum):
     READY = "ready"
     ERROR = "error"
     CANCELED = "canceled"
+    ACTIVE = "active"
     #
     # PARSED = "pa"
     # CHUNKED = "ch"
@@ -34,6 +35,7 @@ class ContentStatus(Enum):
             "ready": "В работе",
             "error": "Ошибка",
             "canceled": "Отменен",
+            "active": "Активен",
             # "pa": "Обработан",
             # "ch": "Разбит на чанки",
             # "em": "Эмбеддинг выполнен",
@@ -158,6 +160,7 @@ class CleanedContent(Content):
     """Файл с очищенным контентом источника"""
     raw_content = models.OneToOneField(RawContent, verbose_name="исходный документ", on_delete=models.CASCADE)
     file = models.FileField(verbose_name="файл с чистым контентом источника", upload_to=get_cleaned_file_path)
+    preview = models.CharField(verbose_name="Первью", max_length=200, blank=True, null=True)
     recognition_method = models.CharField(verbose_name="метод распознавания контента", max_length=200,
                                           null=True, blank=True)
     recognition_quality = models.JSONField(verbose_name="отчет о качестве распознавания", default=dict)
