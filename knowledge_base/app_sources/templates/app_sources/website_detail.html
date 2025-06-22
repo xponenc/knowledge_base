@@ -1,17 +1,28 @@
-{% extends 'base.html' %}
+{% extends 'clear_base.html' %}
 {% load static %}
-{% load status_tags %}
 {% load humanize %}
+{% load custom_filters %}
+{% load status_tags %}
 
 {% block extra_css %}
-<link href="{% static 'css/pagination.css' %}" rel="stylesheet">
-{% endblock extra_css %}
+    <link href="{% static 'css/pagination.css' %}" rel="stylesheet">
+    <link href="{% static 'css/storage.css' %}" rel="stylesheet">
+    <link href="{% static 'css/grader.css' %}" rel="stylesheet">
+{% endblock %}
 
 {% block breadcrumbs %}
-<nav aria-label="breadcrumb" class="mt-5">
-    <ol class="breadcrumb container">
-        <li class="breadcrumb-item"><a href="{{ website.kb.get_absolute_url }}">База знаний {{ website.kb.title }}</a></li>
-        <li class="breadcrumb-item active" aria-current="page">{{ website.name }}</li>
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a href="{{ website.kb.get_absolute_url }}" itemprop="item">
+            <span itemprop="name">База знаний {{ website.kb.title }}</span>
+        </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+        <span itemprop="name">{{ website.name }}</span>
+        <meta itemprop="position" content="2" />
+        </li>
     </ol>
 </nav>
 {% endblock %}
@@ -19,249 +30,372 @@
 {% block title %}{{ website.name }}{% endblock %}
 
 {% block content %}
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0">📁 Детали хранилища Веб-сайт: {{ website.name }}</h5>
-    </div>
-    <div class="card-body">
-        <dl class="row mb-0">
-            <dt class="col-sm-3">🆔 ID</dt>
-            <dd class="col-sm-9">{{ website.pk }}</dd>
-
-            <dt class="col-sm-3">🏷️ Название</dt>
-            <dd class="col-sm-9">{{ website.name }}</dd>
-
-            <dt class="col-sm-3">🔌 Основная ссылка</dt>
-            <dd class="col-sm-9">{{ website.base_url }}</dd>
-
-            <dt class="col-sm-3">🔌 ССылка на XML карту</dt>
-            <dd class="col-sm-9">{{ website.base_url }}</dd>
-
-        </dl>
-    </div>
-</div>
-
-<div class="row">
-    <!-- Основной парсер -->
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                Основной парсер
+<div class="page page--website">
+    <div class="page__top">
+        <div class="page__info info-page">
+            <span class="info-page__banner">ВЕБ-САЙТ</span>
+            <div class="info-page__header">
+                <h2 class="page__heading">{{ website.name }}</h2>
+                <h3 class="info-page__heading">Детали веб-сайта</h3>
             </div>
-            <div class="card-body">
-                <p class="text-muted fst-italic mb-2">
-                    Используется для массового парсинга всего сайта. Его конфигурация влияет на автоматическую обработку.
-                </p>
-                {% if website.mainparser %}
-                <div class="mb-3 border-bottom pb-2">
-                    <h5 class="card-title">{{ website.mainparser.class_name }}</h5>
-                    <p class="card-text"><strong>Описание:</strong> {{ website.mainparser.description|default:"—" }}</p>
-                    <p class="card-text"><strong>Автор:</strong> {{ website.mainparser.author }}</p>
-                    <p class="card-text"><strong>Создан:</strong> {{ website.mainparser.created_at }}</p>
-                    <p class="card-text"><strong>Обновлён:</strong> {{ website.mainparser.updated_at }}</p>
-
-                    <a href="{% url 'parsers:mainparser_detail' website.mainparser.id %}" class="btn btn-sm btn-outline-primary mt-2" target="_blank">
-                        Посмотреть детали
-                    </a>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                <dl class="description">
+                    <dt class="description__term">🔌Основная ссылка</dt>
+                    <dd class="description__defination">
+                        {{ website.base_url }}
+                    </dd>
+                    <dt class="description__term">🔌Ссылка на XML карту</dt>
+                    <dd class="description__defination">
+                        {{ website.xml_map_url }}
+                    </dd>
+                    <dt class="description__term">🆔 ID</dt>
+                    <dd class="description__defination">
+                        <pre class="text">{{ website.pk }}</pre> 
+                    </dd>
+                </dl>
+            </div>
+            <div class="info-page__footer">
+                <div class="btns _jc-fe">
                 </div>
-                <a href="{% url 'sources:website_bulk_parse' website.pk %}" class="btn btn-success">
-                    📦 Парсинг по списку
-                </a>
-                <a href="{% url 'sources:website_synchronization' website.pk %}" class="btn btn-success">
-                    📦 Полная синхронизация
-                </a>
+            </div>
+        </div>
+        <div class="page__reports reports">
+            <div class="reports__header">
+                <h3 class="reports__heading">Отчеты по синхронизации</h3>
+            </div>
+            <div class="reports__body">
+                <table class="elastic-table elastic-table_2-auto">
+                    <thead class="elastic-table__thead">
+                        <tr class="elastic-table__tr">
+                            <th class="elastic-table__th">отчет</th>
+                            <th class="elastic-table__th">статус</th>
+                        </tr>
+                    </thead>
+                    <tbody class="elastic-table__tbody">
+                        {% for report in website.reports.all %}
+                            <tr class="elastic-table__tr">
+                                <td class="elastic-table__td">
+                                    <a href="{{ report }}" class="link-marker">
+                                        <div class="elastic-table__cell">
+                                            <span>{{ report }}</span>
+                                            <span>{{ report.created_at|date:"d.m.Y H:i" }}</span>
+                                            <span>{{ report.author.get_full_name|default:report.author }}</span>
+                                        </div>
+                                        <svg class="link-marker__marker">
+                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#gears"></use>
+                                        </svg>
+                                    </a>
+                                </td>
+                                <td class="elastic-table__td">
+                                    {% with report.get_status_display as status %}
+                                    {% if report.status == "cr" %}
+                                        <span class="tag tag--warning">
+                                            {{ status }}
+                                        </span>
+                                    {% elif report.status == "er" %}
+                                        <span class="tag tag--alarm">
+                                            {{ status }}
+                                        </span>
+                                    {% else %}
+                                        <span class="tag tag--success">
+                                            {{ status }}
+                                        </span>
+                                    {% endif %}
+                                {% endwith %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="reports__footer"></div>
+        </div>
+        <div class="page__info info-page">
+            <div class="info-page__header">
+                <h2 class="page__heading">Основной парсер</h2>
+                <h3 class="info-page__heading"></h3>
+                <p class="text text--mutted">Используется для массового парсинга всего сайта. Его конфигурация влияет на автоматическую обработку.
+                </p>
+            </div>
+            <div class="info-page__body">
+                {% if website.mainparser %}
+                    <h3 class="info-page__heading">{{ website.mainparser.class_name }}</h3>
+                    <dl class="description">
+                        <dt class="description__term">Описание</dt>
+                        <dd class="description__defination">
+                            {{ website.mainparser.description|default:"—" }}
+                        </dd>
+                        <dt class="description__term">Автор</dt>
+                        <dd class="description__defination">
+                            {{ website.mainparser.author.get_full_name|default:website.mainparser.author }}
+                        </dd>
+                        <dt class="description__term">Создан</dt>
+                        <dd class="description__defination">
+                            <pre class="text">{{ website.mainparser.created_at|date:"d.m.Y H:i" }}</pre> 
+                        </dd>
+                        <dt class="description__term">Обновлён</dt>
+                        <dd class="description__defination">
+                            <pre class="text">{{ website.mainparser.updated_at|date:"d.m.Y H:i" }}</pre> 
+                        </dd>
+                    </dl>
                 {% else %}
-                    <p class="text-muted">Основной парсер не задан</p>
+                    <p class="text text--muted">Основной парсер не задан</p>
                 {% endif %}
             </div>
-        </div>
-    </div>
-
-    <!-- Тестовые парсеры -->
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header bg-secondary text-white">
-                Тестовые парсеры
-            </div>
-            <div class="card-body">
-                <p class="text-muted fst-italic mb-2">
-                    Используется для настройки конфигурации парсинга. Тестируется заданный адрес и выдается отчет о парсинге. 
-                    В деталяж Тестового парсера можно установить его Основной парсер
-                </p>
-
-                {% for test_parser in website.test_parsers.all %}
-                    <div class="mb-3 border-bottom pb-2">
-                        <h6>{{ test_parser.class_name }}</h6>
-                        <p class="mb-1"><strong>Описание:</strong> {{ test_parser.description|default:"—" }}</p>
-                        <p class="mb-1"><strong>Автор:</strong> {{ test_parser.author }}</p>
-                        <p class="mb-1"><strong>Создан:</strong> {{ test_parser.created_at }}</p>
-                        
-                        {% if test_parser.testparsereport %}
-                            <div class="mt-2 ms-3">
-                                <p class="fw-bold">Результат теста:</p>
-                                <p class="mb-1"><strong>URL:</strong> <a href="{{ test_parser.testparsereport.url }}" target="_blank">{{ test_parser.testparsereport.url }}</a></p>
-                                <p class="mb-1"><strong>Статус:</strong> {{ test_parser.testparsereport.status }}</p>
-                                <p class="mb-1 text-danger"><strong>Ошибка:</strong> {{ test_parser.testparsereport.error|default:"—" }}</p>
-                                <p class="mb-1"><strong>Дата:</strong> {{ test_parser.testparsereport.created_at }}</p>
-                                
-                                <a href="{% url 'parsers:testparser_detail' test_parser.id %}" class="btn btn-sm btn-outline-primary mt-2" target="_blank">
-                                    Посмотреть детали
-                                </a>
-                            </div>
-                        {% else %}
-                            <p class="text-muted">Результат теста отсутствует</p>
-                        {% endif %}
-                    </div>
-                {% empty %}
-                    <p class="text-muted">Тестовых парсеров нет</p>
-                {% endfor %}
-                <a href="{% url 'sources:website_test_parse' website.pk %}" class="btn btn-outline-primary">
-                    🧪 Тестовый парсинг
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-    
-    
-
-
-{% if website.reports.all %}
-    <div class="mb-4">
-        <h5>📊 Отчеты</h5>
-        <ul>
-            {% for report in website.reports.all %}
-                <li>
-                    <a href="{{ report.get_absolute_url }}">{{ report }}</a>
-                </li>
-            {% endfor %}
-        </ul>
-    </div>
-{% endif %}
-
-
-<h3 class="mb-4">🗂️ Контент хранилища</h3>
-<div class="mb-4 border-primary border-1 rounded-1">
-    <p class="text-muted fst-italic mb-2">
-        Пока заглушка - получение файла c сериализованными pickle чанкам (формат Langchain Document) по отфильтрованному контенту 
-    </p>
-    <p class="font-monospace bg-light p-3 rounded">
-            with open(file_path, 'rb') as f:<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;# Загружаем (десериализуем) список документов из файла<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;all_documents = pickle.load(f)
-        </p>
-    <form method="post" action="{% url 'chunks:create_chunks_from_website' website.pk %}" class="mb-3" id="create-chunks-form">
-        {% csrf_token %}
-       
-        {% for key, value in request.GET.items %}
-            <input type="hidden" name="{{ key }}" value="{{ value }}">
-        {% endfor %}
-        <button type="submit" class="btn btn-primary" id="submit-btn">
-            Создать чанки
-            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="loader"></span>
-        </button>
-    </form>
-</div>
-
-<!-- Форма фильтра и сортировки -->
-<form method="get" class="mb-4">
-    <div class="row g-3 align-items-end">
-        <div class="col-md-3">
-            <label for="search" class="form-label">Поиск</label>
-            <input type="text" id="search" name="search" class="form-control" value="{{ search_query }}">
-        </div>
-        <div class="col-md-3">
-            <label for="status" class="form-label">Статус обработки</label>
-            <select id="status" name="status" class="form-select">
-                <option value="">---</option>
-                {% for value, name in status_choices %}
-                    <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-3">
-            <label for="response_status" class="form-label">Код HTTP ответа</label>
-            <input type="text" id="response_status" name="response_status" class="form-control" value="{{ request.GET.response_status }}">
-        </div>
-        <div class="col-md-3">
-            <label for="min_body_length" class="form-label">Длина контента от</label>
-            <input type="number" id="min_body_length" name="min_body_length" class="form-control" value="{{ request.GET.min_body_length }}">
-        </div>
-        <div class="col-md-3">
-            <label for="min_body_length" class="form-label">Длина контента до</label>
-            <input type="number" id="min_body_length" name="max_body_length" class="form-control" value="{{ request.GET.max_body_length }}">
-        </div>
-        <div class="col-md-3">
-            <label for="ordering" class="form-label">Сортировка</label>
-            <select id="ordering" name="ordering" class="form-select">
-                <option value="">---</option>
-                <option value="latest_content_status" {% if request.GET.ordering == 'latest_content_status' %}selected{% endif %}>Статус обработки ↑</option>
-                <option value="-latest_content_status" {% if request.GET.ordering == '-latest_content_status' %}selected{% endif %}>Статус обработки ↓</option>
-                <option value="latest_content_response_status" {% if request.GET.ordering == 'latest_content_response_status' %}selected{% endif %}>HTTP-ответ ↑</option>
-                <option value="-latest_content_response_status" {% if request.GET.ordering == '-latest_content_response_status' %}selected{% endif %}>HTTP-ответ ↓</option>
-                <option value="latest_content_body_length" {% if request.GET.ordering == 'latest_content_body_length' %}selected{% endif %}>Длина body ↑</option>
-                <option value="-latest_content_body_length" {% if request.GET.ordering == '-latest_content_body_length' %}selected{% endif %}>Длина body ↓</option>
-            </select>
-        </div>
-        <div class="col-md-12">
-            <button type="submit" class="btn btn-primary">Применить</button>
-        </div>
-    </div>
-</form>
-
-{% include "include/pagination.html" %}
-
-
-<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
-    {% if search_query %}
-        <div class="alert alert-info">
-            Результаты поиска по <strong>"{{ search_query }}"</strong>
-            {% if request.GET.status or request.GET.response_status or request.GET.min_body_length or request.GET.max_body_length or request.GET.ordering %}
-                с применёнными фильтрами и сортировкой
-            {% endif %}
-        </div>
-    {% endif %}
-    {% for url in page_obj %}
-        <div class="col">
-            <div class="card h-100 shadow-sm border 
-                {% if url.latest_content_error_message %}
-                    border-danger bg-danger-subtle text-danger
-                {% else %}
-                    border-success
-                {% endif %}">
-
-                <div class="card-body d-flex flex-column justify-content-between">
-                    <h5 class="card-title text-center">
-                        <a href="{% url 'sources:url_detail' url.pk %}"
-                            class="text-decoration-none text-primary d-flex flex-column align-items-center">
-                            <i class="bi {{ raw.get_icon_class }} fs-3 mb-3"></i>
-                            <span>{{ url.latest_content_title|default:"Без имени" }}</span>
+            <div class="info-page__footer">
+                <div class="btns _jc-fe">
+                    {% if website.mainparser %}
+                        <a href="{% url 'parsers:mainparser_detail' website.mainparser.id %}" class="btn btn--reset btn--round" target="_blank" title="Посмотреть детали" aria-label="Посмотреть детали">
+                            <svg class="link-marker__marker">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#details"></use>
+                            </svg>
                         </a>
-                    </h5>
-
-                    <div class="small mt-3">
-                        <p class="mb-1"><strong>URL:</strong> <span class="text-muted">{{ url.url }}</span></p>
-                        <p class="mb-1"><strong>Статус обработки:</strong> {{ url.latest_content_status|get_status_display }}</p>
-                        <p class="mb-1"><strong>HTTP-ответ:</strong> {{ url.latest_content_response_status|default:"—" }}</p>
-                        <p class="mb-1"><strong>Тэги:</strong> {{ url.latest_content_tags|default:"—" }}</p>
-                        <p class="mb-1"><strong>Количество символов в контенте:</strong> {{ url.latest_content_body_length|default:"—" }}</p>
-
-                        {% if url.latest_content_error_message %}
-                            <p class="mt-2 mb-0"><strong>Ошибка:</strong> {{ url.latest_content_error_message }}</p>
-                        {% endif %}
-                    </div>
+                        <form action="{% url 'sources:website_bulk_parse' website.pk %}" method="POST" class="mb-4">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn--reset btn--simple">
+                                📦 Парсинг по списку
+                            </button>
+                        </form>
+                        <form action="{% url 'sources:website_synchronization' website.pk %}" method="POST" class="mb-4">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn--reset btn--simple">
+                                🔄 Полная синхронизация
+                            </button>
+                        </form>
+                    {% endif %}
                 </div>
             </div>
         </div>
-    {% empty %}
-        <p class="text-muted">Нет подходящих URL</p>
-    {% endfor %}
-</div>
+        <div class="page__info info-page">
+            <div class="info-page__header">
+                <h2 class="page__heading">Тестовые парсеры</h2>
+                <h3 class="info-page__heading"></h3>
+                <p class="text text--mutted">Используется для настройки конфигурации парсинга. Тестируется заданный адрес и выдается отчет о парсинге. 
+                    В деталяж Тестового парсера можно установить его Основной парсер
+                </p>
+            </div>
+            <div class="info-page__body">
+            {% for test_parser in website.test_parsers.all %}
+                <h3 class="info-page__heading"></h3>
+                <div class="source__manage">
+                    <dl class="description">
+                        <dt class="description__term">Описание</dt>
+                        <dd class="description__defination">
+                            {{ test_parser.description|default:"—" }}
+                        </dd>
+                        <dt class="description__term">Автор</dt>
+                        <dd class="description__defination">
+                            {{ test_parser.author.get_full_name|default:test_parser.author }}
+                        </dd>
+                        <dt class="description__term">Создан</dt>
+                        <dd class="description__defination">
+                            <pre class="text">{{ test_parser.created_at|date:"d.m.Y H:i" }}</pre> 
+                        </dd>
+                        <dt class="description__term">Обновлён</dt>
+                        <dd class="description__defination">
+                            <pre class="text">{{ test_parser.updated_at|date:"d.m.Y H:i" }}</pre> 
+                        </dd>
+                    </dl>
+                    <a href="{% url 'parsers:testparser_detail' test_parser.id %}" class="btn btn--reset btn--round" target="_blank" title="Посмотреть детали" aria-label="Посмотреть детали">
+                        <svg class="link-marker__marker">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#details"></use>
+                        </svg>
+                    </a>
+                </div>
+            {% empty %}
+                <p class="text text--muted">Тестовых парсеров нет</p>
+            {% endfor %}
+            </div>
+            <div class="info-page__footer">
+                <div class="btns _jc-fe">
+                    <a href="{% url 'sources:website_test_parse' website.pk %}" class="btn btn--reset btn--simple">
+                        🧪 Тестовый парсинг
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+    </div>
 
-{% include "include/pagination.html" %}
-{% endblock %}
+    <article class="page__content">
+        <div class="mb-4 border-primary border-1 rounded-1">
+            <p class="text-muted fst-italic mb-2">
+                Пока заглушка - получение файла c сериализованными pickle чанкам (формат Langchain Document) по отфильтрованному контенту 
+            </p>
+            <p class="font-monospace bg-light p-3 rounded">
+                    with open(file_path, 'rb') as f:<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;# Загружаем (десериализуем) список документов из файла<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;all_documents = pickle.load(f)
+                </p>
+            <form method="post" action="{% url 'chunks:create_chunks_from_website' website.pk %}" class="mb-3" id="create-chunks-form">
+                {% csrf_token %}
+                {% for key, value in request.GET.items %}
+                    <input type="hidden" name="{{ key }}" value="{{ value }}">
+                {% endfor %}
+                <button type="submit" class="btn btn-primary" id="submit-btn">
+                    Создать чанки
+                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="loader"></span>
+                </button>
+            </form>
+        </div>
+        <h3 class="page__subheading">🗂️ Источники</h3>
+        <form class="page__grader form" action="" method="GET" id="url-filter-form">
+            {% csrf_token %}
+            {% comment %} {% include "widgets/_form_content-widget.html" %} {% endcomment %}
+            <div class="form__container">
+                <div class="field-container field-container_wide">
+                    <div class="grader grader--bg">
+                        <div class="grader__top">
+                            <p class="grader__name text text_upper text_transparent text_micro">фильтрация и сортировка</p>
+                            <div class="grader__icons">
+                                <svg class="grader__icon grader__icon_filter visually-hidden">
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#filter2"></use>
+                                </svg>
+                                <svg class="grader__icon grader__icon_ascending js-icon-ascending visually-hidden">
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#sorted"></use>
+                                </svg>
+                                <svg class="grader__icon grader__icon_descending js-icon-descending visually-hidden">
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#sorted"></use>
+                                </svg>
+                                <svg class="grader__icon grader__icon_unsort">
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#unsorted"></use>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="grader__help">
+                            <div class="grader__help-icon grader__icon grader__icon_info" onClick="showHelp(event)">
+                                <svg>
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#info2"></use>
+                                </svg>
+                            </div>
+                            <div class="grader__help-text">
+                                Возможность отсортировать и отфильтровать сетевые документы.
+                            </div>
+                        </div>
+                        <div class="grader__body">
+                            <div class="grader__section">
+                                <div class="grader__header">
+                                    <h5 class="grader__heading">фильтрация </h5>
+                                </div>
+                                <div class="grader__content">
+                                    {% for filter_name, filter_choices in filters.items %}
+                                        {% for filter_value, filter_display_name in filter_choices %}
+                                            <label class="grader__checkbox checkbox-filter" aria-label="Фильтрация {{ filter_display_name }}">
+                                                <input type="checkbox" class="checkbox-filter__input visually-hidden js-filter js-filter-checkbox" name="{{ filter_name }}" value="{{ filter_value }}"{% if request.GET|getlist:filter_name == filter_value %} checked{% endif %} autocomplete="off" onchange="graderChexboxChange(event)">
+                                                <span class="checkbox-filter__box"></span>
+                                                <span class="checkbox-filter__text">{{ filter_display_name }}</span>
+                                            </label>
+                                        {% endfor %}
+                                    {% endfor %}
+                                </div>
+                                <div class="grader__header">
+                                    <h5 class="grader__heading">Ранжирование</h5>
+                                </div>
+                                <div class="grader__content grader__range range-grader">
+                                    <div class="range-grader__container">
+                                        <label class="range-grader__label" for="date_from">
+                                            <span>c </span>
+                                        </label>
+                                        <input class="range-grader__date js-filter" type="date" id="date_from" name="date_from" autocomplete="off" onchange="graderChexboxChange(event)"/>
+                                        <label class="range-grader__label" for="date_from"><span> по </span>
+                                        </label>
+                                        <input class="range-grader__date js-filter" type="date" id="date-to" name="date-to" autocomplete="off" onchange="graderChexboxChange(event)"/>
+                                    </div>
+                                </div>
+                                <div class="grader__header">
+                                    <h5 class="grader__heading">Сортировка</h5>
+                                </div>
+                                <div class="grader__content">
+                                    {% for sorting_value, sorting_name in sorting_list %}
+                                        <label class="grader__checkbox checkbox-filter" aria-label="Сортировать по {{ sorting_name }}">
+                                            <input type="radio" class="checkbox-filter__input visually-hidden js-sort {% if sorting_value|slice:":1" == "-" %} js-sort-ascending{% else %} js-sort-descending{% endif %}" name="sorting" value="{{ sorting_value }}" onchange="graderChexboxChange(event)">
+                                            <svg class="checkbox-filter__icon {% if sorting_value|slice:":1" == "-" %} checkbox-filter__icon_ascending{% else %} checkbox-filter__icon_descending{% endif %}">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#sorted"></use>
+                                            </svg>
+                                            <span class="checkbox-filter__text">{{ sorting_name }}</span>
+                                        </label>
+                                    {% endfor %}
+                                    <label class="grader__checkbox checkbox-filter" aria-label="отменить сортировку">
+                                        <input type="checkbox" class="checkbox-filter__input visually-hidden js-reset-sort" checked onchange="processGraderResetSort(event)">
+                                        <svg class="checkbox-filter__icon">
+                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#unsorted"></use>
+                                        </svg>
+                                        <span class="checkbox-filter__text">отменить сортировку</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="field-container field-container_wide">
+                    <label class="custom-field">
+                        <input class="custom-field__input" type="text" name="search" value="{{ search_query|default:'' }}" placeholder=" ">
+                        <span class="custom-field__placeholder">Поиск по названию, URL</span>
+                    </label>
+                </div>
+                <button type="submit" class="btn btn--reset btn--round btn--accent" aria-label="Отпраавить запрос" title="Отпраавить запрос">
+                    <svg class="btn__icon">
+                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#search"></use>
+                    </svg>
+                </button>
+            </div>
+        <form>
+        <div class="page__wrapper" id="url-container">
+            {% include "app_sources/include/url_list_page.html" %}
+        </div>
+    
+    </article>
+</div>
+{% endblock content %}
 
 {% block script %}
+    <script src="{% static 'js/grader.js' %}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const container = document.querySelector('#url-container');
+            const form = document.querySelector('#url-filter-form');
+
+            function fetchAndUpdate(url) {
+                fetch(url, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    container.innerHTML = data.html;
+                    window.history.pushState({}, '', url); // обновление URL без перезагрузки
+                    syncCheckboxesFromURL();
+                });
+            }
+
+            // Перехват отправки формы
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                const formData = new FormData(form);
+                const params = new URLSearchParams(formData);
+                const url = `${window.location.pathname}?${params.toString()}`;
+                fetchAndUpdate(url);
+            });
+
+            // Перехват кликов по пагинации (делегирование с .closest)
+            container.addEventListener('click', function (e) {
+                const link = e.target.closest('.pagination__link');
+                if (link && container.contains(link)) {
+                    e.preventDefault();
+                    const url = link.getAttribute('href');
+                    fetchAndUpdate(url);
+                }
+            });
+
+            function syncCheckboxesFromURL() {
+                const params = new URLSearchParams(window.location.search);
+                document.querySelectorAll('.js-filter').forEach(input => {
+                    const values = params.getAll(input.name);
+                    input.checked = values.includes(input.value);
+                });
+            }
+        });
+    </script>
     <script>
         document.getElementById('create-chunks-form').addEventListener('submit', function(event) {
             event.preventDefault(); // Предотвращаем стандартную отправку формы

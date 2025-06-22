@@ -18,6 +18,7 @@ class SourceStatus(Enum):
     DELETED = "de"
     EXCLUDED = "ex"
     ERROR = "er"
+    WAIT = "wait"
 
     @property
     def display_name(self):
@@ -26,7 +27,8 @@ class SourceStatus(Enum):
             "cr": "Создан",
             "de": "Удален",
             "ex": "Исключен из базы знаний",
-            "er": "Ошибка"
+            "er": "Ошибка",
+            "wait": "ожидает решения задачи",
         }
         return display_names.get(self.value, self.value)
 
@@ -39,7 +41,7 @@ class AbstractSource(TrackableModel):
 
     status = models.CharField(
         verbose_name="статус обработки",
-        max_length=2,
+        max_length=10,
         choices=[(status.value, status.display_name) for status in SourceStatus],
         default=SourceStatus.CREATED.value,
     )
@@ -99,6 +101,8 @@ class URL(AbstractSource):
     """Модель страницы сайта с информацией"""
     site = models.ForeignKey(WebSite, verbose_name="сайт", on_delete=models.CASCADE, blank=True, null=True)
     batch = models.ForeignKey(URLBatch, verbose_name="пакет", on_delete=models.CASCADE, blank=True, null=True)
+    report = models.ForeignKey(CloudStorageUpdateReport, verbose_name="создано в отчете", on_delete=models.CASCADE,
+                               blank=True, null=True)
 
     def __str__(self):
         return f"[URL] {super().__str__()}"

@@ -4,6 +4,7 @@ from django import forms
 from django.core.signing import Signer
 
 from app_sources.models import CloudStorage
+from app_sources.source_models import NetworkDocument
 
 
 class CloudStorageForm(forms.ModelForm):
@@ -92,3 +93,11 @@ class ContentRecognizerForm(forms.Form):
 class CleanedContentEditorForm(forms.Form):
     """Форма для редактирования содержимого файла CleanedContent аттрибут файл через онлайн маркдаун редактор"""
     content = forms.CharField(widget=forms.HiddenInput())  # Поле для Markdown
+
+
+class NetworkDocumentStatusUpdateForm(forms.ModelForm):
+    """Форма обновления статуса NetworkDocument"""
+
+    class Meta:
+        model = NetworkDocument
+        fields = ['status', ]

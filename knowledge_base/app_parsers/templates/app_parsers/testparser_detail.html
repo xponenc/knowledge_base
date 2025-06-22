@@ -1,27 +1,103 @@
-{% extends "base.html" %}
+{% extends "clear_base.html" %}
+{% load static %}
 
 {% block title %}Тестовый парсер Веб-сайта {{ testparser.site.name }} {% endblock %}
 
+{% block extra_css %}
+    <link href="{% static 'css/storage.css' %}" rel="stylesheet">
+    <style>
+        .markdown-content img {
+            max-width: 100%;
+            height: auto;
+        }
+        .markdown-content a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .markdown-content a:hover {
+            text-decoration: underline;
+        }
+        .files-section h6 {
+            font-weight: bold;
+            margin-top: 1rem;
+        }
+    </style>
+{% endblock %}
+
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ testparser.site.kb.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">База знаний {{ testparser.site.kb.title }}</span>
+            </a>
+            <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-item " itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <a href="{{ testparser.site.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">Вебсайт {{ testparser.site.name }}</span>
+            </a>
+            <meta itemprop="position" content="2" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">Тестовый парсер</span>
+            <meta itemprop="position" content="2" />
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+
 {% block content %}
-<div class="container mt-5">
-    <h2 class="mb-4">🛠 Тестовый парсер сайта</strong> 🔗<a class="text-dark" href="{{ testparser.site.get_absolute_url }}" target="_blank">{{ testparser.site.name }}</a></h6>
-    <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <p><strong>Название парсера:</strong> {{ testparser.class_name }}</p>
-            <p><strong>Конфигурация:</strong></p>
+<div class="page page--website">
+    <div class="page__info info-page _mb">
+        <span class="info-page__banner">🛠 Тестовый парсер</span>
+        <div class="info-page__header">
+            <h2 class="page__heading">{{ testparser.class_name }}</h2>
+            <h3 class="info-page__heading"></h3>
+            <p class="text text--mutted">Используется для настройки конфигурации парсинга. Тестируется заданный адрес и выдается отчет о парсинге. 
+                В деталяж Тестового парсера можно установить его Основной парсер
+            </p>
+        </div>
+        <div class="info-page__body">
+            <h3 class="info-page__heading"></h3>
+            <dl class="description">
+                <dt class="description__term">Описание</dt>
+                <dd class="description__defination">
+                    {{ testparser.description|default:"—" }}
+                </dd>
+                <dt class="description__term">Автор</dt>
+                <dd class="description__defination">
+                    {{ testparser.author.get_full_name|default:testparser.author }}
+                </dd>
+                <dt class="description__term">Создан</dt>
+                <dd class="description__defination">
+                    <pre class="text">{{ testparser.created_at|date:"d.m.Y H:i" }}</pre> 
+                </dd>
+                <dt class="description__term">Обновлён</dt>
+                <dd class="description__defination">
+                    <pre class="text">{{ testparser.updated_at|date:"d.m.Y H:i" }}</pre> 
+                </dd>
+            </dl>
+        </div>
+        <div class="info-page__body">
+            <h3 class="info-page__heading">Конфигурация</h3>
             {% if testparser.config %}
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Ключ</th>
-                            <th>Значение</th>
+                <table class="elastic-table elastic-table_2-auto">
+                    <thead class="elastic-table__thead">
+                        <tr class="elastic-table__tr">
+                            <th class="elastic-table__th">Ключ</th>
+                            <th class="elastic-table__th">Значение</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="elastic-table__tbody">
                         {% for key, value in testparser.config.items %}
-                            <tr>
-                                <td>{{ key }}</td>
-                                <td>
+                            <tr class="elastic-table__tr">
+                                <td class="elastic-table__td">
+                                    {{ key }}
+                                </td>
+                                <td class="elastic-table__td">
                                     {% if value is string %}
                                         {{ value }}
                                     {% elif value is iterable and value is not string %}
@@ -34,152 +110,128 @@
                         {% endfor %}
                     </tbody>
                 </table>
-                <div class="d-flex gap-2">
-                    <a href="{% url 'parsers:set_test_parser_as_main' testparser.pk %}" class="btn btn-outline-primary">Задать основным для сайта</a>
-                    <a href="{% url 'sources:website_test_parse' testparser.site.pk %}?url={{ testparser.testparsereport.url }}" class="btn btn-outline-primary">
-                        🧪 Запустить новый парсинг
+            {% else %}
+                <p class="text text--muted">Конфигурация отсутствует.</p>
+            {% endif %}
+        </div>
+        
+        <div class="info-page__footer">
+            <div class="btns _jc-fe">
+                {% if testparser.config %}
+                    <a href="{% url 'parsers:set_test_parser_as_main' testparser.pk %}" class="btn btn--reset btn--simple">
+                        Задать основным для сайта
                     </a>
-                </div>
-            {% else %}
-                <p class="text-muted">Конфигурация отсутствует.</p>
-            {% endif %}
-        </div>
-
-
-
-        <div class="card-header bg-success text-white">
-            <h5 class="mb-0">✅ Результат теста </h5>
-        </div>
-        <div class="card-body">
-            <p><strong>🔗 Тестируемый URL:</strong> <a href="{{ testparser.testparsereport.url }}" target="_blank">{{ testparser.testparsereport.url }}</a></p>
-
-            <hr>
-
-            <h6 class="mt-4">📦 Результат:</h6>
-            {% if testparser.testparsereport.parsed_data.content %}
-                <div class="parsed-result">
-                    <!-- Отображение content -->
-                    {% if testparser.testparsereport.parsed_data.content %}
-                        <div class="mb-4">
-                            <h5 class="text-primary">Content</h5>
-                            <div class="markdown-content">
-                                {{ testparser.testparsereport.parsed_data.content|linebreaksbr }}
-                                {% comment %} {{ testparser.testparsereport.parsed_data.content|linebreaks }} {% endcomment %}
-                                {% comment %} {% autoescape off %}
-                                    {{ testparser.testparsereport.parsed_data.content|safe }}  {# Предполагаем, что content уже отрендерен #}
-                                {% endautoescape %} {% endcomment %}
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    <!-- Отображение метаданных, исключая files -->
-                    {% for key, value in testparser.testparsereport.parsed_data.metadata.items %}
-                        {% if key != 'files' %}
-                            <div class="mb-4">
-                                <h5 class="text-primary">{{ key|title }}</h5>
-                                {% if key == 'tags' %}
-                                    <ul class="list-group">
-                                        {% for tag in value %}
-                                            <li class="list-group-item">{{ tag }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                {% elif key == 'external_links' or key == 'internal_links' %}
-                                    <ul class="list-group">
-                                        {% for link_text, link_url in value %}
-                                            <li class="list-group-item">
-                                                {{ link_text }}: <a href="{{ link_url }}" target="_blank">{{ link_url }}</a>
-                                            </li>
-                                        {% endfor %}
-                                    </ul>
-                                {% else %}
-                                    <p class="text-muted">{{ value|default:"Нет данных" }}</p>
-                                {% endif %}
-                            </div>
-                        {% endif %}
-                    {% endfor %}
-
-                    <!-- Отдельная секция для files -->
-                    {% if testparser.testparsereport.parsed_data.metadata.files %}
-                        <div class="mb-4">
-                            <h5 class="text-primary">Files</h5>
-                            <div class="files-section">
-                                {% if testparser.testparsereport.parsed_data.metadata.files.images %}
-                                    <h6 class="mt-2">Images</h6>
-                                    <table class="table table-striped">
-                                        <thead>
-                                            <tr>
-                                                <th>Название</th>
-                                                <th>Ссылка</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for image_name, image_url in testparser.testparsereport.parsed_data.metadata.files.images %}
-                                                <tr>
-                                                    <td>{{ image_name }}</td>
-                                                    <td><a href="{{ image_url }}" target="_blank">{{ image_url }}</a></td>
-                                                </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                {% endif %}
-                                {% if testparser.testparsereport.parsed_data.metadata.files.documents %}
-                                {{ testparser.testparsereport.parsed_data.metadata.files.documents }}
-                                    <h6 class="mt-2">Documents</h6>
-                                    <table class="table table-striped">
-                                        <thead>
-                                            <tr>
-                                                <th>Название</th>
-                                                <th>Ссылка</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for doc_text, doc_url in testparser.testparsereport.parsed_data.metadata.files.documents %}
-                                                <tr>
-                                                    <td>{{ doc_text }}</td>
-                                                    <td><a href="{{ doc_url }}" target="_blank">{{ doc_url }}</a></td>
-                                                </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                {% endif %}
-                                {% if not testparser.testparsereport.parsed_data.metadata.files.images and not testparser.testparsereport.parsed_data.metadata.files.documents %}
-                                    <p class="text-muted">Нет файлов</p>
-                                {% endif %}
-                            </div>
-                        </div>
-                    {% endif %}
-                </div>
-            {% else %}
-                <p class="text-danger">Парсер не вернул результат.</p>
-            {% endif %}
-
-            <hr>
-
-            {% comment %} <a href="{% url 'sources:website_parse' website.pk %}?mode=test" class="btn btn-outline-secondary">
-                ⬅ Назад к форме
-            </a> {% endcomment %}
+                {% endif %}
+                <a href="{% url 'sources:website_test_parse' testparser.site.pk %}?url={{ testparser.testparsereport.url }}" class="btn btn--reset btn--simple">
+                    🧪 Запустить новый парсинг
+                </a>
+            </div>
         </div>
     </div>
+    <article class="page__content source">
+        <div class="source__header">
+            <h3 class="source__heading">
+                Результат теста
+            </h4>
+            <div class="source__wrapper">
+                <dl class="description">
+                    <dt class="description__term">🔗 Тестируемый URL</dt>
+                    <dd class="description__defination">
+                        <a href="{{ testparser.testparsereport.url }}" target="_blank">{{ testparser.testparsereport.url }}</a>
+                    </dd>
+                </dl>
+            </div>
+        </div>
+        <div class="source__body">
+            {% if testparser.testparsereport.parsed_data.content %}
+                <div class="source__wrapper">
+                    <h4 class="source__subheading">Контент</h4>
+                    <!-- Отображение content -->
+                    {% if testparser.testparsereport.parsed_data.content %}
+                        <p class="text">
+                            {{ testparser.testparsereport.parsed_data.content|linebreaksbr }}
+                        </p>
+                    {% endif %}
+                </div>
+                <!-- Отображение метаданных, исключая files -->
+                {% for key, value in testparser.testparsereport.parsed_data.metadata.items %}
+                    {% if key != 'files' %}
+                        <div class="source__wrapper">
+                            <h4 class="source__subheading">{{ key|title }}</h4>
+                            {% if key == 'tags' %}
+                                <ul class="list-group">
+                                    {% for tag in value %}
+                                        <li class="list-group-item">{{ tag }}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% elif key == 'external_links' or key == 'internal_links' %}
+                                <ul class="list-group">
+                                    {% for link_text, link_url in value %}
+                                        <li class="list-group-item">
+                                            {{ link_text }}: <a href="{{ link_url }}" target="_blank">{{ link_url }}</a>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text text--muted">{{ value|default:"Нет данных" }}</p>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                <!-- Отдельная секция для files -->
+                {% if testparser.testparsereport.parsed_data.metadata.files %}
+                    <div class="source__wrapper">
+                        <h4 class="source__subheading">Файлы</h4>
+                        {% if testparser.testparsereport.parsed_data.metadata.files.images %}
+                            <h6 class="mt-2">Images</h6>
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Название</th>
+                                        <th>Ссылка</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for image_name, image_url in testparser.testparsereport.parsed_data.metadata.files.images %}
+                                        <tr>
+                                            <td>{{ image_name }}</td>
+                                            <td><a href="{{ image_url }}" target="_blank">{{ image_url }}</a></td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% endif %}
+                        {% if testparser.testparsereport.parsed_data.metadata.files.documents %}
+                        {{ testparser.testparsereport.parsed_data.metadata.files.documents }}
+                            <h6 class="mt-2">Documents</h6>
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Название</th>
+                                        <th>Ссылка</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for doc_text, doc_url in testparser.testparsereport.parsed_data.metadata.files.documents %}
+                                        <tr>
+                                            <td>{{ doc_text }}</td>
+                                            <td><a href="{{ doc_url }}" target="_blank">{{ doc_url }}</a></td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% endif %}
+                        {% if not testparser.testparsereport.parsed_data.metadata.files.images and not testparser.testparsereport.parsed_data.metadata.files.documents %}
+                            <p class="text-muted">Нет файлов</p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% else %}
+            <p class="text-danger">Парсер не вернул результат.</p>
+            {% endif %}
+        </div>
+    </article>    
+    {% include "include/object_history.html" %}
 </div>
-{% include "include/object_history.html" %}
-{% endblock %}
 
-{% block extra_css %}
-<style>
-    .markdown-content img {
-        max-width: 100%;
-        height: auto;
-    }
-    .markdown-content a {
-        color: #007bff;
-        text-decoration: none;
-    }
-    .markdown-content a:hover {
-        text-decoration: underline;
-    }
-    .files-section h6 {
-        font-weight: bold;
-        margin-top: 1rem;
-    }
-</style>
 {% endblock %}

@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Изменение статсус сетевого документа{% endblock %}
+
+{% block content %}
+<h2>Изменение статуса сетевого документа</h2>
+Выводится анализ связки NetworkDocument - ACTIVE RawContent -> CleanedContent -> Chunks(Documens) -> Emdeddings
+Предупреждение об изменении активного конттента!!!!
+
+На Сохранить запускается создание Задачи на изменение контента
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.errors }}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-success">Сохранить</button>
+    <a href="{% url 'sources:networkdocument_detail' object.pk %}" class="btn btn-sm btn-outline-secondary">Отмена</a>
+</form>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% load static %}
+
+{% include "include/pagination.html" %}
+<div class="sources">
+    {% for document in network_documents %}
+        <div class="source {% if document.status == "de" %} source--deleted{% endif %}">
+            <div class="source__header">
+                <h3 class="source__heading">
+                    <a href="{% url 'sources:networkdocument_detail' document.pk %}" class="source__link link-marker">
+                        {{ document.title|default:document.path|default:document.url }}
+                        <svg class="link-marker__marker">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#root"></use>
+                        </svg>
+                    </a>
+                </h3>
+                <div class="source__wrapper">
+                    <div class="source__manage">
+                        <dl class="description">
+                            <dt class="description__term">статус</dt>
+                            <dd class="description__defination">
+                                <span class="tag tag--fat{% if document.status == "cr" %} tag--success{% elif document.status == "de" %} tag--deleted{% elif document.status == "ex" %} .tag--disabled{% else %} tag--alarm{% endif %}">
+                                    {{ document.get_status_display }}
+                                </span>
+                            </dd>
+                        </dl>
+                        <a class="btn btn--reset btn--round" href="{% url 'sources:networkdocument_update_status' document.pk %}" aria-label="Изменить статус источника" title="Изменить статус источника">
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="source__body">
+                <div class="source__wrapper">
+                    <div class="source__raw-content">
+                        <div class="source__history">Количество обновлений: {{ document.rawcontent_total_count }}</div>
+                        <div class="source__content source-content">
+                            <div class="source-content__header">
+                                <h4 class="source-content__heading">Исходный контент источника</h4>
+                            </div>
+                            <div class="source-content__preview">
+                                {% if document.active_rawcontent.is_image %}
+                                    <img src="{{ document.active_rawcontent.file.url }}" class="source-content__img" alt="preview">
+                                {% else %}
+                                    <i class="source-content__icon bi {{ document.active_rawcontent.get_icon_class }}"></i>
+                                {% endif %}
+                            </div>
+                            <dl class="source__description description">
+                                <dt class="description__term">Размер</dt>
+                                <dd class="description__defination">{{ document.active_rawcontent.file.size|filesizeformat }}</dd>
+                            </dl>
+                            <div class="source-content__footer">
+                                <div class="btns _jc-fe">
+                                    <a class="btn btn--reset btn--round" href="" aria-label="Посмотреть исходный документ" title="Посмотреть исходный документ">
+                                        <svg class="btn__icon">
+                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#download"></use>
+                                        </svg>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="source__wrapper">
+                    <div class="source__manage">
+                        <dl class="source__description description">
+                            <dt class="description__term">Формат документа в базе знаний</dt>
+                            <dd class="description__defination"><span class="tag tag--simple">{{ document.get_output_format_display }}</span></dd>
+                        </dl>
+                        <a class="btn btn--reset btn--round" href="" aria-label="Изменить формат использования источника в базе знаний" title="Изменить формат использования источника в базе знаний">
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+                {% if document.active_rawcontent.cleanedcontent %}
+                    <div class="source__wrapper">
+                        <div class="source__cleaned-content">
+                            <div class="source__content source-content">
+                                <div class="source-content__header">
+                                    <h4 class="source-content__heading">Очищенный контент источника</h4>
+                                </div>
+                                <div class="source-content__preview source-content__preview--cleaned">
+                                    <p class="text text--info">{{ document.active_rawcontent.cleanedcontent.preview }}</p>
+                                </div>
+                                <dl class="source__description description">
+                                    <dt class="description__term">Размер</dt>
+                                    <dd class="description__defination">{{ document.active_rawcontent.cleanedcontent.file.size|filesizeformat }}</dd>
+                                </dl>
+                                <div class="source-content__footer">
+                                    <div class="btns _jc-fe">
+                                        <a class="btn btn--reset btn--round" href="{% url 'sources:cleanedcontent_detail' document.active_rawcontent.cleanedcontent.pk %}" aria-label="Посмотреть очищенный документ" title="Посмотреть очищенный документ">
+                                            <svg class="btn__icon">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#download"></use>
+                                            </svg>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+                <div class="source__wrapper">
+                    <h4 class="source__subheading">Описание источника</h4>
+                    <dl class="source__description--info description">
+                        <dt class="description__term">Статус</dt>
+                        <dd class="description__defination">{{ document.status }}</dd>
+                        <dt class="description__term">URL</dt>
+                        <dd class="description__defination">{{ document.url }}</dd>
+                        <dt class="description__term">Язык</dt>
+                        <dd class="description__defination">{{ document.language }}</dd>
+                        <dt class="description__term">Название</dt>
+                        <dd class="description__defination">{{ document.title }}</dd>
+                        <dt class="description__term">Тэги</dt>
+                        <dd class="description__defination">{{ document.tags }}</dd>
+                        <dt class="description__term">Ошибки</dt>
+                        <dd class="description__defination">{{ document.error_message }}</dd>
+                        <dt class="description__term">Метаданные</dt>
+                        <dd class="description__defination">{{ document.metadata }}</dd>
+                        <dt class="description__term">Дата обновления в источнике</dt>
+                        <dd class="description__defination">{{ document.remote_updated }}</dd>
+                        <dt class="description__term">Дата локального обновления ?</dt>
+                        <dd class="description__defination">{{ document.local_updated }}</dd>
+                        <dt class="description__term">Дата синхронизации ?</dt>
+                        <dd class="description__defination">{{ document.synchronized_at }}</dd>
+                        <dt class="description__term">Дата создания</dt>
+                        <dd class="description__defination">{{ document.created_at }}</dd>
+                        <dt class="description__term">Дата обновления</dt>
+                        <dd class="description__defination">{{ document.updated_at }}</dd>
+                        <dt class="description__term">Дата мягкого удаления</dt>
+                        <dd class="description__defination">{{ document.soft_deleted_at }}</dd>
+                        <dt class="description__term">Хранилище</dt>
+                        <dd class="description__defination">{{ document.storage }}</dd>
+                        <dt class="description__term">Создан в рамках отчета</dt>
+                        <dd class="description__defination">{{ document.report }}</dd>
+                        <dt class="description__term">Путь</dt>
+                        <dd class="description__defination">{{ document.path }}</dd>
+                        <dt class="description__term">ID на облачном диске</dt>
+                        <dd class="description__defination">{{ document.file_id }}</dd>
+                        <dt class="description__term">Формат вывода в БД</dt>
+                        <dd class="description__defination">{{ document.output_format }}</dd>
+                        <dt class="description__term">Описание</dt>
+                        <dd class="description__defination">{{ document.description }}</dd>
+                    </dl>
+                </div>
+            </div>
+            <div class="source__footer"></div>
+        </div>
+    {% endfor %}
+</div>

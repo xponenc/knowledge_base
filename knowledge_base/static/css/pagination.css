@@ -1,17 +1,73 @@
+
+/* ############################################ */
+/* Pagination */
+/* ############################################ */
+
 .pagination {
-    margin: 0 auto;
     display: flex;
+    align-items: center;
+    justify-content: center;
     flex-wrap: wrap;
-    gap: 10px;
-    max-width: 200px;
+    max-width: 80%;
+    margin: 0 auto;
+    margin-bottom: 10px;
 }
 
-.pagination__item {}
+.pagination {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+}
 
-.pagination__item--dots {}
+.pagination__item {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    align-items: center;
+    opacity: 0.5;
+    transition: opacity 0.3s ease-in-out;
+}
 
-.pagination__link {}
+.pagination__link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-width: 30px;
+    height: 100%;
+    padding: 5px;
+    font-family: RobotoMono, sans-serif;
+    font-size: 16px;
+    line-height: 1;
+    color: var(--text-color);
+}
 
-.active {
-    font-weight: 600;
+.pagination__link_prev,
+.pagination__link_next {
+    padding-bottom: 7px;
+    width: 35px;
+    height: 35px;
+}
+
+.pagination__link_prev {
+    transform: rotate(-90deg);
+}
+
+.pagination__link_next {
+    transform: rotate(90deg);
+}
+
+.pagination__item:hover,
+.pagination__item:focus {
+    opacity: 1;
+}
+
+.pagination__item.active .pagination__link {
+    transform: scale(1.5);
+}
+
+.pagination__item--dots .pagination__link {
+    color: var(--text-color);
 }

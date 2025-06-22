@@ -1,16 +1,27 @@
-{% extends 'base.html' %}
+{% extends 'clear_base.html' %}
 {% load static %}
 {% load humanize %}
+{% load custom_filters %}
 
 {% block extra_css %}
-    <link href="{% static 'css/sources.css' %}" rel="stylesheet">
+    <link href="{% static 'css/pagination.css' %}" rel="stylesheet">
+    <link href="{% static 'css/storage.css' %}" rel="stylesheet">
+    <link href="{% static 'css/grader.css' %}" rel="stylesheet">
 {% endblock %}
 
 {% block breadcrumbs %}
-<nav aria-label="breadcrumb" class="mt-5">
-    <ol class="breadcrumb container">
-        <li class="breadcrumb-item"><a href="{{ cloudstorage.kb.get_absolute_url }}">База знаний {{ cloudstorage.kb.title }}</a></li>
-        <li class="breadcrumb-item active" aria-current="page">{{ cloudstorage.name }}</li>
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a href="{{ cloudstorage.kb.get_absolute_url }}" itemprop="item">
+            <span itemprop="name">База знаний {{ cloudstorage.kb.title }}</span>
+        </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+        <span itemprop="name">{{ cloudstorage.name }}</span>
+        <meta itemprop="position" content="2" />
+        </li>
     </ol>
 </nav>
 {% endblock %}
@@ -18,229 +29,254 @@
 {% block title %}{{ cloudstorage.name }}{% endblock %}
 
 {% block content %}
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-primary text-white">
-        <h5 class="mb-0">📁 Детали хранилища облачного хранилища: {{ cloudstorage.name }}</h5>
-    </div>
-    <div class="card-body">
-        <dl class="row mb-0">
-            <dt class="col-sm-3">🆔 ID</dt>
-            <dd class="col-sm-9">{{ cloudstorage.pk }}</dd>
-
-            <dt class="col-sm-3">🏷️ Название</dt>
-            <dd class="col-sm-9">{{ cloudstorage.name }}</dd>
-
-            <dt class="col-sm-3">🔌 Тип API</dt>
-            <dd class="col-sm-9">{{ cloudstorage.api_type }}</dd>
-
-            <dt class="col-sm-3 ">🔐 Учетные данные (токен хеширован)</dt>
-            <dd class="col-sm-9">
-                <pre class="bg-light p-2 rounded text-break" style="white-space:pre-wrap;">{{ cloudstorage.credentials|default:"—" }}</pre>
-            </dd>
-        </dl>
-    </div>
-</div>
-
-<form action="{% url 'sources:cloudstorage_sync' cloudstorage.pk %}" method="POST" class="mb-4">
-    {% csrf_token %}
-    <button type="submit" class="btn btn-success">
-        🔄 Полное сканирование облака
-    </button>
-</form>
-
-{% if cloudstorage.reports.all %}
-    <div class="mb-4">
-        <h5>📊 Отчеты</h5>
-        <table class="table-auto w-full text-sm">
-            <tbody>
-                {% for report in cloudstorage.reports.all %}
-                    <tr class="border-b">
-                        <td class="px-3 py-1">
-                            <a href="{% url 'sources:cloudstorageupdatereport_detail' report.pk %}" class="text-blue-600 hover:underline">
-                                {{ report }}
-                            </a>
-                        </td>
-                        <td class="px-3 py-1 text-gray-600 whitespace-nowrap">
-                            {{ report.created_at|date:"d.m.Y H:i" }}
-                        </td>
-                        <td class="px-3 py-1 text-gray-600 whitespace-nowrap">
-                            {{ report.author.get_full_name|default:report.author }}
-                        </td>
-                        <td class="py-1 whitespace-nowrap">
-                            {% with report.get_status_display as status %}
-                                {% if report.status == "cr" %}
-                                    <span class="badge bg-success ms-2">
-                                        {{ status }}
-                                    </span>
-                                {% elif report.status == "er" %}
-                                    <span class="badge bg-danger ms-2">
-                                        {{ status }}
-                                    </span>
-                                {% else %}
-                                    <span class="badge bg-secondary ms-2">
-                                        {{ status }}
-                                    </span>
-                                {% endif %}
-                            {% endwith %}
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-{% endif %}
-<h3 class="mb-4">🗂️ Контент хранилища</h3>
-
-<div class="storage__sources">
-    {% for document in network_documents %}
-        <div class="source">
-            <div class="source__header">
-                <h3 class="source__heading">
-                    <a href="{% url 'sources:networkdocument_detail' document.pk %}" class="source__link link-marker">
-                        {{ document.title|default:document.path|default:document.url }}
-                        <svg class="link-marker__marker">
-                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#root"></use>
-                        </svg>
-                    </a>
-                </h3>
-                <div class="source__wrapper">
-                    <div class="source__manage">
-                        <dl class="source-description">
-                            <dt class="source-description__term">статус</dt>
-                            <dd class="source-description__defination">
-                                <span class="tag tag--fat{% if document.status == "cr" %} tag--success{% elif document.status == "de" %} tag--deleted{% elif document.status == "ex" %} .tag--disabled{% else %} tag--alarm{% endif %}">
-                                    {{ document.get_status_display }}
-                                </span>
-                            </dd>
-                        </dl>
-                        <a class="btn btn--reset btn--round" href="" aria-label="Изменить статус источника" title="Изменить статус источника">
-                            <svg class="btn__icon">
-                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
-                            </svg>
-                        </a>
-                    </div>
+<div class="page page--cloud">
+    <div class="page__top">
+        <div class="page__info info-page">
+            <span class="info-page__banner">ОБЛАКО</span>
+            <div class="info-page__header">
+                <h2 class="page__heading">{{ cloudstorage.name }}</h2>
+                <h3 class="info-page__heading">Детали облачного хранилища</h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                <dl class="description">
+                    <dt class="description__term">🔌API</dt>
+                    <dd class="description__defination">
+                        {{ cloudstorage.api_type }}
+                    </dd>
+                    <dt class="description__term">🔐 Учетные данные (токен хеширован)</dt>
+                    <dd class="description__defination">
+                        {{ cloudstorage.credentials|default:"—" }}
+                    </dd>
+                    <dt class="description__term">🆔 ID</dt>
+                    <dd class="description__defination">
+                        <pre class="text">{{ cloudstorage.pk }}</pre> 
+                    </dd>
+                </dl>
+            </div>
+            <div class="info-page__footer">
+                <div class="btns _jc-fe">
+                    <form action="{% url 'sources:cloudstorage_sync' cloudstorage.pk %}" method="POST" class="mb-4">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn--reset btn--simple">
+                            🔄 Полное сканирование облака
+                        </button>
+                    </form>
                 </div>
             </div>
-            <div class="source__body">
-                <div class="source__wrapper">
-                    <div class="source__raw-content">
-                        <div class="source__history">Количество обновлений: {{ document.rawcontent_total_count }}</div>
-                        <div class="source__content source-content">
-                            <div class="source-content__header">
-                                <h4 class="source-content__heading">Исходный контент источника</h4>
-                            </div>
-                            <div class="source-content__preview">
-                                {% if document.active_rawcontent.is_image %}
-                                    <img src="{{ document.active_rawcontent.file.url }}" class="source-content__img" alt="preview">
-                                {% else %}
-                                    <i class="source-content__icon bi {{ document.active_rawcontent.get_icon_class }}"></i>
-                                {% endif %}
-                            </div>
-                            <dl class="source__description source-description">
-                                <dt class="source-description__term">Размер</dt>
-                                <dd class="source-description__defination">{{ document.active_rawcontent.file.size|filesizeformat }}</dd>
-                            </dl>
-                            <div class="source-content__footer">
-                                <div class="btns _jc--fe">
-                                    <a class="btn btn--reset btn--round" href="" aria-label="Посмотреть исходный документ" title="Посмотреть исходный документ">
-                                        <svg class="btn__icon">
-                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#download"></use>
+        </div>
+        <div class="page__reports reports">
+            <div class="reports__header">
+                <h3 class="reports__heading">Отчеты по синхронизации</h3>
+            </div>
+            <div class="reports__body">
+                <table class="elastic-table elastic-table_2-auto">
+                    <thead class="elastic-table__thead">
+                        <tr class="elastic-table__tr">
+                            <th class="elastic-table__th">отчет</th>
+                            <th class="elastic-table__th">статус</th>
+                        </tr>
+                    </thead>
+                    <tbody class="elastic-table__tbody">
+                        {% for report in cloudstorage.reports.all %}
+                            <tr class="elastic-table__tr">
+                                <td class="elastic-table__td">
+                                    <a href="{% url 'sources:cloudstorageupdatereport_detail' report.pk %}" class="link-marker">
+                                        <div class="elastic-table__cell">
+                                            <span>{{ report }}</span>
+                                            <span>{{ report.created_at|date:"d.m.Y H:i" }}</span>
+                                            <span>{{ report.author.get_full_name|default:report.author }}</span>
+                                        </div>
+                                        <svg class="link-marker__marker">
+                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#gears"></use>
                                         </svg>
                                     </a>
-                                </div>
+                                </td>
+                                <td class="elastic-table__td">
+                                    {% with report.get_status_display as status %}
+                                    {% if report.status == "cr" %}
+                                        <span class="tag tag--warning">
+                                            {{ status }}
+                                        </span>
+                                    {% elif report.status == "er" %}
+                                        <span class="tag tag--alarm">
+                                            {{ status }}
+                                        </span>
+                                    {% else %}
+                                        <span class="tag tag--success">
+                                            {{ status }}
+                                        </span>
+                                    {% endif %}
+                                {% endwith %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="reports__footer"></div>
+        </div>
+    </div>
+    <article class="page__content">
+        <h3 class="page__subheading">🗂️ Источники</h3>
+        <form class="page__grader form" action="" method="GET" id="network-document-filter-form">
+            {% csrf_token %}
+            {% comment %} {% include "widgets/_form_content-widget.html" %} {% endcomment %}
+            <div class="form__container">
+                <div class="field-container field-container_wide">
+                    <div class="grader grader--bg">
+                        <div class="grader__top">
+                            <p class="grader__name text text_upper text_transparent text_micro">фильтрация и сортировка</p>
+                            <div class="grader__icons">
+                                <svg class="grader__icon grader__icon_filter visually-hidden">
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#filter2"></use>
+                                </svg>
+                                <svg class="grader__icon grader__icon_ascending js-icon-ascending visually-hidden">
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#sorted"></use>
+                                </svg>
+                                <svg class="grader__icon grader__icon_descending js-icon-descending visually-hidden">
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#sorted"></use>
+                                </svg>
+                                <svg class="grader__icon grader__icon_unsort">
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#unsorted"></use>
+                                </svg>
                             </div>
                         </div>
-                    </div>
-                </div>
-                <div class="source__wrapper">
-                    <div class="source__manage">
-                        <dl class="source__description source-description">
-                            <dt class="source-description__term">Формат документа в базе знаний</dt>
-                            <dd class="source-description__defination"><span class="tag tag--simple">{{ document.get_output_format_display }}</span></dd>
-                        </dl>
-                        <a class="btn btn--reset btn--round" href="" aria-label="Изменить формат использования источника в базе знаний" title="Изменить формат использования источника в базе знаний">
-                            <svg class="btn__icon">
-                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
-                            </svg>
-                        </a>
-                    </div>
-                </div>
-                {% if document.active_rawcontent.cleanedcontent %}
-                    <div class="source__wrapper">
-                        <div class="source__cleaned-content">
-                            <div class="source__content source-content">
-                                <div class="source-content__header">
-                                    <h4 class="source-content__heading">Очищенный контент источника</h4>
+                        <div class="grader__help">
+                            <div class="grader__help-icon grader__icon grader__icon_info" onClick="showHelp(event)">
+                                <svg>
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#info2"></use>
+                                </svg>
+                            </div>
+                            <div class="grader__help-text">
+                                Возможность отсортировать и отфильтровать сетевые документы.
+                            </div>
+                        </div>
+                        <div class="grader__body">
+                            <div class="grader__section">
+                                <div class="grader__header">
+                                    <h5 class="grader__heading">фильтрация </h5>
                                 </div>
-                                <div class="source-content__preview source-content__preview--cleaned">
-                                    <p class="text text--info">{{ document.active_rawcontent.cleanedcontent.preview }}</p>
+                                <div class="grader__content">
+                                    {% for filter_name, filter_choices in filters.items %}
+                                        {% for filter_value, filter_display_name in filter_choices %}
+                                            <label class="grader__checkbox checkbox-filter" aria-label="Фильтрация {{ filter_display_name }}">
+                                                <input type="checkbox" class="checkbox-filter__input visually-hidden js-filter js-filter-checkbox" name="{{ filter_name }}" value="{{ filter_value }}"{% if request.GET|getlist:filter_name == filter_value %} checked{% endif %} autocomplete="off" onchange="graderChexboxChange(event)">
+                                                <span class="checkbox-filter__box"></span>
+                                                <span class="checkbox-filter__text">{{ filter_display_name }}</span>
+                                            </label>
+                                        {% endfor %}
+                                    {% endfor %}
                                 </div>
-                                <dl class="source__description source-description">
-                                    <dt class="source-description__term">Размер</dt>
-                                    <dd class="source-description__defination">{{ document.active_rawcontent.cleanedcontent.file.size|filesizeformat }}</dd>
-                                </dl>
-                                <div class="source-content__footer">
-                                    <div class="btns _jc--fe">
-                                        <a class="btn btn--reset btn--round" href="{% url 'sources:cleanedcontent_detail' document.active_rawcontent.cleanedcontent.pk %}" aria-label="Посмотреть очищенный документ" title="Посмотреть очищенный документ">
-                                            <svg class="btn__icon">
-                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#download"></use>
-                                            </svg>
-                                        </a>
+                                <div class="grader__header">
+                                    <h5 class="grader__heading">Ранжирование</h5>
+                                </div>
+                                <div class="grader__content grader__range range-grader">
+                                    <div class="range-grader__container">
+                                        <label class="range-grader__label" for="date_from">
+                                            <span>c </span>
+                                        </label>
+                                        <input class="range-grader__date js-filter" type="date" id="date_from" name="date_from" autocomplete="off" onchange="graderChexboxChange(event)"/>
+                                        <label class="range-grader__label" for="date_from"><span> по </span>
+                                        </label>
+                                        <input class="range-grader__date js-filter" type="date" id="date-to" name="date-to" autocomplete="off" onchange="graderChexboxChange(event)"/>
                                     </div>
                                 </div>
+                                <div class="grader__header">
+                                    <h5 class="grader__heading">Сортировка</h5>
+                                </div>
+                                <div class="grader__content">
+                                    {% for sorting_value, sorting_name in sorting_list %}
+                                        <label class="grader__checkbox checkbox-filter" aria-label="Сортировать по {{ sorting_name }}">
+                                            <input type="radio" class="checkbox-filter__input visually-hidden js-sort {% if sorting_value|slice:":1" == "-" %} js-sort-ascending{% else %} js-sort-descending{% endif %}" name="sorting" value="{{ sorting_value }}" onchange="graderChexboxChange(event)">
+                                            <svg class="checkbox-filter__icon {% if sorting_value|slice:":1" == "-" %} checkbox-filter__icon_ascending{% else %} checkbox-filter__icon_descending{% endif %}">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#sorted"></use>
+                                            </svg>
+                                            <span class="checkbox-filter__text">{{ sorting_name }}</span>
+                                        </label>
+                                    {% endfor %}
+                                    <label class="grader__checkbox checkbox-filter" aria-label="отменить сортировку">
+                                        <input type="checkbox" class="checkbox-filter__input visually-hidden js-reset-sort" checked onchange="processGraderResetSort(event)">
+                                        <svg class="checkbox-filter__icon">
+                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#unsorted"></use>
+                                        </svg>
+                                        <span class="checkbox-filter__text">отменить сортировку</span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
-                {% endif %}
-                <div class="source__wrapper">
-                    <h4 class="source__subheading">Описание источника</h4>
-                    <dl class="source__description--info source-description">
-                        <dt class="source-description__term">Статус</dt>
-                        <dd class="source-description__defination">{{ document.status }}</dd>
-                        <dt class="source-description__term">URL</dt>
-                        <dd class="source-description__defination">{{ document.url }}</dd>
-                        <dt class="source-description__term">Язык</dt>
-                        <dd class="source-description__defination">{{ document.language }}</dd>
-                        <dt class="source-description__term">Название</dt>
-                        <dd class="source-description__defination">{{ document.title }}</dd>
-                        <dt class="source-description__term">Тэги</dt>
-                        <dd class="source-description__defination">{{ document.tags }}</dd>
-                        <dt class="source-description__term">Ошибки</dt>
-                        <dd class="source-description__defination">{{ document.error_message }}</dd>
-                        <dt class="source-description__term">Метаданные</dt>
-                        <dd class="source-description__defination">{{ document.metadata }}</dd>
-                        <dt class="source-description__term">Дата обновления в источнике</dt>
-                        <dd class="source-description__defination">{{ document.remote_updated }}</dd>
-                        <dt class="source-description__term">Дата локального обновления ?</dt>
-                        <dd class="source-description__defination">{{ document.local_updated }}</dd>
-                        <dt class="source-description__term">Дата синхронизации ?</dt>
-                        <dd class="source-description__defination">{{ document.synchronized_at }}</dd>
-                        <dt class="source-description__term">Дата создания</dt>
-                        <dd class="source-description__defination">{{ document.created_at }}</dd>
-                        <dt class="source-description__term">Дата обновления</dt>
-                        <dd class="source-description__defination">{{ document.updated_at }}</dd>
-                        <dt class="source-description__term">Дата мягкого удаления</dt>
-                        <dd class="source-description__defination">{{ document.soft_deleted_at }}</dd>
-                        <dt class="source-description__term">Хранилище</dt>
-                        <dd class="source-description__defination">{{ document.storage }}</dd>
-                        <dt class="source-description__term">Создан в рамках отчета</dt>
-                        <dd class="source-description__defination">{{ document.report }}</dd>
-                        <dt class="source-description__term">Путь</dt>
-                        <dd class="source-description__defination">{{ document.path }}</dd>
-                        <dt class="source-description__term">ID на облачном диске</dt>
-                        <dd class="source-description__defination">{{ document.file_id }}</dd>
-                        <dt class="source-description__term">Формат вывода в БД</dt>
-                        <dd class="source-description__defination">{{ document.output_format }}</dd>
-                        <dt class="source-description__term">Описание</dt>
-                        <dd class="source-description__defination">{{ document.description }}</dd>
-                    </dl>
                 </div>
+                <div class="field-container field-container_wide">
+                    <label class="custom-field">
+                        <input class="custom-field__input" type="text" name="search" value="{{ search_query|default:'' }}" placeholder=" ">
+                        <span class="custom-field__placeholder">Поиск по названию, URL или описанию</span>
+                    </label>
+                </div>
+                <button type="submit" class="btn btn--reset btn--round btn--accent" aria-label="Отпраавить запрос" title="Отпраавить запрос">
+                    <svg class="btn__icon">
+                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#search"></use>
+                    </svg>
+                </button>
             </div>
-
-            <div class="source__footer"></div>
+        <form>
+        <div class="page__wrapper" id="network-documents-container">
+            {% include "app_sources/include/network_documents_page.html" %}
         </div>
-        
-    {% endfor %}
+    
+    </article>
 </div>
 
+
 {% endblock %}
+
+{% block script %}
+<script src="{% static 'js/grader.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const container = document.querySelector('#network-documents-container');
+        const form = document.querySelector('#network-document-filter-form');
+
+        function fetchAndUpdate(url) {
+            fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                container.innerHTML = data.html;
+                window.history.pushState({}, '', url); // обновление URL без перезагрузки
+                syncCheckboxesFromURL();
+            });
+        }
+
+        // Перехват отправки формы
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const params = new URLSearchParams(formData);
+            const url = `${window.location.pathname}?${params.toString()}`;
+            fetchAndUpdate(url);
+        });
+
+        // Перехват кликов по пагинации (делегирование с .closest)
+        container.addEventListener('click', function (e) {
+            const link = e.target.closest('.pagination__link');
+            if (link && container.contains(link)) {
+                e.preventDefault();
+                const url = link.getAttribute('href');
+                fetchAndUpdate(url);
+            }
+        });
+
+        function syncCheckboxesFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            document.querySelectorAll('.js-filter').forEach(input => {
+                const values = params.getAll(input.name);
+                input.checked = values.includes(input.value);
+            });
+        }
+    });
+</script>
+{% endblock script %}
+
+

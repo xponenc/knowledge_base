@@ -1,15 +1,14 @@
 from django.urls import path
 from .views import CloudStorageListView, CloudStorageCreateView, CloudStorageDetailView, CloudStorageSyncView, \
-    NetworkDocumentsMassCreateView, LocalStorageListView, LocalStorageCreateView, \
+    LocalStorageListView, LocalStorageCreateView, \
     LocalStorageDetailView, CloudStorageUpdateView, CloudStorageDeleteView, CloudStorageUpdateReportDetailView, \
     NetworkDocumentDetailView, NetworkDocumentListView, NetworkDocumentUpdateView, RawContentRecognizeCreateView, \
-    RawContentDetailView, CleanedContentDetailView, CleanedContentUpdateView, NetworkDocumentsMassUpdateView, \
+    RawContentDetailView, CleanedContentDetailView, CleanedContentUpdateView, \
     WebSiteDetailView, WebSiteCreateView, WebSiteUpdateView, WebSiteDeleteView, \
     WebSiteTestParseReportView, WebSiteUpdateReportDetailView, WebSiteTestParseView, WebSiteBulkParseView, \
-    WebSiteSynchronizationView, URLDetailView
+    WebSiteSynchronizationView, URLDetailView, NetworkDocumentStatusUpdateView
 
 app_name = 'sources'
-
 
 urlpatterns = [
     path('cloud_storage/', CloudStorageListView.as_view(), name='cloudstorage_list'),
@@ -40,14 +39,16 @@ urlpatterns = [
     path('website-update-report/<int:pk>/', WebSiteUpdateReportDetailView.as_view(),
              name='websiteupdatereport_detail'),
 
-    path('storage-update-report/<int:pk>/create-new-docs', NetworkDocumentsMassCreateView.as_view(),
-         name='documents-mass-create'),
-    path('storage-update-report/<int:pk>/update-docs', NetworkDocumentsMassUpdateView.as_view(),
-         name='documents-mass-update'),
+    # path('storage-update-report/<int:pk>/create-new-docs', NetworkDocumentsMassCreateView.as_view(),
+    #      name='documents-mass-create'),
+    # path('storage-update-report/<int:pk>/update-docs', NetworkDocumentsMassUpdateView.as_view(),
+    #      name='documents-mass-update'),
 
     path('network-document/<int:pk>', NetworkDocumentDetailView.as_view(), name='networkdocument_detail'),
     path('network-document/', NetworkDocumentListView.as_view(), name='networkdocument_list'),
     path('network-document/<int:pk>/update', NetworkDocumentUpdateView.as_view(), name='networkdocument_update'),
+    path('network-document/<int:pk>/status', NetworkDocumentStatusUpdateView.as_view(),
+         name='networkdocument_update_status'),
 
     path('network-document/<int:pk>/process-raw-content', RawContentRecognizeCreateView.as_view(),
          name='process_raw_content'),
@@ -55,6 +56,7 @@ urlpatterns = [
 
     path('cleaned-content/<int:pk>', CleanedContentDetailView.as_view(), name='cleanedcontent_detail'),
     path('cleaned-content/<int:pk>/update', CleanedContentUpdateView.as_view(), name='cleanedcontent_update'),
+
 
     path('url/<int:pk>', URLDetailView.as_view(), name='url_detail'),
 

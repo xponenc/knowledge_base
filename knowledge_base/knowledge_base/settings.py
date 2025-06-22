@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'app_sources',
     'app_parsers',
     'app_chunks',
+    'app_tasks',
     # 'app_embeddings',
     # 'app_retriever',
     "django.contrib.humanize",

@@ -16,9 +16,29 @@
   --small-fsz: calc(var(--major-fsz) * 0.833);
   --mini-fsz: calc(var(--major-fsz) * 0.694);
 
+  /* Навигация */
+  --navbar-height: 48px;
+  --navbar-bg-color: #1f1f1f;
+  --navbar-text-color: #fff;
+  --navbar-link-color: #fff;
+  --navbar-link-hover-color: #1693cf;
+  --navbar-link-active-color: var(--accent-color);
+  --navbar-shadow-color: rgba(0, 0, 0, 0.2);
+  --navbar-font-size: 14px;
+  --navbar-toggle-size: 1.5rem;
+
+  /* Кнопка выхода */
+  --logout-btn-border-color: #fff;
+  --logout-btn-text-color: #fff;
+  --logout-btn-hover-bg: #fff;
+  --logout-btn-hover-text: #1f1f1f;
+
   /* Блоки */
   --block-bg-color: #fbfbfb;
   --block-border-color: #e5e5e5;
+
+  --article-bg-color: #f7f7f7;
+  --article-border-color: #e5e5e5;
 
 
   /* Текст */
@@ -52,13 +72,13 @@
   --disabled-bg-color: #3b3c3f;
   --deleted-color: #16171d;
   --deleted-bg-color: #16171d;
-  --deleted-text-color: #b7baca;
+  --deleted-text-color: #ececec;
 
   --offline-color: #fbd9d9;
   --valid-color: #4fc473e8;
   --active-step-color: #ff6347;
 
-  
+
   /* Кнопки */
   --btn-text-color: #d1d1d1db;
 
@@ -87,7 +107,23 @@
   --title-link-hover-color: #42e375;
   --http-link-hover-color: #0a7f2f;
   --link-shadow-color: #eeeeee42;
-  
+
+  /* Таблицы */
+  --elsatic-table-th-row-color: #f7f7f7;
+  --elsatic-table-odd-row-color: #fdfdfd;
+  --elsatic-table-odd-border-color: #f7f7f7;
+  --elsatic-table-even-row-color: #f7f7f7;
+  --elsatic-table-even-border-color: #fdfdfd;
+
+    /* Форма */
+    --field-padding: 12px;
+    --form-input-border-color: #3a3939;
+    --form-input-border-hover-color: color-mix(in oklch, var(--accent-color), #222 50%);
+    --input-text-accent-color: #bdbdbd;
+    --input-text-color: var(--text-color);
+    --carret-color: var(--text-color);
+    --placeholder-color: var(--text-color);
+
 }
 
 * {
@@ -193,6 +229,13 @@ fieldset {
   min-width: 0;
 }
 
+.container {
+  max-width: calc(var(--container-max-width) + 180px);
+  margin: 0 auto;
+  padding: 50px 90px;
+  background-color: inherit;
+}
+
 .visually-hidden {
   position: absolute !important;
   clip: rect(1px 1px 1px 1px);
@@ -240,7 +283,6 @@ fieldset {
   line-height: 1.2;
   text-transform: uppercase;
   color: var(--text-color);
-  transition: color ease-in-out 0.3s;
 }
 
 .btn--reset {
@@ -292,13 +334,49 @@ fieldset {
   opacity: 0.3 !important;
 }
 
+.btn--simple {
+  padding: 9px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 150px;
+  min-height: 45px;
+  color: var(--btn-color);
+  line-height: 1;
+  background-color: inherit;
+  border-radius: var(--gap-half);
+  border: 1px solid var(--btn-border-color);
+  opacity: 0.8;
+  transition-property: opacity, color, background-color, border-color;
+  transition-timing-function: ease-in-out;
+  transition-duration: 0.3s;
+}
+
+.btn--simple:focus,
+.btn--simple:hover {
+  opacity: 1;
+  color: var(--btn-hover-text-color);
+  border-color: var(--btn-hover-border-color);
+}
+
+.btn--simple:active {
+  color: var(--btn-active-color);
+  border-color: var(--btn-active-border-color);
+  background-color: var(--btn-active-bg-color);
+}
+
+.btn--accent {
+  border: 2px solid var(--accent-color);
+  color: var(--accent-color)
+}
+
 .btn__icon {
-    display: block;
-    width: 100%;
-    height: 100%;
-    max-width: 25px;
-    max-height: 25px;
-    pointer-events: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 25px;
+  max-height: 25px;
+  pointer-events: none;
 }
 
 
@@ -329,14 +407,19 @@ fieldset {
   transition-duration: 0.3s;
 }
 
-.link-marker:focus, .link-marker:hover {
+.link-marker:focus,
+.link-marker:hover {
   color: var(--accent-color)
 }
-.link-marker:focus .link-marker__marker, .link-marker:hover .link-marker__marker {
+
+.link-marker:focus .link-marker__marker,
+.link-marker:hover .link-marker__marker {
   opacity: 1;
   transform: scale(1) translateY(-50%);
 }
-.link-marker:focus::after, .link-marker:hover::after {
+
+.link-marker:focus::after,
+.link-marker:hover::after {
   opacity: 0;
   transform: scale(0) translateY(-50%);
 }
@@ -360,9 +443,10 @@ fieldset {
   transition-duration: 0.3s;
 }
 
-
-._jc--fe {
-  justify-content: flex-end;
+._mb {
+  margin-bottom: var(--gap);
 }
 
-
+._jc-fe {
+  justify-content: flex-end;
+}

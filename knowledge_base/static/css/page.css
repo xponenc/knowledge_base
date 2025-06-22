@@ -1,0 +1,130 @@
+.page {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.page--cloud {
+    --banner-color: #1693cf;
+    --accent-color: #1693cf;
+}
+
+.page--website {
+    --banner-color: #e64709;
+    --accent-color: #e64709;
+}
+
+.page__heading {}
+
+
+
+.page__subheading {
+    margin-bottom: var(--gap-half);
+    font-weight: 600;
+    font-size: var(--h5fsz);
+
+}
+
+.page__top {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--gap);
+    margin-bottom: var(--gap);
+}
+
+.page__info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: var(--gap);
+    background-color: var(--block-bg-color);
+    border-radius: var(--gap-half);
+}
+
+.page__content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: var(--gap);
+    background-color: var(--article-bg-color);
+    border-radius: var(--gap-half);
+}
+
+.page__grader .form__container {
+    display: grid;
+    align-items: center;
+    gap: var(--gap);
+    grid-template-columns: 1fr 1fr auto;
+}
+.page__grader .grader {
+    margin-bottom: 24px;
+    padding-top: 20px;
+}
+
+
+.page__reports {
+    display: flex;
+    flex-direction: column;
+    padding: var(--gap) 0;
+    background-color: var(--article-bg-color);
+    border-radius: var(--gap-half);
+}
+
+.info-page {
+    position: relative;
+    overflow: hidden;
+}
+
+.info-page:has(.info-page__banner) {
+    padding-top: calc(1.1 * var(--h1fsz) + var(--gap));
+    border: 2px solid var(--banner-color);
+}
+
+.info-page__banner {
+    position: absolute;
+    top: calc(1.5 * var(--h1fsz) * -0.15);
+    right: calc(1.5 * var(--h1fsz) * -0.12);
+    width: 120%;
+    font-size: calc(1.5 * var(--h1fsz));
+    font-family: sans-serif;
+    font-weight: 800;
+    line-height: 0.9;
+    text-align: end;
+    text-transform: uppercase;
+    color: var(--banner-color);
+    background: linear-gradient(to right, var(--banner-color) 0%, rgba(22, 147, 207, 0) 55%, rgba(22, 147, 207, 0) 100%);
+
+}
+
+
+.info-page__header {
+    margin-bottom: var(--gap-half);
+}
+
+.info-page__heading {
+    font-size: var(--h6fsz);
+    font-weight: 600;
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+.info-page__body {
+    margin-bottom: var(--gap-half);
+}
+
+.info-page__footer {}
+
+
+.reports {}
+
+.reports__header {
+    padding: 0 var(--gap);
+}
+.reports__heading {
+    font-size: var(--h6fsz);
+    font-weight: 600;
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+.reports__body {}

@@ -1,0 +1,340 @@
+
+/* ######################################### */
+/* ################# grader ################ */
+/* ######################################### */
+
+
+.grader {
+    --grader-border-color: #b9b8b8;
+    --grader-name-color: var(--text-color);
+    --grader-active-border-color: #014d01;
+    --grader-text-color: var(--text-color);
+    --grader-icon-size: 25px;
+    --grader-icon-color: #485748;
+    --grader-icon-active-color: #128723;
+
+    --checkbox-text-color: var(--text-color);
+    --checkbox-hover-text-color: var(--accent-color);
+
+    --help-text-color: #efefef;
+    --help-bg-color: #2641bb;
+    
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--gap-half);
+    min-width: 300px;
+    width: 100%;
+    color: var(--grader-text-color);
+    /* font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif; */
+    background-color: inherit;
+}
+
+.grader--bg {
+    background-color: var(--article-bg-color);
+}
+
+.grader__help {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.grader__help-icon {
+    opacity: 0.5;
+    transition: opacity ease-in-out 0.3s;
+}
+
+.grader__help-icon svg {
+    pointer-events: none;
+}
+
+.grader__help-text {
+    position: absolute;
+    z-index: 100;
+    padding: var(--gap-half);
+    bottom: 35px;
+    left: 50%;
+    width: 300px;
+    max-height: 300px;
+    overflow-y: auto;
+    opacity: 0;
+    visibility: hidden;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--help-text-color);
+    background-color: var(--help-bg-color);
+    border-radius: var(--gap-half);
+    border: 1px solid var(--grader-border-color);
+    box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 3px 1px -2px rgba(0, 0, 0, 0.2), 0 1px 5px 0 rgba(0, 0, 0, 0.12);
+    transform: translate(-50%, -10%);
+    transition-property: opacity, transform, visibility;
+    transition-timing-function: ease-in-out;
+    transition-duration: 0.3s;
+}
+
+.grader__help-icon_open+.grader__help-text {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, 0);
+}
+
+.grader__top {
+    padding: var(--gap-third) var(--gap-half);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    width: 100%;
+    min-height: 45px;
+    border: 1px solid var(--grader-border-color);
+    border-radius: var(--gap-half);
+    cursor: pointer;
+    line-height: 1;
+    transition-timing-function: ease-in-out;
+    transition-duration: 0.3s;
+}
+.grader_is-open .grader__top {
+    border-color: var(--grader-active-border-color);
+}
+
+.grader__top:hover {
+    border-color: var(--grader-active-border-color);
+}
+
+.grader__top:hover+.grader__help .grader__help-icon {
+    opacity: 0.8;
+}
+
+.grader__name {
+    color: var(--grader-name-color);
+    line-height: 1;
+    font-weight: 600;
+}
+
+.grader__icons {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.grader__body {
+    position: absolute;
+    z-index: 5000;
+    opacity: 0;
+    left: 0;
+    right: calc(var(--gap-half) + var(--grader-icon-size));
+    top: calc(100% + 2px);
+    visibility: hidden;
+    padding: var(--gap-half);
+    border: 1px solid var(--grader-active-border-color);
+    border-radius: var(--gap-half);
+    transform: translateY(10px);
+    background-color: inherit;
+    transition-property: opacity, transform, visibility;
+    transition-timing-function: ease-in-out;
+    transition-duration: 0.3s;
+}
+
+.grader_is-open .grader__body {
+    opacity: 1;
+    top: calc(100% + 2px);
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.grader__header {
+    text-transform: uppercase;
+    opacity: 0.5;
+    border-bottom: 1px solid #fff;
+}
+
+.grader__heading {
+    margin-bottom: 5px;
+}
+.grader__content {
+    padding: var(--gap-half);
+
+}
+
+.grader__icon {
+    width: var(--grader-icon-size);
+    height: var(--grader-icon-size);
+    right: calc(-1 * var(--gap-half) - 30px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.grader__icon_unsort {
+    opacity: 0.3;
+    transform: rotate(90deg);
+}
+.grader__icon_ascending {
+    opacity: 0.8;
+    transform: rotate(90deg);
+}
+.grader__icon_descending {
+    opacity: 0.8;
+    transform: rotate(-90deg);
+}
+.grader__icon_filter {
+    opacity: 0.8;
+    width: 20px;
+    height: 20px;
+}
+
+.grader__icon_info {
+    opacity: 0.3;
+    cursor: pointer;
+}
+
+/* ######################################### */
+/* ################# range ################ */
+/* ######################################### */
+
+.range-grader {
+}
+.range-grader__container {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: stretch;
+    gap: var(--gap-half);
+    background-color: inherit;
+}
+.range-grader__label {
+    font-size: 12px;
+    font-weight: 400;
+    display: flex;
+    align-items: center;
+}
+.range-grader__date {
+    cursor: pointer;
+    padding: var(--gap-half);
+    background-color: inherit;
+    color: var(--grader-text-color);
+    border: 1px solid var(--grader-border-color);
+    border-radius: 4px;
+    width: 100%;
+    transition: border-color ease-in-out 0.3s;
+}
+
+.range-grader__date:focus, .range-grader__date:hover {
+    border-color: var(--grader-active-border-color);
+}
+
+
+/* ######################################### */
+/* ################ checkbox ############### */
+/* ######################################### */
+
+.checkbox-filter {
+    position: relative;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    align-items: center;
+    padding: 0 5px 0 32px;
+    outline: none;
+    cursor: pointer;
+    color: var(--checkbox-text-color);
+}
+
+.checkbox-filter:not(:last-child) {
+    margin-bottom: 11.2px;
+}
+
+.checkbox-filter:hover {
+    color: var(--checkbox-hover-text-color);
+}
+
+.checkbox-filter:active:not(.focus-visible) {
+    color: var(--checkbox-hover-text-color);
+    border-color: transparent;
+}
+
+.checkbox-filter__input {
+    color: inherit;
+}
+
+.checkbox-filter__input:checked+.checkbox-filter__box {
+    border-color: var(--grader-active-border-color);
+    /* background-color: #870c92; */
+}
+
+.checkbox-filter__input:checked+.checkbox-filter__box::after {
+    opacity: 1;
+}
+
+
+.checkbox-filter__input:checked+.checkbox-filter__icon {
+    opacity: 1;
+}
+
+.checkbox-filter__input:focus~.checkbox-filter__text {
+    /* background-color: #a29ca8; */
+    color: var(--checkbox-hover-text-color);
+}
+
+.checkbox-filter__box {
+    position: absolute;
+    left: 1px;
+    width: 20px;
+    height: 20px;
+    border: 1px solid transparent;
+    border-color: #999999;
+    border-radius: 4px;
+    -webkit-transition-property: border-color, background-color;
+    -o-transition-property: border-color, background-color;
+    transition-property: border-color, background-color;
+    -webkit-transition-timing-function: ease-in-out;
+    -o-transition-timing-function: ease-in-out;
+    transition-timing-function: ease-in-out;
+    -webkit-transition-duration: 0.3s;
+    -o-transition-duration: 0.3s;
+    transition-duration: 0.3s;
+}
+
+.checkbox-filter__box::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    opacity: 0;
+    background-size: 12px 8px;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-image: url("../img/v-checked.svg");
+}
+
+.checkbox-filter__icon {
+    position: absolute;
+    left: 1px;
+    width: 20px;
+    height: 20px;
+    border: 1px solid transparent;
+    opacity: 0.3;
+    transform: rotate(90deg);
+    transition: opacity ease-in-out 0.3s;
+}
+
+.checkbox-filter__icon_ascending {
+    transform: rotate(90deg);
+}
+.checkbox-filter__icon_descending {
+    transform: rotate(-90deg);
+}
+
+.checkbox-filter__text {
+    font-size: 12px;
+    line-height: 130%;
+    font-weight: 400;
+    color: inherit;
+    -webkit-transition: color ease-in-out 0.3s;
+    -o-transition: color ease-in-out 0.3s;
+    transition: color ease-in-out 0.3s;
+}

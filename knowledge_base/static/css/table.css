@@ -1,0 +1,122 @@
+.elastic-table {
+    position: relative;
+    display: grid;
+    border-collapse: collapse;
+    min-width: 100%;
+    grid-template-columns:
+        minmax(150px, 3fr) minmax(150px, 3fr) minmax(150px, 1fr) minmax(150px, 1fr) minmax(150px, 1fr);
+}
+
+.elastic-table:not(:last-child) {
+    margin-bottom: var(--gap-hallf);
+}
+
+.elastic-table:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    opacity: 0.5;
+    background-color: var(--accent-color);
+}
+
+.elastic-table_2_columns {
+    grid-template-columns:
+        minmax(150px, 1fr) minmax(150px, 2fr);
+
+}
+
+.elastic-table_3_columns {
+    grid-template-columns:
+        minmax(150px, 1fr) minmax(150px, 2fr) minmax(150px, 1fr);
+}
+
+.elastic-table_2-auto {
+    grid-template-columns: repeat(2, auto);
+}
+
+.elastic-table_3-auto {
+    grid-template-columns: repeat(3, auto);
+}
+
+.elastic-table_4-auto {
+    grid-template-columns: repeat(4, auto);
+}
+
+.elastic-table_5-auto {
+    grid-template-columns: repeat(5, auto);
+}
+
+.elastic-table_6-auto {
+    grid-template-columns: repeat(6, auto);
+}
+
+.elastic-table__thead,
+.elastic-table__tbody,
+.elastic-table__tfoot,
+.elastic-table__tr {
+    display: contents;
+    overflow: hidden;
+}
+
+.elastic-table__thead th {
+    background-color: var(--elsatic-table-th-row-color);
+}
+
+.elastic-table__th {
+    padding: var(--gap-third) var(--gap);
+    display: flex;
+    align-items: center;
+    gap: 8px 16px;
+    min-height: 48px;
+    background-color: var(--elsatic-table-th-row-color);
+    font-weight: 500;
+}
+
+.elastic-table__th:last-child {
+    border: 0;
+}
+
+.elastic-table__th_vertical {
+    writing-mode: vertical-lr;
+    transform: scale(-1);
+}
+
+.elastic-table__td {
+    padding: var(--gap-third) var(--gap);
+    display: flex;
+    flex-direction: column;
+    gap: 8px 16px;
+    align-items: start;
+    justify-content: center;
+    min-height: 48px;
+    line-height: 1.1;
+}
+
+.elastic-table__td_marker {
+    padding-right: 30px;
+}
+
+.elastic-table__tr:nth-child(even) .elastic-table__td {
+    background-color: var(--elsatic-table-even-row-color);
+}
+
+.elastic-table__tr:nth-child(odd) .elastic-table__td {
+    background-color: var(--elsatic-table-odd-row-color);
+}
+
+.elastic-table__cell {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.elastic-table__cell span:first-child {
+    font-weight: 600;
+}
+
+.elastic-table__cell span:not(:first-child) {
+    font-size: var(--small-fsz);
+}

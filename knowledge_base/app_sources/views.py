@@ -1,4 +1,6 @@
+import csv
 import logging
+import os.path
 from pprint import pprint
 
 from dateutil.parser import parse
@@ -7,8 +9,9 @@ from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 from django.core.files.base import ContentFile
 from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch, ForeignKey, Q, IntegerField, Count
 from django.db.models.functions import Left, Coalesce, Substr, Length, Cast
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
+from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views import View
@@ -22,7 +25,8 @@ from app_parsers.models import TestParser, TestParseReport, MainParser
 from app_parsers.tasks import test_single_url, parse_urls_task
 from app_parsers.services.parsers.dispatcher import WebParserDispatcher
 from app_sources.content_models import URLContent, RawContent, CleanedContent, ContentStatus
-from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedContentEditorForm
+from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedContentEditorForm, \
+    NetworkDocumentStatusUpdateForm
 from app_sources.report_models import CloudStorageUpdateReport, WebSiteUpdateReport, ReportStatus
 from app_sources.source_models import NetworkDocument, URL, SourceStatus
 from app_sources.storage_models import CloudStorage, Storage, LocalStorage, WebSite
@@ -69,10 +73,67 @@ class CloudStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailV
     """Детальный просмотр объекта модели Облачное хранилище"""
     model = CloudStorage
 
+    def get(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        context = self.get_context_data()
+
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            html = render_to_string(
+                "app_sources/include/network_documents_page.html",
+                context,
+                request=request
+            )
+            return JsonResponse({"html": html})
+
+        return self.render_to_response(context)
+
     def get_context_data(self, **kwargs):
         network_storage = self.object
         context = super().get_context_data()
-        # Префетчим один RawContent на каждый NetworkDocument, если он есть
+
+        source_statuses = [
+            (status.value, status.display_name) for status in SourceStatus
+        ]
+
+        filters = {
+            "status": source_statuses
+        }
+
+        sorting_list = [
+            ("-created_at", "дата создания по возрастанию"),
+            ("created_at", "дата создания по убыванию"),
+            ("-title", "имя по возрастанию"),
+            ("title", "имя по убыванию"),
+            ("-url", "url по возрастанию"),
+            ("url", "url по убыванию"),
+        ]
+
+        # Получаем параметры поиска и фильтрации из запроса
+        search_query = self.request.GET.get("search", "").strip()
+        status_filter = self.request.GET.getlist("status", None)
+        sorting = self.request.GET.get("sorting", None)
+
+        network_documents = network_storage.network_documents.order_by("title")
+
+        if search_query:
+            network_documents = network_documents.filter(
+                Q(title__icontains=search_query) |
+                Q(url__icontains=search_query) |
+                Q(description__icontains=search_query)
+            )
+
+        if status_filter:
+            valid_statuses = [status.value for status in SourceStatus]
+            # Оставляем только корректные значения
+            status_filter = [s for s in status_filter if s in valid_statuses]
+            if status_filter:
+                network_documents = network_documents.filter(status__in=status_filter)
+
+        if sorting:
+            valid_sorting = [value for value, name in sorting_list]
+            if sorting in valid_sorting:
+                network_documents = network_documents.order_by(sorting)
+
         rawcontent_qs = RawContent.objects.filter(
             status=ContentStatus.READY.value
         ).select_related(
@@ -80,7 +141,7 @@ class CloudStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailV
         ).order_by("-created_at")[:1]
 
         # Prefetch rawcontent_set → в each networkdocument.related_rawcontents будет список из 0 или 1
-        network_documents = network_storage.network_documents.select_related(
+        network_documents = network_documents.select_related(
             "report__storage", "storage"
         ).prefetch_related(
             Prefetch('rawcontent_set', queryset=rawcontent_qs, to_attr='related_rawcontents')
@@ -88,10 +149,31 @@ class CloudStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailV
             rawcontent_total_count=Count('rawcontent')
         )
 
+        paginator = Paginator(network_documents, 3)
+        page_number = self.request.GET.get("page")
+        page_obj = paginator.get_page(page_number)
+
         # Назначаем явно (0 или 1 элемент)
-        for doc in network_documents:
+        for doc in  page_obj.object_list:
             doc.active_rawcontent = doc.related_rawcontents[0] if doc.related_rawcontents else None
-        context["network_documents"] = network_documents
+
+        # Формируем query string без page
+        query_params = self.request.GET.copy()
+        query_params.pop('page', None)
+        paginator_query = query_params.urlencode()
+        if paginator_query:
+            paginator_query += '&'
+
+        context["page_obj"] = page_obj
+        context["paginator_query"] = paginator_query
+        context["paginator"] = paginator
+        context["network_documents"] = page_obj.object_list
+        context["is_paginated"] = page_obj.has_other_pages()
+        context["search_query"] = search_query
+        context["status_filter"] = status_filter
+        context["source_statuses"] = source_statuses
+        context["filters"] = filters
+        context["sorting_list"] = sorting_list
         return context
 
 
@@ -287,89 +369,89 @@ class WebSiteUpdateReportDetailView(LoginRequiredMixin, DetailView):
         context['new_urls'] = new_urls
         return context
 
-
-class NetworkDocumentsMassCreateView(LoginRequiredMixin, View):
-    """
-    Создание документов (NetworkDocument) на основе отчёта синхронизации (CloudStorageUpdateReport).
-    """
-
-    def post(self, request, pk):
-        selected_ids = [i for i in request.POST.getlist("file_ids") if i.strip()]
-        if not selected_ids:
-            # TODO message
-            return redirect(reverse_lazy("sources:cloudstorageupdatereport_detail", args=[pk]))
-
-        update_report = get_object_or_404(CloudStorageUpdateReport, pk=pk)
-        new_files = update_report.content.get("result", {}).get("new_files", [])
-
-        new_files = [file for file_id, file in new_files.items() if file_id in selected_ids]
-
-        # Получаем все документы, которые уже есть в базе для данного хранилища
-        db_documents = NetworkDocument.objects.filter(storage=update_report.storage)
-        existing_urls = set(db_documents.values_list("url", flat=True))
-        new_urls = {f["url"] for f in new_files}
-
-        # Определяем дубликаты по URL
-        duplicates = existing_urls & new_urls
-
-        bulk_container = []
-        # Формируем объекты для массового создания, пропуская дубликаты
-        for f in new_files:
-            if f["url"] in duplicates:
-                f["process_status"] = "already_exists"
-                continue
-            try:
-                remote_updated = parse(f.get("last_modified", ''))
-            except Exception:
-                remote_updated = None
-            bulk_container.append(NetworkDocument(
-                storage=update_report.storage,
-                title=f["file_name"],
-                path=f["path"],
-                file_id=f["file_id"],
-                size=f["size"],
-                url=f["url"],
-                remote_updated=remote_updated,
-                synchronized_at=timezone.now(),
-            ))
-
-        if bulk_container:
-            # Создаём все документы одним запросом
-            created_docs = NetworkDocument.objects.bulk_create(bulk_container)
-            created_ids = [doc.id for doc in created_docs]
-
-            update_report.content.setdefault("created_docs", []).extend(created_ids)
-
-            # Индекс для прохода по созданным документам
-            created_doc_index = 0
-
-            for f in new_files:
-                if f.get("process_status") == "already_exists":
-                    # Дубликаты пропускаем
-                    continue
-                # Отмечаем как созданные
-                f["process_status"] = "created"
-                # Привязываем id созданного документа к файлу
-                f["doc_id"] = created_docs[created_doc_index].id
-                created_doc_index += 1
-
-            update_report.content["current_status"] = "Documents successfully created, download content in progress..."
-            update_report.save(update_fields=["content"])
-
-            # Запускаем фоновую задачу для скачивания и создания raw content
-            task = download_and_create_raw_content_parallel.delay(
-                document_ids=created_ids,
-                update_report_id=update_report.pk,
-                author=request.user
-            )
-            update_report.running_background_tasks[task.id] = "Загрузка контента файлов с облачного хранилища"
-            update_report.save(update_fields=["running_background_tasks"])
-
-        return redirect(reverse_lazy("sources:cloudstorageupdatereport_detail", args=[pk]))
-
-
-class NetworkDocumentsMassUpdateView(LoginRequiredMixin, View):
-    pass
+#
+# class NetworkDocumentsMassCreateView(LoginRequiredMixin, View):
+#     """
+#     Создание документов (NetworkDocument) на основе отчёта синхронизации (CloudStorageUpdateReport).
+#     """
+#
+#     def post(self, request, pk):
+#         selected_ids = [i for i in request.POST.getlist("file_ids") if i.strip()]
+#         if not selected_ids:
+#             # TODO message
+#             return redirect(reverse_lazy("sources:cloudstorageupdatereport_detail", args=[pk]))
+#
+#         update_report = get_object_or_404(CloudStorageUpdateReport, pk=pk)
+#         new_files = update_report.content.get("result", {}).get("new_files", [])
+#
+#         new_files = [file for file_id, file in new_files.items() if file_id in selected_ids]
+#
+#         # Получаем все документы, которые уже есть в базе для данного хранилища
+#         db_documents = NetworkDocument.objects.filter(storage=update_report.storage)
+#         existing_urls = set(db_documents.values_list("url", flat=True))
+#         new_urls = {f["url"] for f in new_files}
+#
+#         # Определяем дубликаты по URL
+#         duplicates = existing_urls & new_urls
+#
+#         bulk_container = []
+#         # Формируем объекты для массового создания, пропуская дубликаты
+#         for f in new_files:
+#             if f["url"] in duplicates:
+#                 f["process_status"] = "already_exists"
+#                 continue
+#             try:
+#                 remote_updated = parse(f.get("last_modified", ''))
+#             except Exception:
+#                 remote_updated = None
+#             bulk_container.append(NetworkDocument(
+#                 storage=update_report.storage,
+#                 title=f["file_name"],
+#                 path=f["path"],
+#                 file_id=f["file_id"],
+#                 size=f["size"],
+#                 url=f["url"],
+#                 remote_updated=remote_updated,
+#                 synchronized_at=timezone.now(),
+#             ))
+#
+#         if bulk_container:
+#             # Создаём все документы одним запросом
+#             created_docs = NetworkDocument.objects.bulk_create(bulk_container)
+#             created_ids = [doc.id for doc in created_docs]
+#
+#             update_report.content.setdefault("created_docs", []).extend(created_ids)
+#
+#             # Индекс для прохода по созданным документам
+#             created_doc_index = 0
+#
+#             for f in new_files:
+#                 if f.get("process_status") == "already_exists":
+#                     # Дубликаты пропускаем
+#                     continue
+#                 # Отмечаем как созданные
+#                 f["process_status"] = "created"
+#                 # Привязываем id созданного документа к файлу
+#                 f["doc_id"] = created_docs[created_doc_index].id
+#                 created_doc_index += 1
+#
+#             update_report.content["current_status"] = "Documents successfully created, download content in progress..."
+#             update_report.save(update_fields=["content"])
+#
+#             # Запускаем фоновую задачу для скачивания и создания raw content
+#             task = download_and_create_raw_content_parallel.delay(
+#                 document_ids=created_ids,
+#                 update_report_id=update_report.pk,
+#                 author=request.user
+#             )
+#             update_report.running_background_tasks[task.id] = "Загрузка контента файлов с облачного хранилища"
+#             update_report.save(update_fields=["running_background_tasks"])
+#
+#         return redirect(reverse_lazy("sources:cloudstorageupdatereport_detail", args=[pk]))
+#
+#
+# class NetworkDocumentsMassUpdateView(LoginRequiredMixin, View):
+#     pass
 
 
 class NetworkDocumentListView(LoginRequiredMixin, ListView):
@@ -385,7 +467,23 @@ class NetworkDocumentDetailView(LoginRequiredMixin, DocumentPermissionMixin, Det
 class NetworkDocumentUpdateView(LoginRequiredMixin, DocumentPermissionMixin, UpdateView):
     """Редактирование объекта модели Сетевой документ NetworkDocument (с проверкой прав доступа)"""
     model = NetworkDocument
-    fields = ["title", "tags", "output_format"]
+    fields = ["title", "status", "output_format", "description"]
+
+
+class NetworkDocumentStatusUpdateView(LoginRequiredMixin, DocumentPermissionMixin, UpdateView):
+    """Изменение статуса объекта модели Сетевой документ NetworkDocument (с проверкой прав доступа)"""
+    model = NetworkDocument
+    form_class = NetworkDocumentStatusUpdateForm
+    template_name = "app_sources/networkdocument_status_update_form.html"
+
+    def post(self, request, *args, **kwargs):
+        pk = self.kwargs["pk"]
+        instance = self.get_object()
+        status_form = NetworkDocumentStatusUpdateForm(request.POST, instance=instance)
+        if status_form.is_valid():
+            # TODO создание задачи на изменение контента в зависимости от выбранного статуса
+            status_form.save()
+        return redirect(reverse_lazy("sources:networkdocument_detail", kwargs={"pk": pk}))
 
 
 class LocalStorageListView(LoginRequiredMixin, ListView):
@@ -414,90 +512,107 @@ class LocalStorageCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateV
 class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
     """Детальный просмотр объекта модели Вебсайт (с проверкой прав доступа)"""
     model = WebSite
-    paginate_by = 9
+
+    def get(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        context = self.get_context_data()
+
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            html = render_to_string(
+                "app_sources/include/url_list_page.html",
+                context,
+                request=request
+            )
+            return JsonResponse({"html": html})
+
+        return self.render_to_response(context)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        request = self.request
         website = self.object
 
-        # Подзапросы для аннотаций последнего URLContent
-        latest_content = URLContent.objects.filter(
-            url=OuterRef('pk')
-        ).order_by('-created_at')
+        source_statuses = [
+            (status.value, status.display_name) for status in SourceStatus
+        ]
 
-        urls_qs = URL.objects.filter(site=website).annotate(
-            latest_content_id=Subquery(latest_content.values('id')[:1]),
-            latest_content_title=Subquery(latest_content.values('title')[:1]),
-            latest_content_status=Subquery(latest_content.values('status')[:1]),
-            latest_content_response_status=Subquery(latest_content.values('response_status')[:1]),
-            latest_content_tags=Subquery(latest_content.values('tags')[:1]),
-            latest_content_error_message=Subquery(latest_content.values('error_message')[:1]),
-            latest_content_body_length=Subquery(
-                latest_content.annotate(body_length=Length('body')).values('body_length')[:1]
-            ),
-        ).prefetch_related('urlcontent_set')
-
-        # Фильтрация
-        sort_by = request.GET.get('ordering', 'id')
-        status = request.GET.get('status')
-        response_status = request.GET.get('response_status')
-        body_length_min = request.GET.get('min_body_length')
-        body_length_max = request.GET.get('max_body_length')
-
-        if status:
-            urls_qs = urls_qs.filter(latest_content_status=status)
-        if response_status:
-            urls_qs = urls_qs.filter(latest_content_response_status=response_status)
-        if body_length_min:
-            urls_qs = urls_qs.filter(latest_content_body_length__gte=int(body_length_min))
-        if body_length_max:
-            urls_qs = urls_qs.filter(latest_content_body_length__lte=int(body_length_max))
-
-        # Сортировка
-        allowed_sorts = {
-            'id', 'latest_content_status', 'latest_content_response_status', 'latest_content_body_length'
+        filters = {
+            "status": source_statuses
         }
-        if sort_by.lstrip('-') in allowed_sorts:
-            urls_qs = urls_qs.order_by(sort_by)
 
-        search_query = request.GET.get('search')
+        sorting_list = [
+            ("-created_at", "дата создания по возрастанию"),
+            ("created_at", "дата создания по убыванию"),
+            ("-title", "имя по возрастанию"),
+            ("title", "имя по убыванию"),
+            ("-url", "url по возрастанию"),
+            ("url", "url по убыванию"),
+        ]
+
+        # Получаем параметры поиска и фильтрации из запроса
+        search_query = self.request.GET.get("search", "").strip()
+        status_filter = self.request.GET.getlist("status", None)
+        sorting = self.request.GET.get("sorting", None)
+
+        urls = website.url_set.order_by("title")
+
         if search_query:
-            urls_qs = urls_qs.filter(
-                Q(url__icontains=search_query) |
-                Q(latest_content_title__icontains=search_query)
+            urls = urls.filter(
+                Q(title__icontains=search_query) |
+                Q(url__icontains=search_query)
             )
 
-        # Пагинация
-        paginator = Paginator(urls_qs, self.paginate_by)
-        page_number = request.GET.get("page")
+        if status_filter:
+            valid_statuses = [status.value for status in SourceStatus]
+            # Оставляем только корректные значения
+            status_filter = [s for s in status_filter if s in valid_statuses]
+            if status_filter:
+                urls = urls.filter(status__in=status_filter)
+
+        if sorting:
+            valid_sorting = [value for value, name in sorting_list]
+            if sorting in valid_sorting:
+                urls = urls.order_by(sorting)
+
+        url_content_qs = URLContent.objects.filter(
+            status=ContentStatus.READY.value
+        ).order_by("-created_at")[:1]
+        url_content_qs = URLContent.objects.order_by("-created_at")[:1]
+
+        # Prefetch rawcontent_set → в each networkdocument.related_rawcontents будет список из 0 или 1
+        urls = urls.select_related(
+            "report__storage", "site"
+        ).prefetch_related(
+            Prefetch('urlcontent_set', queryset=url_content_qs, to_attr='related_urlcontents')
+        ).annotate(
+            urlcontent_total_count=Count('urlcontent')
+        )
+
+        paginator = Paginator(urls, 3)
+        page_number = self.request.GET.get("page")
         page_obj = paginator.get_page(page_number)
 
+        # Назначаем явно (0 или 1 элемент)
+        for url in page_obj.object_list:
+            print(url.related_urlcontents)
+            url.active_urlcontent = url.related_urlcontents[0] if url.related_urlcontents else None
+
         # Формируем query string без page
-        query_params = request.GET.copy()
+        query_params = self.request.GET.copy()
         query_params.pop('page', None)
         paginator_query = query_params.urlencode()
         if paginator_query:
             paginator_query += '&'
 
-        context['status_choices'] = [
-            (status.value, status.display_name) for status in SourceStatus
-        ]
-
-        context.update({
-            'page_obj': page_obj,  # для шаблона, чтобы не менять много
-            'is_paginated': page_obj.has_other_pages(),
-            'paginator': paginator,
-            'paginator_query': paginator_query,
-            'filters': {
-                'sort': sort_by,
-                'status': status,
-                'response_status': response_status,
-                'body_length_min': body_length_min,
-                'body_length_max': body_length_max,
-                'search': search_query,
-            }
-        })
+        context["page_obj"] = page_obj
+        context["paginator_query"] = paginator_query
+        context["paginator"] = paginator
+        context["urls"] = page_obj.object_list
+        context["is_paginated"] = page_obj.has_other_pages()
+        context["search_query"] = search_query
+        context["status_filter"] = status_filter
+        context["source_statuses"] = source_statuses
+        context["filters"] = filters
+        context["sorting_list"] = sorting_list
         return context
 
 
