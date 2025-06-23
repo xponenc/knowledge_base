@@ -31,11 +31,11 @@
 
 {% block content %}
 <div class="page page--website">
-    <div class="page__top">
+    <div class="page__top page__grid">
         <div class="page__info info-page">
             <span class="info-page__banner">ВЕБ-САЙТ</span>
             <div class="info-page__header">
-                <h2 class="page__heading">{{ website.name }}</h2>
+                <h2 class="page__heading _ta-e">{{ website.name }}</h2>
                 <h3 class="info-page__heading">Детали веб-сайта</h3>
             </div>
             <div class="info-page__body">
@@ -115,7 +115,7 @@
             <div class="info-page__header">
                 <h2 class="page__heading">Основной парсер</h2>
                 <h3 class="info-page__heading"></h3>
-                <p class="text text--mutted">Используется для массового парсинга всего сайта. Его конфигурация влияет на автоматическую обработку.
+                <p class="text text--muted">Используется для массового парсинга всего сайта. Его конфигурация влияет на автоматическую обработку.
                 </p>
             </div>
             <div class="info-page__body">
@@ -147,7 +147,7 @@
                 <div class="btns _jc-fe">
                     {% if website.mainparser %}
                         <a href="{% url 'parsers:mainparser_detail' website.mainparser.id %}" class="btn btn--reset btn--round" target="_blank" title="Посмотреть детали" aria-label="Посмотреть детали">
-                            <svg class="link-marker__marker">
+                            <svg class="btn__icon">
                                 <use xlink:href="{% static 'img/icons/sprite.svg' %}#details"></use>
                             </svg>
                         </a>
@@ -171,13 +171,13 @@
             <div class="info-page__header">
                 <h2 class="page__heading">Тестовые парсеры</h2>
                 <h3 class="info-page__heading"></h3>
-                <p class="text text--mutted">Используется для настройки конфигурации парсинга. Тестируется заданный адрес и выдается отчет о парсинге. 
+                <p class="text text--muted">Используется для настройки конфигурации парсинга. Тестируется заданный адрес и выдается отчет о парсинге. 
                     В деталяж Тестового парсера можно установить его Основной парсер
                 </p>
             </div>
             <div class="info-page__body">
             {% for test_parser in website.test_parsers.all %}
-                <h3 class="info-page__heading"></h3>
+                <h3 class="info-page__heading">{{ test_parser.class_name }}</h3>
                 <div class="source__manage">
                     <dl class="description">
                         <dt class="description__term">Описание</dt>
@@ -198,7 +198,7 @@
                         </dd>
                     </dl>
                     <a href="{% url 'parsers:testparser_detail' test_parser.id %}" class="btn btn--reset btn--round" target="_blank" title="Посмотреть детали" aria-label="Посмотреть детали">
-                        <svg class="link-marker__marker">
+                        <svg class="btn__icon">
                             <use xlink:href="{% static 'img/icons/sprite.svg' %}#details"></use>
                         </svg>
                     </a>
@@ -223,11 +223,11 @@
             <p class="text-muted fst-italic mb-2">
                 Пока заглушка - получение файла c сериализованными pickle чанкам (формат Langchain Document) по отфильтрованному контенту 
             </p>
-            <p class="font-monospace bg-light p-3 rounded">
-                    with open(file_path, 'rb') as f:<br>
-                    &nbsp;&nbsp;&nbsp;&nbsp;# Загружаем (десериализуем) список документов из файла<br>
-                    &nbsp;&nbsp;&nbsp;&nbsp;all_documents = pickle.load(f)
-                </p>
+            <pre class="font-monospace bg-light p-3 rounded">
+                with open(file_path, 'rb') as f:<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;# Загружаем (десериализуем) список документов из файла<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;all_documents = pickle.load(f)
+            </pre>
             <form method="post" action="{% url 'chunks:create_chunks_from_website' website.pk %}" class="mb-3" id="create-chunks-form">
                 {% csrf_token %}
                 {% for key, value in request.GET.items %}

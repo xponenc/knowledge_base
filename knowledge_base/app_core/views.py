@@ -1,8 +1,12 @@
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.db.models import Prefetch, Count
 from django.views import View
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
 from django.shortcuts import redirect, get_object_or_404, render
+
+from app_sources.storage_models import CloudStorage, WebSite, LocalStorage, URLBatch
+from app_sources.views import CloudStorageDetailView
 from .models import KnowledgeBase
 from django.utils import timezone
 
@@ -26,6 +30,36 @@ class KnowledgeBaseListView(LoginRequiredMixin, ListView):
 class KnowledgeBaseDetailView(LoginRequiredMixin, KBPermissionMixin, DetailView):
     """Детальная информация о базе знаний"""
     model = KnowledgeBase
+    cloud_storages = Prefetch(
+        "cloudstorage_set",
+        queryset=CloudStorage.objects.annotate(
+            networkdocuments_counter=Count("network_documents", distinct=True)
+        ),
+        to_attr="cloud_storages"
+    )
+    local_storages = Prefetch(
+        "cloudstorage_set",
+        queryset=LocalStorage.objects.annotate(
+            localdocuments_counter=Count("documents", distinct=True)
+        ),
+        to_attr="local_storages"
+    )
+    websites = Prefetch(
+        "website_set",
+        queryset=WebSite.objects.annotate(
+            urls_counter=Count("url", distinct=True)
+        ),
+        to_attr="websites"
+    )
+    urlbatches = Prefetch(
+        "website_set",
+        queryset=URLBatch.objects.annotate(
+            urls_counter=Count("url", distinct=True)
+        ),
+        to_attr="urlbatches"
+    )
+
+    queryset = KnowledgeBase.objects.prefetch_related(cloud_storages, local_storages, websites, urlbatches)
 
 
 class KnowledgeBaseCreateView(LoginRequiredMixin, CreateView):

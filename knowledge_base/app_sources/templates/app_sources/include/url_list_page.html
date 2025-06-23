@@ -1,15 +1,15 @@
 {% load static %}
 
+{% if search_query %}
+    <div class="page__subheading _ta-c">
+        Результаты поиска по <strong>"{{ search_query }}"</strong>
+        {% if request.GET.status or request.GET.response_status or request.GET.min_body_length or request.GET.max_body_length or request.GET.ordering %}
+            с применёнными фильтрами и сортировкой
+        {% endif %}
+    </div>
+{% endif %}
 {% include "include/pagination.html" %}
 <div class="sources">
-    {% if search_query %}
-        <div class="alert alert-info">
-            Результаты поиска по <strong>"{{ search_query }}"</strong>
-            {% if request.GET.status or request.GET.response_status or request.GET.min_body_length or request.GET.max_body_length or request.GET.ordering %}
-                с применёнными фильтрами и сортировкой
-            {% endif %}
-        </div>
-    {% endif %}
     {% for document in urls %}
         <div class="source {% if document.status == "de" %} source--deleted{% endif %}">
             <div class="source__header">

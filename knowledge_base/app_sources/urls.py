@@ -1,14 +1,16 @@
 from django.urls import path
-from .views import CloudStorageListView, CloudStorageCreateView, CloudStorageDetailView, CloudStorageSyncView, \
-    LocalStorageListView, LocalStorageCreateView, \
-    LocalStorageDetailView, CloudStorageUpdateView, CloudStorageDeleteView, CloudStorageUpdateReportDetailView, \
-    NetworkDocumentDetailView, NetworkDocumentListView, NetworkDocumentUpdateView, RawContentRecognizeCreateView, \
-    RawContentDetailView, CleanedContentDetailView, CleanedContentUpdateView, \
-    WebSiteDetailView, WebSiteCreateView, WebSiteUpdateView, WebSiteDeleteView, \
-    WebSiteTestParseReportView, WebSiteUpdateReportDetailView, WebSiteTestParseView, WebSiteBulkParseView, \
-    WebSiteSynchronizationView, URLDetailView, NetworkDocumentStatusUpdateView
+from .views import (CloudStorageListView, CloudStorageCreateView, CloudStorageDetailView, CloudStorageSyncView,
+    LocalStorageListView, LocalStorageCreateView,
+    LocalStorageDetailView, CloudStorageUpdateView, CloudStorageDeleteView, CloudStorageUpdateReportDetailView,
+    NetworkDocumentDetailView, NetworkDocumentListView, NetworkDocumentUpdateView, RawContentRecognizeCreateView,
+    RawContentDetailView, CleanedContentDetailView, CleanedContentUpdateView,
+    WebSiteDetailView, WebSiteCreateView, WebSiteUpdateView, WebSiteDeleteView,
+    WebSiteTestParseReportView, WebSiteUpdateReportDetailView, WebSiteTestParseView, WebSiteBulkParseView,
+    WebSiteSynchronizationView, URLDetailView, NetworkDocumentStatusUpdateView,
+    URLBatchDetailView, URLBatchCreateView, URLBatchUpdateView, URLBatchDeleteView)
 
 app_name = 'sources'
+
 
 urlpatterns = [
     path('cloud_storage/', CloudStorageListView.as_view(), name='cloudstorage_list'),
@@ -30,11 +32,15 @@ urlpatterns = [
     path('website/<int:pk>/update/', WebSiteUpdateView.as_view(), name='website_update'),
     path('website/<int:pk>/delete/', WebSiteDeleteView.as_view(), name='website_delete'),
 
+    path('url-batch/<int:pk>', URLBatchDetailView.as_view(), name='urlbatch_detail'),
+    path('url-batch/create/<int:kb_pk>', URLBatchCreateView.as_view(), name='urlbatch_create'),
+    path('url-batch/<int:pk>/update/', URLBatchUpdateView.as_view(), name='urlbatch_update'),
+    path('url-batch/<int:pk>/delete/', URLBatchDeleteView.as_view(), name='urlbatch_delete'),
+
     path('website/<int:pk>/test-parse/', WebSiteTestParseView.as_view(), name='website_test_parse'),
     path('website/<int:pk>/parse-report/', WebSiteTestParseReportView.as_view(), name='website_test_parse_report'),
     path('website/<int:pk>/bulk-parse/', WebSiteBulkParseView.as_view(), name='website_bulk_parse'),
     path('website/<int:pk>/synchronization/', WebSiteSynchronizationView.as_view(), name='website_synchronization'),
-
 
     path('website-update-report/<int:pk>/', WebSiteUpdateReportDetailView.as_view(),
              name='websiteupdatereport_detail'),
@@ -56,7 +62,6 @@ urlpatterns = [
 
     path('cleaned-content/<int:pk>', CleanedContentDetailView.as_view(), name='cleanedcontent_detail'),
     path('cleaned-content/<int:pk>/update', CleanedContentUpdateView.as_view(), name='cleanedcontent_update'),
-
 
     path('url/<int:pk>', URLDetailView.as_view(), name='url_detail'),
 

@@ -9,7 +9,7 @@ from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 from django.core.files.base import ContentFile
 from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch, ForeignKey, Q, IntegerField, Count
 from django.db.models.functions import Left, Coalesce, Substr, Length, Cast
-from django.http import Http404, JsonResponse
+from django.http import Http404, JsonResponse, HttpResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
@@ -29,7 +29,7 @@ from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedCo
     NetworkDocumentStatusUpdateForm
 from app_sources.report_models import CloudStorageUpdateReport, WebSiteUpdateReport, ReportStatus
 from app_sources.source_models import NetworkDocument, URL, SourceStatus
-from app_sources.storage_models import CloudStorage, Storage, LocalStorage, WebSite
+from app_sources.storage_models import CloudStorage, Storage, LocalStorage, WebSite, URLBatch
 from app_sources.tasks import process_cloud_files, download_and_create_raw_content, \
     download_and_create_raw_content_parallel
 from recognizers.dispatcher import ContentRecognizerDispatcher
@@ -505,7 +505,7 @@ class LocalStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailV
 
 class LocalStorageCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateView):
     """Создание объекта модели Локальное хранилище"""
-    model = Storage
+    model = LocalStorage
     fields = "__all__"
 
 
@@ -1033,6 +1033,37 @@ class WebSiteTestParseReportView(LoginRequiredMixin, View):
             "report": test_report,
         }
         return render(request, "app_sources/testparseresult_detail.html", context)
+
+
+class URLBatchDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
+    """Детальный просмотр объекта модели Веб-коллекция URLBatch(с проверкой прав доступа)"""
+    model = URLBatch
+
+    def get(self, *args, **kwargs):
+        return HttpResponse("Заглушка")
+
+class URLBatchCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateView):
+    """Создание объекта модели Веб-коллекция URLBatch"""
+    model = URLBatch
+
+    def get(self, *args, **kwargs):
+        return HttpResponse("Заглушка")
+
+
+class URLBatchUpdateView(LoginRequiredMixin, StoragePermissionMixin, UpdateView):
+    """Редактирование объекта модели Веб-коллекция URLBatch"""
+    model = URLBatch
+
+    def get(self, *args, **kwargs):
+        return HttpResponse("Заглушка")
+
+
+class URLBatchDeleteView(LoginRequiredMixin, DeleteView):
+    """Удаление объекта модели Веб-коллекция URLBatch"""
+    model = URLBatch
+
+    def get(self, *args, **kwargs):
+        return HttpResponse("Заглушка")
 
 
 class URLDetailView(LoginRequiredMixin, DocumentPermissionMixin, DetailView):
