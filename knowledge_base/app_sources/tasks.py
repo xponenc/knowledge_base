@@ -12,7 +12,7 @@ from typing import List, Tuple
 from celery import shared_task
 from celery_progress.backend import ProgressRecorder
 from django.core.files import File
-from django.db.models import Subquery, OuterRef
+from django.db.models import Subquery, OuterRef, Prefetch
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from dateutil.parser import parse
@@ -21,6 +21,7 @@ from app_sources.content_models import ContentStatus, RawContent
 from app_sources.report_models import CloudStorageUpdateReport, ReportStatus
 from app_sources.source_models import NetworkDocument, SourceStatus
 from app_sources.storage_models import CloudStorage
+from app_tasks.models import TaskForSource, ContentComparison
 from utils.process_files import compute_sha512
 from django.contrib.auth import get_user_model
 
@@ -71,6 +72,46 @@ def get_documents_for_redownload(
             progress_recorder.set_progress(i, total, description="Проверка документов на изменение")
 
     return docs_to_download
+
+
+def create_task_for_network_document(doc: NetworkDocument,
+                                     storage_update_report: CloudStorageUpdateReport,
+                                     current_raw_content: RawContent,
+                                     new_raw_content: RawContent):
+    """Создание задачи на изменения в системе при изменении контента сетевого документа NetworkDocument"""
+    content_comparison = ContentComparison(
+        content_type="Raw Content",
+        old_raw_content=current_raw_content,
+        new_raw_content=new_raw_content,
+    )
+
+    task = TaskForSource(
+        cloud_report=storage_update_report,
+        network_document=doc,
+        comparison=content_comparison,
+        source_previous_status=doc.status,
+
+    )
+    if doc.status == SourceStatus.READY.value:
+        task.description = ("Обновился исходный контент для АКТИВНОГО источника,"
+                            " необходимо подтвердить принятие нового контента")
+    elif doc.status == SourceStatus.DELETED.value:
+        task.description = ("Обновился исходный контент для УДАЛЕННОГО источника,"
+                            " необходимо проанализировать новый контента")
+    elif doc.status == SourceStatus.EXCLUDED.value:
+        task.description = ("Обновился исходный контент для ИСКЛЮЧЕННОГО источника,"
+                            " необходимо проанализировать новый контента")
+    elif doc.status == SourceStatus.ERROR.value:
+        task.description = ("Обновился исходный контент для источника в статусе ОШИБКА,"
+                            " необходимо проанализировать новый контента")
+    elif doc.status == SourceStatus.WAIT.value:
+        task.description = ("Обновился исходный контент для источника в статусе ОБРАБОТКА,"
+                            "возможен конфликт задач, необходимо проанализировать новый контента")
+
+    if task.description:
+        task.save()
+    else:
+        logger.error(f"При обработке NetworkDocument[id {doc.pk}] получен неизвестный статус документа")
 
 
 @shared_task(bind=True)
@@ -154,6 +195,7 @@ def process_cloud_files(
 
     # Словарь для быстрого доступа к документам по url
     db_documents_by_url = {doc.url: doc for doc in db_documents}
+    print("db_documents_by_url")
     incoming_urls_set = set(file["url"] for file in storage_files)
 
     # Определяем документы, отсутствующие в облаке, считаем их удалёнными
@@ -173,7 +215,8 @@ def process_cloud_files(
         if url not in db_documents_by_url:
             result['new_files'].append(file)
         else:
-            result['exist_documents'].append(db_documents_by_url[url])
+            # result['exist_documents'].append(db_documents_by_url[url])
+            result['exist_documents'].append(db_documents_by_url[url].pk)
 
         # Обновляем прогресс
         if current == (progress_now + 1) * progress_step:
@@ -218,11 +261,14 @@ def process_cloud_files(
     # Обрабатываем существующие документы, проверяя их хеши для обновления RawContent
     if result.get("exist_documents"):
         # Выбираем документы для проверки обновлений
-        doc_ids_to_check = [
-            db_documents_by_url[file["url"]].id
-            for file in result.get("exist_documents")
-            if file["url"] in db_documents_by_url
-        ]
+        # doc_ids_to_check = [
+        #     db_documents_by_url[file["url"]].id
+        #     for file in result.get("exist_documents")
+        #     if file["url"] in db_documents_by_url
+        # ]
+        doc_ids_to_check = result.get("exist_documents")
+
+        # Берется последний RawContent со статусом READY для проверки изменений контента
         docs_to_check = NetworkDocument.objects.filter(pk__in=doc_ids_to_check).annotate(
             last_hash=Subquery(
                 RawContent.objects.filter(
@@ -243,8 +289,9 @@ def process_cloud_files(
         )
 
         # Разбиваем на документы с готовыми временными файлами и без
-        docs_with_files = [item for item in docs_to_download if item[1] is not None]
-        docs_without_files = [item for item in docs_to_download if item[1] is None]
+        updated_docs_ids = [item[0] for item in docs_to_download]
+        updated_docs_with_files = [item for item in docs_to_download if item[1] is not None]
+        updated_docs_without_files = [item for item in docs_to_download if item[1] is None]
 
         # Выделяем id документов, контент которых не изменился — их пропускаем
         skipped_doc_ids = [doc.pk for doc in docs_to_check if
@@ -253,21 +300,48 @@ def process_cloud_files(
 
         updated_doc_ids = []
 
+        raw_content_qs = RawContent.objects.filter(
+            status=ContentStatus.READY.value
+        ).order_by("-created_at")[:1]
+
+        # raw_content_qs = Prefetch(
+        #     'rawcontent_set',
+        #     queryset=RawContent.objects.filter(status=ContentStatus.READY.value).order_by('-created_at'),
+        #     to_attr='related_rawcontents'
+        # )
+
+        docs_to_update = NetworkDocument.objects.filter(pk__in=updated_docs_ids).prefetch_related(
+            Prefetch('rawcontent_set', queryset=raw_content_qs, to_attr='related_rawcontents'))
+
+        for doc in docs_to_update:
+            doc.current_raw_content = doc.related_rawcontents[0] if doc.related_rawcontents else None
+
+        docs_to_update_data = {doc.id: doc for doc in docs_to_update}
+
         # Для документов с временными файлами — сразу создаём RawContent
-        for doc_id, temp_path, file_name in docs_with_files:
+        for doc_id, temp_path, file_name in updated_docs_with_files:
             try:
-                doc = NetworkDocument.objects.get(pk=doc_id)
-                raw_content = RawContent.objects.create(
+                doc = docs_to_update_data.get(doc_id)
+                current_raw_content = doc.current_raw_content
+                new_raw_content = RawContent(
                     network_document=doc,
                     report=storage_update_report,
                     author=storage_update_report.author,
                 )
+
                 with open(temp_path, "rb") as f:
-                    raw_content.file.save(file_name, File(f), save=False)
-                raw_content.hash_content = compute_sha512(temp_path)
-                raw_content.save()
+                    new_raw_content.file.save(file_name, File(f), save=False)
+                new_raw_content.hash_content = compute_sha512(temp_path)
+                new_raw_content.save()
                 updated_doc_ids.append(doc_id)
                 logger.info(f"[Document {doc.pk}] RawContent обновлён из кэша temp_path")
+
+                # Создание задачи для действий по изменению
+                create_task_for_network_document(doc=doc,
+                                                 storage_update_report=storage_update_report,
+                                                 current_raw_content=current_raw_content,
+                                                 new_raw_content=new_raw_content)
+
             except Exception as e:
                 storage_update_report.content.setdefault("errors", []).append(
                     f"[Document {doc_id}] Ошибка при создании RawContent из temp_path: {e}")
@@ -278,8 +352,8 @@ def process_cloud_files(
                     os.remove(temp_path)
 
         # Для документов без временных файлов — ставим задачу на загрузку
-        if docs_without_files:
-            document_ids_to_dl = [doc_id for doc_id, _, _ in docs_without_files]
+        if updated_docs_without_files:
+            document_ids_to_dl = [doc_id for doc_id, _, _ in updated_docs_without_files]
             task = download_and_create_raw_content_parallel.delay(
                 document_ids=document_ids_to_dl,
                 update_report_pk=update_report_pk,
@@ -344,6 +418,15 @@ def download_and_process_file(
         raw_content.save()
 
         logger.info(f"[Document {doc.pk}] Файл успешно обработан и сохранён.")
+        if doc.status != SourceStatus.CREATED.value:
+            # Создание задачи для действий по изменению
+            create_task_for_network_document(doc=doc,
+                                             storage_update_report=storage_update_report,
+                                             current_raw_content=doc.current_raw_content,
+                                             new_raw_content=raw_content)
+
+        else:
+            doc.status = SourceStatus.READY.value
     except Exception as e:
         storage_update_report.content.setdefault("errors", []).append(
             f"[Document {doc.pk}] Ошибка при сохранении файла в БД: {e}")
@@ -367,21 +450,25 @@ def download_and_create_raw_content_parallel(self,
                                              max_workers: int = 5):
     """
     Задача для параллельной загрузки и обработки файлов из облачного хранилища.
-
-    Args:
-        self: ссылка на текущую задачу Celery.
-        document_ids (list[int]): список ID документов для обработки.
-        update_report_id (int): ID отчета обновления облака.
-        author (User): пользователь, запустивший задачу.
-        max_workers (int): максимальное количество потоков для обработки.
-
-    Returns:
-        str: сообщение об окончании задачи.
+        :param self: ссылка на текущую задачу Celery.
+        :param max_workers:  максимальное количество потоков для обработки
+        :param document_ids: список ID документов NetworkDocument для обработки
+        :param update_report_pk: ID отчета обновления облака.
     """
     storage_update_report = CloudStorageUpdateReport.objects.select_related("storage", "author").get(
         pk=update_report_pk)
     cloud_storage = storage_update_report.storage
-    documents = NetworkDocument.objects.filter(pk__in=document_ids)
+
+    raw_content_qs = RawContent.objects.filter(
+        status=ContentStatus.READY.value
+    ).order_by("-created_at")[:1]
+
+    documents = NetworkDocument.objects.filter(pk__in=document_ids).prefetch_related(
+        Prefetch('rawcontent_set', queryset=raw_content_qs, to_attr='related_rawcontents'))
+
+    for doc in documents:
+        doc.current_raw_content = doc.related_rawcontents[0] if doc.related_rawcontents else None
+
     author = storage_update_report.author
 
     total_counter = len(documents)

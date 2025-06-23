@@ -15,6 +15,7 @@ User = get_user_model()
 
 class SourceStatus(Enum):
     CREATED = "cr"
+    READY = "ready"
     DELETED = "de"
     EXCLUDED = "ex"
     ERROR = "er"
@@ -25,6 +26,7 @@ class SourceStatus(Enum):
         """Русское название статуса для отображения."""
         display_names = {
             "cr": "Создан",
+            "ready": "Готов",
             "de": "Удален",
             "ex": "Исключен из базы знаний",
             "er": "Ошибка",

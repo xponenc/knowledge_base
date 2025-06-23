@@ -6,6 +6,7 @@ from django.db import models
 from django.urls import reverse_lazy
 
 from app_sources.content_models import URLContent, RawContent, CleanedContent
+from app_sources.report_models import WebSiteUpdateReport, CloudStorageUpdateReport
 from app_sources.source_models import URL, NetworkDocument, SourceStatus, LocalDocument
 
 User = get_user_model()
@@ -84,6 +85,23 @@ class ContentComparison(models.Model):
 
 class TaskForSource(models.Model):
     """Задача на изменение контента источника"""
+    website_report = models.ForeignKey(
+        WebSiteUpdateReport,
+        verbose_name="отчет вебсайта",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tasks"
+    )
+    cloud_report = models.ForeignKey(
+        CloudStorageUpdateReport,
+        verbose_name="отчет облачного хранилища",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tasks"
+    )
+
     url = models.ForeignKey(
         'app_sources.URL', on_delete=models.CASCADE, related_name='tasks', null=True, blank=True
     )
@@ -149,6 +167,16 @@ class TaskForSource(models.Model):
                     not in ('raw_content', 'cleaned_content')):
                 raise ValidationError("Comparison для NetworkDocument или LocalDocument должно"
                                       " быть типа 'raw_content' или 'cleaned_content'.")
+        # Проверка, что только один отчет указан
+        reports = [self.website_report, self.cloud_report]
+        if sum(bool(r) for r in reports) > 1:
+            raise ValidationError("Можно указать только один отчет (вебсайт или облако).")
+
+        # Проверка соответствия отчета источнику
+        if self.url and not self.website_report:
+            raise ValidationError("Для URL необходимо указать отчет вебсайта.")
+        if (self.network_document or self.local_document) and not self.cloud_report:
+            raise ValidationError("Для документов необходимо указать отчет облачного хранилища.")
 
     def get_source(self):
         """Возвращает источник (URL, NetworkDocument или LocalDocument)"""
