@@ -203,4 +203,8 @@
 
 .reports__body {}
 
+.reports__footer {
+    padding: 0 var(--gap);
+}
+
 

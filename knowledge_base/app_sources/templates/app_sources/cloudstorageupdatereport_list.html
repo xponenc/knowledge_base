@@ -1,0 +1,93 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+{% load humanize %}
+{% load custom_filters %}
+
+{% block extra_css %}
+    <link href="{% static 'css/pagination.css' %}" rel="stylesheet">
+    <link href="{% static 'css/storage.css' %}" rel="stylesheet">
+    <link href="{% static 'css/grader.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a href="{{ cloudstorage.kb.get_absolute_url }}" itemprop="item">
+            <span itemprop="name">База знаний {{ cloudstorage.kb.title }}</span>
+        </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+        <span itemprop="name">{{ cloudstorage.name }}</span>
+        <meta itemprop="position" content="2" />
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block title %}{{ cloudstorage.name }}{% endblock %}
+
+{% block content %}
+<div class="page page--cloud">
+    <div class="page__top page__grid">
+        
+    </div>
+    <article class="page__content">
+        <h3 class="page__subheading">Отчеты по обновлению</h3>
+        {{ reports }}
+    </article>
+</div>
+
+{% endblock %}
+
+{% block script %}
+<script src="{% static 'js/grader.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const container = document.querySelector('#network-documents-container');
+        const form = document.querySelector('#network-document-filter-form');
+
+        function fetchAndUpdate(url) {
+            fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                container.innerHTML = data.html;
+                window.history.pushState({}, '', url); // обновление URL без перезагрузки
+                syncCheckboxesFromURL();
+            });
+        }
+
+        // Перехват отправки формы
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const params = new URLSearchParams(formData);
+            const url = `${window.location.pathname}?${params.toString()}`;
+            fetchAndUpdate(url);
+        });
+
+        // Перехват кликов по пагинации (делегирование с .closest)
+        container.addEventListener('click', function (e) {
+            const link = e.target.closest('.pagination__link');
+            if (link && container.contains(link)) {
+                e.preventDefault();
+                const url = link.getAttribute('href');
+                fetchAndUpdate(url);
+            }
+        });
+
+        function syncCheckboxesFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            document.querySelectorAll('.js-filter').forEach(input => {
+                const values = params.getAll(input.name);
+                input.checked = values.includes(input.value);
+            });
+        }
+    });
+</script>
+{% endblock script %}
+
+

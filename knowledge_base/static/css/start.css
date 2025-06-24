@@ -36,6 +36,7 @@
   /* Блоки */
   --block-bg-color: #fbfbfb;
   --block-border-color: #e5e5e5;
+  --block-border-shadow-color: #dcdcdc;
 
   --article-bg-color: #f7f7f7;
   --article-border-color: #e5e5e5;
@@ -115,14 +116,14 @@
   --elsatic-table-even-row-color: #f7f7f7;
   --elsatic-table-even-border-color: #fdfdfd;
 
-    /* Форма */
-    --field-padding: 12px;
-    --form-input-border-color: #3a3939;
-    --form-input-border-hover-color: color-mix(in oklch, var(--accent-color), #222 50%);
-    --input-text-accent-color: #bdbdbd;
-    --input-text-color: var(--text-color);
-    --carret-color: var(--text-color);
-    --placeholder-color: var(--text-color);
+  /* Форма */
+  --field-padding: 12px;
+  --form-input-border-color: #3a3939;
+  --form-input-border-hover-color: color-mix(in oklch, var(--accent-color), #222 50%);
+  --input-text-accent-color: #bdbdbd;
+  --input-text-color: var(--text-color);
+  --carret-color: var(--text-color);
+  --placeholder-color: var(--text-color);
 
 }
 
@@ -374,6 +375,7 @@ fieldset {
   border: 2px solid var(--accent-color);
   color: var(--accent-color)
 }
+
 .btn--danger {
   border: 2px solid var(--alarm-color);
   color: var(--alarm-color)
@@ -459,9 +461,11 @@ fieldset {
 ._ai-fs {
   align-items: flex-start !important;
 }
+
 ._ai-fe {
   align-items: flex-end !important;
 }
+
 ._ai-c {
   align-items: center !important;
 }
@@ -469,15 +473,19 @@ fieldset {
 ._jc-fs {
   justify-content: flex-start !important;
 }
+
 ._jc-fe {
   justify-content: flex-end !important;
 }
+
 ._jc-sb {
   justify-content: space-between !important;
 }
+
 ._jc-sa {
   justify-content: space-around !important;
 }
+
 ._jc-c {
   justify-content: center !important;
 }
@@ -485,9 +493,11 @@ fieldset {
 ._ta-e {
   text-align: end;
 }
+
 ._ta-s {
   text-align: start;
 }
+
 ._ta-c {
   text-align: center;
 }
@@ -496,44 +506,59 @@ fieldset {
 
 .text {}
 
+.text--fat {
+  font-weight: 600;
+}
+
 .text--muted {
-    color: var(--text-color-mute);
+  color: var(--text-color-mute);
 }
 
 .text--label {
-    font-weight: 400;
-    color: var(--text-color-mute);
-    font-size: 0.8em;
+  font-weight: 400;
+  color: var(--text-color-mute);
+  font-size: 0.8em;
 }
 
 .text--status {
-    font-weight: 500;
+  font-weight: 500;
 }
 
 .text--info {}
 
 
 .description {
-    display: grid;
-    grid-template-columns: min-content 1fr;
-    gap: 6px var(--gap-half);
-    align-items: center;
-    margin: 0;
+  display: grid;
+  grid-template-columns: min-content 1fr;
+  gap: 6px var(--gap-half);
+  align-items: center;
+  margin: 0;
+}
+
+.description--column {
+  display: flex;
+  flex-direction: column;
 }
 
 .description__term {
-    margin: 0;
-    font-weight: 400;
-    color: var(--text-color-mute);
-    font-size: 0.8em;
-    overflow-wrap: break-word;
+  margin: 0;
+  font-weight: 400;
+  color: var(--text-color-mute);
+  font-size: 0.8em;
+  overflow-wrap: break-word;
+}
+.description--column .description__term {
+  padding-left: var(--gap-half);
 }
 
 .description__defination {
-    margin: 0;
-    /* white-space:pre-wrap; */
-    word-break: break-word;
-    overflow-wrap: break-word;
+  margin: 0;
+  /* white-space:pre-wrap; */
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+.description--column .description__defination {
+  margin-bottom: var(--gap-third);
 }
 
 .tags {
@@ -543,40 +568,40 @@ fieldset {
 }
 
 .tag {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 3px 12px;
-    border-radius: 12px;
-    text-transform: lowercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 12px;
+  border-radius: 12px;
+  text-transform: lowercase;
 }
 
 .tag--simple {
-    background-color: var(--bg-color);
+  background-color: var(--bg-color);
 }
 
 .tag--fat {
-    font-weight: 600;
-    letter-spacing: 0.6px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
 }
 
 .tag--success {
-    background-color: var(--success-bg-color);
+  background-color: var(--success-bg-color);
 }
 
 .tag--warning {
-    background-color: var(--warning-bg-color);
+  background-color: var(--warning-bg-color);
 }
 
 .tag--alarm {
-    background-color: var(--alarm-bg-color);
+  background-color: var(--alarm-bg-color);
 }
 
 .tag--disabled {
-    background-color: var(--disabled-bg-color);
+  background-color: var(--disabled-bg-color);
 }
 
 .tag--deleted {
-    color: var(--deleted-text-color);
-    background-color: var(--deleted-bg-color);
+  color: var(--deleted-text-color);
+  background-color: var(--deleted-bg-color);
 }

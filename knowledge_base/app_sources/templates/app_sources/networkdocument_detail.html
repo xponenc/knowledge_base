@@ -1,100 +1,284 @@
-{% extends 'base.html' %}
+{% extends 'clear_base.html' %}
 
 {% load static %}
-{% load humanize %}
+
+
+{% block extra_css %}
+    <link href="{% static 'css/source.css' %}" rel="stylesheet">
+{% endblock %}
+
 
 {% block title %}{{ object.title }}{% endblock %}
 
 
 {% block breadcrumbs %}
-<nav aria-label="breadcrumb" class="mt-5">
-    <ol class="breadcrumb container">
-        <li class="breadcrumb-item"><a href="{{ object.storage.kb.get_absolute_url }}">База знаний {{ object.storage.kb.title }}</a></li>
-        <li class="breadcrumb-item">
-            <a href="{% url 'sources:cloudstorage_detail' object.storage.pk %}">
-                Облачное хранилище {{ object.storage.name }}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ object.storage.kb.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">База знаний {{ object.storage.kb.name }}</span>
             </a>
+            <meta itemprop="position" content="1" />
         </li>
-        <li class="breadcrumb-item active" aria-current="page">{{ object.title|default:"Сетевой документ" }}</li>
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{% url 'sources:cloudstorage_detail' object.storage.pk %}" itemprop="item">
+                <span itemprop="name">{{ object.storage.name }}</span>
+            </a>
+            <meta itemprop="position" content="2" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">Сетевой документ</span>
+            <meta itemprop="position" content="3" />
+        </li>
     </ol>
 </nav>
 {% endblock %}
 
 {% block content %}
-
-<h2>{{ object.title|default:"" }}</h2>
-
-<a href="{% url 'sources:networkdocument_update' object.id %}" class="btn btn-warning">Редактировать</a>
-
-<div class="card shadow-sm rounded-4 border-0 mb-4">
-    <div class="card-body">
-        <h3 class="card-title mb-3">Информация о сетевом документе</h3>
-
-        <p><strong>Статус:</strong> 
-        <span class="badge bg-info text-dark">{{ object.get_status_display }}</span>
-        </p>
-
-        <p><strong>Источник:</strong>
-        <a href="{{ object.storage.get_absolute_url }}">{{ object.storage.title }}</a>
-        </p>
-        
-        {% if object.tags %}
-        <p><strong>Теги:</strong> 
-        {% for tag in object.tags %}
-            <span class="badge bg-secondary">{{ tag }}</span>
-        {% endfor %}
-        </p>
-        {% endif %}
-
-        <div class="row row-cols-1 row-cols-md-2 g-2 mt-3">
-        <div><strong>Название:</strong> {{ object.title }}</div>
-        <div><strong>Описание:</strong> {{ object.description|default:"—" }}</div>
-        <div><strong>Формат передачи в базу знаний:</strong> {{ object.get_output_format_display }}</div>
-        <div><strong>Язык:</strong> {{ object.language|default:"—" }}</div>
-        <div><strong>Размер:</strong> {{ object.size|filesizeformat }}</div>
-        <div><strong>ID файла:</strong> {{ object.file_id|default:"—" }}</div>
-        <div><strong>Путь:</strong> <code>{{ object.path }}</code></div>
-        <div><strong>URL:</strong> <a href="{{ object.url }}">{{ object.url }}</a></div>
-        <div><strong>Обновлено в источнике:</strong> {{ object.remote_updated|date:"d.m.Y H:i" }}</div>
-        <div><strong>Обновлено в проекте:</strong> {{ object.local_updated|date:"d.m.Y H:i" }}</div>
-        <div><strong>Синхронизировано:</strong> {{ object.synchronized_at|date:"d.m.Y H:i" }}</div>
-        <div><strong>Создано:</strong> {{ object.created_at|date:"d.m.Y H:i" }}</div>
-        {% comment %} <div><strong>Обновлено:</strong> {{ object.updated_at|date:"d.m.Y H:i" }}</div> {% endcomment %}
-        <div><strong>Удалён мягко:</strong> 
-            {% if object.soft_deleted_at %}
-            {{ object.soft_deleted_at|date:"d.m.Y H:i" }}
-            {% else %}
-            —
-            {% endif %}
+<div class="page page--cloud">
+    <div class="page__top page__grid">
+        <div class="page__info info-page _jc-fs">
+            <span class="info-page__banner">источник</span>
+            <div class="info-page__header">
+                <h2 class="page__heading _ta-e">{{ object.title|default:object.path|default:object.url }}</h2>
+                <h3 class="info-page__heading _ta-e">Сетевой документ</h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading">Детали сетевого документа</h3>
+                <dl class="source__description--info description">
+                    <dt class="description__term">Описание</dt>
+                    <dd class="description__defination">{{ object.description|default:"" }}</dd>
+                    <dt class="description__term">Статус</dt>
+                    <dd class="description__defination">
+                        <span class="tag tag--fat{% if document.status == "ready" %} tag--success{% elif document.status == "de" %} tag--deleted{% elif document.status == "ex" %} tag--disabled {% elif document.status == "er" %} tag--alarm{% else %} tag--warning{% endif %}">
+                            {{ object.get_status_display  }}
+                        </span>
+                    </dd>
+                    <dt class="description__term">Формат вывода в БД</dt>
+                    <dd class="description__defination">
+                        <span class="tag tag--simple">{{ object.get_output_format_display }}</span>
+                    </dd>
+                    <dt class="description__term">Название</dt>
+                    <dd class="description__defination">{{ object.title }}</dd>
+                    <dt class="description__term">Путь</dt>
+                    <dd class="description__defination">{{ object.path }}</dd>
+                    <dt class="description__term">URL</dt>
+                    <dd class="description__defination">{{ object.url }}</dd>
+                    <dt class="description__term">Язык</dt>
+                    {% if object.language %}
+                        <dd class="description__defination">{{ object.language }}</dd>
+                        <dt class="description__term">Тэги</dt>
+                    {% endif %}
+                    <dd class="description__defination">
+                        <div class="tags">
+                            {% for tag in tags %}
+                                <span class="tag tag--simple">{{ tag }}</span>
+                            {% endfor %}
+                        </div>
+                    </dd>
+                    {% if object.error_message %}
+                        <dt class="description__term">Ошибки</dt>
+                        <dd class="description__defination"><span class="text text--fat">{{ object.error_message }}</span></dd>
+                    {% endif %}
+                    <dt class="description__term">Метаданные</dt>
+                    <dd class="description__defination">{{ object.metadata }}</dd>
+                    <dt class="description__term">Дата создания</dt>
+                    <dd class="description__defination">{{ object.created_at }}</dd>
+                    <dt class="description__term">Дата обновления</dt>
+                    <dd class="description__defination">{{ object.updated_at }}</dd>
+                    <dt class="description__term">Дата мягкого удаления</dt>
+                    <dd class="description__defination">{{ object.soft_deleted_at }}</dd>
+                    <dt class="description__term">Создан в рамках обновления</dt>
+                    <dd class="description__defination">
+                        <a href="{% url 'sources:cloudstorageupdatereport_detail' object.report.pk %}" class="link-marker">
+                            <span>Отчет обновления от {{ object.report.created_at|date:"d.m.Y H:i" }}</span>
+                            <svg class="link-marker__marker">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#report"></use>
+                        </a>
+                        </svg>
+                    </dd>
+                    <dt class="description__term">ID на облачном диске</dt>
+                    <dd class="description__defination">{{ object.file_id }}</dd>
+                </dl>
+            </div>
+            <div class="info-page__footer">
+                <div class="btns _jc-fe">
+                    <a href="{% url 'sources:networkdocument_update' object.id %}" class="btn btn--reset btn--round" title="Редактировать информацию по документу" aria-label="Редактировать информацию по документу">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                        </svg>
+                    </a>
+                </div>
+            </div>
         </div>
-        </div>
+        <div class="page__reports reports">
+            <div class="reports__header">
+                <h3 class="reports__heading _ta-e">Задачи по обновлению</h3>
+            </div>
+            <div class="reports__body">
+                <table class="elastic-table elastic-table_2-auto _mb">
+                    <thead class="elastic-table__thead">
+                        <tr class="elastic-table__tr">
+                            <th class="elastic-table__th">задача</th>
+                            <th class="elastic-table__th">статус</th>
+                        </tr>
+                    </thead>
+                    <tbody class="elastic-table__tbody">
+                        {% for task in object.tasks.all %}
+                            <tr class="elastic-table__tr">
+                                <td class="elastic-table__td">
+                                    <a href="{% url 'tasks:task_for_source_detail' task.pk %}" class="link-marker">
+                                        <div class="elastic-table__cell">
+                                            <span>Задача на изменение</span>
+                                            <span>{{ task.created_at|date:"d.m.Y H:i" }}</span>
+                                        </div>
+                                        <svg class="link-marker__marker">
+                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#gears"></use>
+                                        </svg>
+                                    </a>
+                                </td>
+                                <td class="elastic-table__td">
+                                    <span class="tag{% if task.status == "created" %} tag--warning{% elif task.status == "solved" %} tag--success{% else %} tag--deleted{% endif %}">
+                                        {{ task.get_status_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="reports__footer">
 
-        {% if object.error_message %}
-        <div class="alert alert-danger mt-4" role="alert">
-            <strong>Ошибка обработки:</strong><br>
-            {{ object.error_message }}
-        </div>
-        {% endif %}
-
-        {% if object.metadata %}
-        <div class="mt-4">
-        <h5>Метаданные</h5>
-        <pre class="bg-light p-2 rounded-3 small text-muted">{{ object.metadata|json_script:"metadata" }}</pre>
-        </div>
-        {% endif %}
-        <div>
-            <p>Задачи</p>
-            {% for task in object.tasks.all %}
-                <li>
-                    <p>{{ task }}</p>
-                    <p>{{ task.description }}</p>
-                    <p>{{ task.status }}</p>
-                    <p>{{ task.cloud_report.pk }}</p>
-                </li>
-            {% endfor %}
+            </div>
         </div>
     </div>
+    <article class="page__content">
+        <h3 class="page__subheading">История обновлений источника</h3>
+        <ul class="page__tree tree">
+            {% for raw_content in object.rawcontent_set.all %}
+                <li class="tree__row">
+                    <div class="tree__raw">
+                        <div class="tree__cell cell-tree">
+                            <div class="cell-tree__header">
+                                <h4 class="cell-tree__heading">Исходный контент</h4>
+                            </div>
+                            <div class="cell-tree__body">
+                                <dl class="cell-tree__description description--column">
+                                    <dt class="description__term">Статус</dt>
+                                    <dd class="description__defination">{{ raw_content.get_status_display }}</dd>
+                                    <dt class="description__term">Создан</dt>
+                                    <dd class="description__defination">{{ raw_content.created_at|date:"d.m.Y H:i" }}</dd>
+                                <dl>
+                                <div class="cell-tree__preview">
+                                    {% if raw_content.is_image %}
+                                        <img src="{{ raw_content.file.url }}" class="cell-tree__img" alt="preview">
+                                    {% else %}
+                                        <i class="cell-tree__icon bi {{ raw_content.get_icon_class }}"></i>
+                                    {% endif %}
+                                </div>
+                                <dl class="cell-tree__description description--column">
+                                    <dt class="description__term">Размер</dt>
+                                    <dd class="description__defination">{{ raw_content.file.size|filesizeformat }}</dd>
+                                    <dt class="description__term">Хеш контента</dt>
+                                    <dd class="description__defination">{{ raw_content.hash_content }}</dd>
+                                    <dt class="description__term">Автор</dt>
+                                    <dd class="description__defination">{{ raw_content.author.get_full_name|default:raw_content.author.username }}</dd>
+                                    <dt class="description__term">Создан в рамках обновления</dt>
+                                    <dd class="description__defination">
+                                        <a href="{% url 'sources:cloudstorageupdatereport_detail' raw_content.report.pk %}" class="link-marker">
+                                            <span>Отчет обновления от {{ raw_content.report.created_at|date:"d.m.Y H:i" }}</span>
+                                            <svg class="link-marker__marker">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#report"></use>
+                                        </a>
+                                        </svg>
+                                    </dd>
+                                <dl>
+                            </div>
+                            <div class="cell-tree__footer">
+                                <div class="btns _jc-fe">
+                                    <a href="{{ raw_content.file.url }}" target="_blank" class="btn btn--reset btn--round" title="Сохранить файл" aria-label="Сохранить файл">
+                                        <svg class="btn__icon">
+                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#download"></use>
+                                        </svg>
+                                    </a>
+                                    <a href="{% url 'sources:process_raw_content' raw_content.id %}" class="btn btn--reset btn--round" title="Распознать и создать очищенный контент" aria-label="Распознать и создать очищенный контент">
+                                        <svg class="btn__icon">
+                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#scan"></use>
+                                        </svg>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    <div class="tree__clean">
+                        <div class="tree__cell cell-tree">
+                            <div class="cell-tree__header">
+                                <h4 class="cell-tree__heading">Чистый контент</h4>
+                            </div>
+                            <div class="cell-tree__body">
+                                {% if raw_content.cleanedcontent %}
+                                    <dl class="cell-tree__description description--column">
+                                        <dt class="description__term">Статус</dt>
+                                        <dd class="description__defination">{{ raw_content.cleanedcontent.get_status_display }}</dd>
+                                        <dt class="description__term">Создан</dt>
+                                        <dd class="description__defination">{{ raw_content.cleanedcontent.created_at|date:"d.m.Y H:i" }}</dd>
+                                    <dl>
+                                    <div class="cell-tree__preview">
+                                        <p class="text">{{ raw_content.cleanedcontent.preview }}</p>
+                                    </div>
+                                    <dl class="cell-tree__description description--column">
+                                        <dt class="description__term">Размер</dt>
+                                        <dd class="description__defination">{{ raw_content.cleanedcontent.file.size|filesizeformat }}</dd>
+                                        <dt class="description__term">Автор</dt>
+                                        <dd class="description__defination">{{ raw_content.cleanedcontent.author.get_full_name|default:raw_content.cleanedcontent.author.username }}</dd>
+                                        
+                                    <dl>
+                                {% endif %}
+                            </div>
+                            {% if raw_content.cleanedcontent %}
+                                <div class="cell-tree__footer">
+                                    <div class="btns _jc-fe">
+                                        <a href="{{ raw_content.cleanedcontent.file.url }}" target="_blank" class="btn btn--reset btn--round" title="Сохранить файл" aria-label="Сохранить файл">
+                                            <svg class="btn__icon">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#download"></use>
+                                            </svg>
+                                        </a>
+                                        <a href="{% url 'sources:cleanedcontent_detail' raw_content.cleanedcontent.id %}" class="btn btn--reset btn--round" title="Посмотреть очищенный контент" aria-label="Посмотреть очищенный контент">
+                                            <svg class="btn__icon">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#download"></use>
+                                            </svg>
+                                        </a>
+                                        <a href="{% url 'sources:cleanedcontent_update' raw_content.cleanedcontent.id %}" class="btn btn--reset btn--round" title="Редактировать очищенный контент" aria-label="Редактировать очищенный контент">
+                                            <svg class="btn__icon">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                                            </svg>
+                                        </a>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="tree__chunk">
+                        <div class="tree__cell cell-tree">
+                            <div class="cell-tree__header">
+                                <h4 class="cell-tree__heading">Чанки</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tree__embedding">
+                        <div class="tree__cell cell-tree">
+                            <div class="cell-tree__header">
+                                <h4 class="cell-tree__heading">Вектора</h4>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+    </article>
 </div>
+
 
 
 <div class="container my-4">

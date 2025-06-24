@@ -67,10 +67,10 @@
         </div>
         <div class="page__reports reports">
             <div class="reports__header">
-                <h3 class="reports__heading">Отчеты по синхронизации</h3>
+                <h3 class="reports__heading _ta-e">Отчеты по синхронизации</h3>
             </div>
             <div class="reports__body">
-                <table class="elastic-table elastic-table_2-auto">
+                <table class="elastic-table elastic-table_2-auto _mb">
                     <thead class="elastic-table__thead">
                         <tr class="elastic-table__tr">
                             <th class="elastic-table__th">отчет</th>
@@ -78,14 +78,14 @@
                         </tr>
                     </thead>
                     <tbody class="elastic-table__tbody">
-                        {% for report in cloudstorage.reports.all %}
+                        {% for report in update_reports_last %}
                             <tr class="elastic-table__tr">
                                 <td class="elastic-table__td">
                                     <a href="{% url 'sources:cloudstorageupdatereport_detail' report.pk %}" class="link-marker">
                                         <div class="elastic-table__cell">
-                                            <span>{{ report }}</span>
+                                            <span>Отчет о синхронизации</span>
                                             <span>{{ report.created_at|date:"d.m.Y H:i" }}</span>
-                                            <span>{{ report.author.get_full_name|default:report.author }}</span>
+                                            <span>{{ report.author.get_full_name|default:report.author.username }}</span>
                                         </div>
                                         <svg class="link-marker__marker">
                                             <use xlink:href="{% static 'img/icons/sprite.svg' %}#gears"></use>
@@ -114,7 +114,18 @@
                     </tbody>
                 </table>
             </div>
-            <div class="reports__footer"></div>
+            <div class="reports__footer">
+                {% if update_report_count > 3 %}
+                <div class="btns _jc-fe">
+                    <a href="{% url 'sources:cloudstorageupdatereport_list' %}?storage={{ cloudstorage.pk }}" class="link-marker">
+                        <span>Посмотреть все отчеты</span>
+                        <svg class="link-marker__marker">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#gears"></use>
+                        </svg>
+                    </a>
+                </div>
+                {% endif %}
+            </div>
         </div>
     </div>
     <article class="page__content">

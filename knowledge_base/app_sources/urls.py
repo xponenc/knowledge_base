@@ -1,16 +1,19 @@
 from django.urls import path
 from .views import (CloudStorageListView, CloudStorageCreateView, CloudStorageDetailView, CloudStorageSyncView,
-    LocalStorageListView, LocalStorageCreateView,
-    LocalStorageDetailView, CloudStorageUpdateView, CloudStorageDeleteView, CloudStorageUpdateReportDetailView,
-    NetworkDocumentDetailView, NetworkDocumentListView, NetworkDocumentUpdateView, RawContentRecognizeCreateView,
-    RawContentDetailView, CleanedContentDetailView, CleanedContentUpdateView,
-    WebSiteDetailView, WebSiteCreateView, WebSiteUpdateView, WebSiteDeleteView,
-    WebSiteTestParseReportView, WebSiteUpdateReportDetailView, WebSiteTestParseView, WebSiteBulkParseView,
-    WebSiteSynchronizationView, URLDetailView, NetworkDocumentStatusUpdateView,
-    URLBatchDetailView, URLBatchCreateView, URLBatchUpdateView, URLBatchDeleteView)
+                    LocalStorageListView, LocalStorageCreateView,
+                    LocalStorageDetailView, CloudStorageUpdateView, CloudStorageDeleteView,
+                    CloudStorageUpdateReportDetailView,
+                    NetworkDocumentDetailView, NetworkDocumentListView, NetworkDocumentUpdateView,
+                    RawContentRecognizeCreateView,
+                    RawContentDetailView, CleanedContentDetailView, CleanedContentUpdateView,
+                    WebSiteDetailView, WebSiteCreateView, WebSiteUpdateView, WebSiteDeleteView,
+                    WebSiteTestParseReportView, WebSiteUpdateReportDetailView, WebSiteTestParseView,
+                    WebSiteBulkParseView,
+                    WebSiteSynchronizationView, URLDetailView, NetworkDocumentStatusUpdateView,
+                    URLBatchDetailView, URLBatchCreateView, URLBatchUpdateView, URLBatchDeleteView,
+                    CloudStorageUpdateReportListView)
 
 app_name = 'sources'
-
 
 urlpatterns = [
     path('cloud_storage/', CloudStorageListView.as_view(), name='cloudstorage_list'),
@@ -20,8 +23,13 @@ urlpatterns = [
     path('cloud_storage/<int:pk>/delete/', CloudStorageDeleteView.as_view(), name='cloudstorage_delete'),
 
     path('cloud_storage/<int:pk>/full-scan', CloudStorageSyncView.as_view(), name='cloudstorage_sync'),
-    path('storage-update-report/<int:pk>/', CloudStorageUpdateReportDetailView.as_view(),
+
+    path('storage-update-report/<int:pk>/',
+         CloudStorageUpdateReportDetailView.as_view(),
          name='cloudstorageupdatereport_detail'),
+    path('storage-update-report/',
+         CloudStorageUpdateReportListView.as_view(),
+         name='cloudstorageupdatereport_list'),
 
     path('local_storage/', LocalStorageListView.as_view(), name='localstorage_list'),
     path('local_storage/<int:pk>', LocalStorageDetailView.as_view(), name='localstorage_detail'),
@@ -43,7 +51,7 @@ urlpatterns = [
     path('website/<int:pk>/synchronization/', WebSiteSynchronizationView.as_view(), name='website_synchronization'),
 
     path('website-update-report/<int:pk>/', WebSiteUpdateReportDetailView.as_view(),
-             name='websiteupdatereport_detail'),
+         name='websiteupdatereport_detail'),
 
     # path('storage-update-report/<int:pk>/create-new-docs', NetworkDocumentsMassCreateView.as_view(),
     #      name='documents-mass-create'),

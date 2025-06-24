@@ -90,6 +90,17 @@ class CloudStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailV
         network_storage = self.object
         context = super().get_context_data()
 
+        # отчеты по обновлениям
+        update_report_count = CloudStorageUpdateReport.objects.filter(storage=network_storage).count()
+        context["update_report_count"] = update_report_count
+        # Передаём три последних отчёта
+        update_reports_last = (CloudStorageUpdateReport.objects
+                               .select_related("author")
+                               .filter(storage=network_storage)
+                               .defer("storage", "content", "running_background_tasks")
+                               .order_by("-created_at")[:3])
+        context["update_reports_last"] = update_reports_last
+
         source_statuses = [
             (status.value, status.display_name) for status in SourceStatus
         ]
@@ -153,7 +164,7 @@ class CloudStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailV
         page_obj = paginator.get_page(page_number)
 
         # Назначаем явно (0 или 1 элемент)
-        for doc in  page_obj.object_list:
+        for doc in page_obj.object_list:
             doc.active_rawcontent = doc.related_rawcontents[0] if doc.related_rawcontents else None
 
         # Формируем query string без page
@@ -324,6 +335,32 @@ class CloudStorageUpdateReportDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
+class CloudStorageUpdateReportListView(LoginRequiredMixin, ListView):
+    """Списковое отображение отчетов обновлений по облачному хранилищу"""
+    model = CloudStorageUpdateReport
+    context_object_name = "reports"
+    paginate_by = 10
+
+    def get_queryset(self):
+        storage_pk = self.request.GET.get("storage")
+        if not storage_pk:
+            return CloudStorageUpdateReport.objects.none()
+
+        try:
+            storage = CloudStorage.objects.select_related("kb").get(pk=storage_pk)
+        except CloudStorage.DoesNotExist:
+            return CloudStorageUpdateReport.objects.none()
+        if not storage.kb.owners.filter(pk=self.request.user.pk).exists():
+            return CloudStorageUpdateReport.objects.none()
+
+        queryset = (CloudStorageUpdateReport.objects
+                    .filter(storage=storage)
+                    .select_related("author")
+                    .defer("storage", "content", "running_background_tasks")
+                    .order_by("-created_at")[:3])
+        return queryset
+
+
 class WebSiteUpdateReportDetailView(LoginRequiredMixin, DetailView):
     """Детальный просмотр отчёта о парсинге сайта"""
     model = WebSiteUpdateReport
@@ -341,16 +378,16 @@ class WebSiteUpdateReportDetailView(LoginRequiredMixin, DetailView):
         #     body_preview_100=Left("body_preview", 100)  # Обрезаем до 100 символов
         # )
         new_urls = URLContent.objects.filter(report=self.object).select_related("url").annotate(
-                max_created_at=Subquery(
-                    URLContent.objects.filter(url=OuterRef("url"))
-                    .values("url")
-                    .annotate(max_created=Max("created_at"))
-                    .values("max_created")[:1]
-                ),
-                body_preview_301=Coalesce(Substr("body", 1, 301), Value("")),
-                url_pk=F("url_id"),
-                url_str=F("url__url"),
-            ).filter(created_at=F("max_created_at"))
+            max_created_at=Subquery(
+                URLContent.objects.filter(url=OuterRef("url"))
+                .values("url")
+                .annotate(max_created=Max("created_at"))
+                .values("max_created")[:1]
+            ),
+            body_preview_301=Coalesce(Substr("body", 1, 301), Value("")),
+            url_pk=F("url_id"),
+            url_str=F("url__url"),
+        ).filter(created_at=F("max_created_at"))
 
         # Добавление контекста по исполняемым фоновым задачам Celery
         running_background_tasks = report.running_background_tasks
@@ -366,6 +403,7 @@ class WebSiteUpdateReportDetailView(LoginRequiredMixin, DetailView):
         context['task_context'] = task_context
         context['new_urls'] = new_urls
         return context
+
 
 #
 # class NetworkDocumentsMassCreateView(LoginRequiredMixin, View):
@@ -661,6 +699,7 @@ class WebSiteDeleteView(LoginRequiredMixin, DeleteView):
 
 class WebSiteTestParseView(LoginRequiredMixin, StoragePermissionMixin, View):
     """Тестовый парсинг одной страницы с записью отчета"""
+
     def get(self, request, pk, *args, **kwargs):
         website = get_object_or_404(WebSite, pk=pk)
         parser_dispatcher = WebParserDispatcher()
@@ -786,6 +825,7 @@ class WebSiteTestParseView(LoginRequiredMixin, StoragePermissionMixin, View):
 
 class WebSiteBulkParseView(LoginRequiredMixin, StoragePermissionMixin, View):
     """Парсинг списка ссылок"""
+
     def get(self, request, pk, *args, **kwargs):
         website = get_object_or_404(WebSite, pk=pk)
         current_parser = None
@@ -1039,6 +1079,7 @@ class URLBatchDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView)
 
     def get(self, *args, **kwargs):
         return HttpResponse("Заглушка")
+
 
 class URLBatchCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateView):
     """Создание объекта модели Веб-коллекция URLBatch"""
