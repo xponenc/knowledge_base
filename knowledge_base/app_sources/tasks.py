@@ -79,8 +79,8 @@ def create_task_for_network_document(doc: NetworkDocument,
                                      current_raw_content: RawContent,
                                      new_raw_content: RawContent):
     """Создание задачи на изменения в системе при изменении контента сетевого документа NetworkDocument"""
-    content_comparison = ContentComparison(
-        content_type="Raw Content",
+    content_comparison = ContentComparison.objects.create(
+        content_type="raw_content",
         old_raw_content=current_raw_content,
         new_raw_content=new_raw_content,
     )
@@ -195,7 +195,6 @@ def process_cloud_files(
 
     # Словарь для быстрого доступа к документам по url
     db_documents_by_url = {doc.url: doc for doc in db_documents}
-    print("db_documents_by_url")
     incoming_urls_set = set(file["url"] for file in storage_files)
 
     # Определяем документы, отсутствующие в облаке, считаем их удалёнными
@@ -337,10 +336,20 @@ def process_cloud_files(
                 logger.info(f"[Document {doc.pk}] RawContent обновлён из кэша temp_path")
 
                 # Создание задачи для действий по изменению
-                create_task_for_network_document(doc=doc,
-                                                 storage_update_report=storage_update_report,
-                                                 current_raw_content=current_raw_content,
-                                                 new_raw_content=new_raw_content)
+                print(f"{doc.current_raw_content=}")
+                print(f"{new_raw_content=}")
+                try:
+                    create_task_for_network_document(doc=doc,
+                                                     storage_update_report=storage_update_report,
+                                                     current_raw_content=current_raw_content,
+                                                     new_raw_content=new_raw_content)
+                except Exception as e:
+                    logger.error(f"Ошибка при создании задачи на изменение контента NetworkDocument [id {doc.pk}]: {e}")
+                    new_raw_content.status = ContentStatus.ERROR.value
+                    new_raw_content.error_message = (f"Ошибка при создании задачи на изменение контента"
+                                                 f" NetworkDocument [id {doc.pk}]: {e}")
+                    new_raw_content.save()
+
 
             except Exception as e:
                 storage_update_report.content.setdefault("errors", []).append(
@@ -420,18 +429,24 @@ def download_and_process_file(
         logger.info(f"[Document {doc.pk}] Файл успешно обработан и сохранён.")
         if doc.status != SourceStatus.CREATED.value:
             # Создание задачи для действий по изменению
-            create_task_for_network_document(doc=doc,
-                                             storage_update_report=storage_update_report,
-                                             current_raw_content=doc.current_raw_content,
-                                             new_raw_content=raw_content)
-
+            try:
+                create_task_for_network_document(doc=doc,
+                                                 storage_update_report=storage_update_report,
+                                                 current_raw_content=doc.current_raw_content,
+                                                 new_raw_content=raw_content)
+            except Exception as e:
+                logger.error(f"Ошибка при создании задачи на изменение контента NetworkDocument [id {doc.pk}]: {e}")
+                raw_content.status = ContentStatus.ERROR.value
+                raw_content.error_message = (f"Ошибка при создании задачи на изменение контента"
+                                             f" NetworkDocument [id {doc.pk}]: {e}")
+                raw_content.save()
         else:
             doc.status = SourceStatus.READY.value
+            doc.save(update_fields=["status", ])
     except Exception as e:
         storage_update_report.content.setdefault("errors", []).append(
             f"[Document {doc.pk}] Ошибка при сохранении файла в БД: {e}")
         storage_update_report.status = ReportStatus.ERROR.value
-
         logger.error(f"[Document {doc.pk}] Ошибка при сохранении в БД: {e}")
         return doc.pk, "fail"
     finally:
@@ -468,6 +483,7 @@ def download_and_create_raw_content_parallel(self,
 
     for doc in documents:
         doc.current_raw_content = doc.related_rawcontents[0] if doc.related_rawcontents else None
+        print(doc, doc.current_raw_content)
 
     author = storage_update_report.author
 
@@ -514,17 +530,17 @@ def download_and_create_raw_content_parallel(self,
     return "Обработка завершена"
 
 
-@shared_task
-def download_and_create_raw_content(document_ids: list[int], update_report_id: int, max_workers: int = 5):
-    update_report = CloudStorageUpdateReport.objects.select_related("storage").get(pk=update_report_id)
-    cloud_storage = update_report.storage
-    documents = NetworkDocument.objects.filter(pk__in=document_ids)
-
-    results = []
-    for doc in documents:
-        download_and_process_file(doc=doc, cloud_storage=cloud_storage)
-
-    success = [pk for pk, status in results if status == "success"]
-    failed = [pk for pk, status in results if status == "fail"]
-
-    logger.info(f"Обработка завершена. Успешно: {len(success)}, Ошибки: {len(failed)}")
+# @shared_task
+# def download_and_create_raw_content(document_ids: list[int], update_report_id: int, max_workers: int = 5):
+#     update_report = CloudStorageUpdateReport.objects.select_related("storage").get(pk=update_report_id)
+#     cloud_storage = update_report.storage
+#     documents = NetworkDocument.objects.filter(pk__in=document_ids)
+#
+#     results = []
+#     for doc in documents:
+#         download_and_process_file(doc=doc, cloud_storage=cloud_storage)
+#
+#     success = [pk for pk, status in results if status == "success"]
+#     failed = [pk for pk, status in results if status == "fail"]
+#
+#     logger.info(f"Обработка завершена. Успешно: {len(success)}, Ошибки: {len(failed)}")

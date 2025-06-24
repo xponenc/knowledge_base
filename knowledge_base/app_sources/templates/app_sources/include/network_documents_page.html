@@ -18,7 +18,7 @@
                         <dl class="description">
                             <dt class="description__term">статус</dt>
                             <dd class="description__defination">
-                                <span class="tag tag--fat{% if document.status == "cr" %} tag--success{% elif document.status == "de" %} tag--deleted{% elif document.status == "ex" %} .tag--disabled{% else %} tag--alarm{% endif %}">
+                                <span class="tag tag--fat{% if document.status == "ready" %} tag--success{% elif document.status == "de" %} tag--deleted{% elif document.status == "ex" %} tag--disabled {% elif document.status == "er" %} tag--alarm{% else %} tag--warning{% endif %}">
                                     {{ document.get_status_display  }}
                                 </span>
                             </dd>

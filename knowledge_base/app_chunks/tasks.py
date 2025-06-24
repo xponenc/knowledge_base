@@ -5,9 +5,11 @@ from celery_progress.backend import ProgressRecorder
 from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch
 from openai import OpenAI
 
+from app_embeddings.services.embedding_config import system_instruction
+from app_embeddings.services.retrieval_engine import answer_index
 from app_sources.content_models import URLContent
 from app_sources.source_models import URL
-from test_db_zone.create_and_request_vectordb.test_db import system_instruction, answer_index, frida_vector_db
+
 
 
 def create_test_data(content:str, ai_prompt:str):
@@ -135,8 +137,11 @@ def test_model_answer(self,
             results[f"Тест {index + 1}"]["benchmark_question"] = benchmark_question
             results[f"Тест {index + 1}"]["benchmark_answer"] = benchmark_answer
 
-            ai_documents, ai_answer = answer_index(system_instruction, benchmark_question, frida_vector_db)
-            ai_documents_serialized = [{"metadata": doc.metadata, "content": doc.page_content, } for doc in ai_documents]
+            # ai_documents, ai_answer = answer_index(system_instruction, benchmark_question, vectorstore)
+            ai_documents, ai_answer = answer_index(system_instruction, benchmark_question, verbose=False)
+            # ai_documents_serialized = [{"metadata": doc.metadata, "content": doc.page_content, } for doc in ai_documents]
+            ai_documents_serialized = [{"score": float(doc_score), "metadata": doc.metadata, "content": doc.page_content, } for
+                               doc, doc_score in ai_documents]
             results[f"Тест {index + 1}"]["ai_documents"] = ai_documents_serialized
             results[f"Тест {index + 1}"]["ai_answer"] = ai_answer
             evaluation_report = get_model_response_evaluation(

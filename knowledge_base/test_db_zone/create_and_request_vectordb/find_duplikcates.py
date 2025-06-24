@@ -4,8 +4,8 @@ import numpy as np
 from collections import defaultdict
 
 # Путь к файлам
-faiss_index_path = "./frida_faiss_index_db/index.faiss"
-pkl_metadata_path = "./frida_faiss_index_db/index.pkl"
+faiss_index_path = "../../app_embeddings/embedding_store/frida_faiss_index_db/index.faiss"
+pkl_metadata_path = "../../app_embeddings/embedding_store/frida_faiss_index_db/index.pkl"
 
 # Загружаем метаданные
 with open(pkl_metadata_path, "rb") as f:

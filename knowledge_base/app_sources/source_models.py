@@ -60,7 +60,7 @@ class AbstractSource(TrackableModel):
                             default=list,
                             blank=True,
                             help_text="Категории в формате JSON, например ['news', 'tech', ]")
-    error_message = models.CharField(verbose_name="ошибка при обрабоотке",
+    error_message = models.CharField(verbose_name="ошибка при обработке",
                                      max_length=1000,
                                      null=True,
                                      blank=True,

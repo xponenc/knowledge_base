@@ -37,7 +37,7 @@
         <p><strong>Источник:</strong>
         <a href="{{ object.storage.get_absolute_url }}">{{ object.storage.title }}</a>
         </p>
-
+        
         {% if object.tags %}
         <p><strong>Теги:</strong> 
         {% for tag in object.tags %}
@@ -82,6 +82,17 @@
         <pre class="bg-light p-2 rounded-3 small text-muted">{{ object.metadata|json_script:"metadata" }}</pre>
         </div>
         {% endif %}
+        <div>
+            <p>Задачи</p>
+            {% for task in object.tasks.all %}
+                <li>
+                    <p>{{ task }}</p>
+                    <p>{{ task.description }}</p>
+                    <p>{{ task.status }}</p>
+                    <p>{{ task.cloud_report.pk }}</p>
+                </li>
+            {% endfor %}
+        </div>
     </div>
 </div>
 
@@ -117,6 +128,8 @@
                 {% if object.local_document %}
                     <dt class="col-sm-4">Локальный документ:</dt><dd class="col-sm-8">{{ object.local_document }}</dd>
                 {% endif %}
+                
+                <dt class="col-sm-4">статус:</dt><dd class="col-sm-8"><code>{{ object.get_status_display }}</code></dd>
                 <dt class="col-sm-4">Hash контента:</dt><dd class="col-sm-8"><code>{{ object.hash_content }}</code></dd>
                 <dt class="col-sm-4">Создан:</dt><dd class="col-sm-8">{{ object.created_at|date:"d.m.Y H:i" }}</dd>
                 <dt class="col-sm-4">Обновлен:</dt><dd class="col-sm-8">{{ object.updated_at|date:"d.m.Y H:i" }}</dd>

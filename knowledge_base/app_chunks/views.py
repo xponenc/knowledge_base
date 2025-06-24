@@ -4,35 +4,27 @@ import pickle
 import re
 import tempfile
 from collections import Counter
-from pathlib import Path
-from pprint import pprint
 
 import tiktoken
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse, JsonResponse
 from django.views import View
-from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch
-from django.db.models.functions import Left, Coalesce, Substr, Length
+from django.db.models import Subquery, OuterRef
+from django.db.models.functions import Length
 from django.http import StreamingHttpResponse
-from django.shortcuts import get_object_or_404, render, redirect
+from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
 
 from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
-from rest_framework import viewsets
-
-# from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma, FAISS
-from langchain_huggingface import HuggingFaceEmbeddings
-
-from openai import OpenAI
 
 from app_chunks.forms import ModelScoreTestForm
 from app_chunks.tasks import test_model_answer
+from app_embeddings.services.embedding_config import system_instruction
+from app_embeddings.services.retrieval_engine import answer_index
 from app_sources.content_models import URLContent
 from app_sources.source_models import URL
-from knowledge_base.settings import BASE_DIR
-from test_db_zone.create_and_request_vectordb.test_db import answer_index, system_instruction, frida_vector_db
+
 
 
 def split_markdown_text(markdown_text,
@@ -376,8 +368,10 @@ class TestAskFridaView(LoginRequiredMixin, View):
         user_message = request.POST.get('message', '').strip()
 
         if user_message:
-            docs, ai_message = answer_index(system_instruction, user_message, frida_vector_db)
-            docs_serialized = [{"metadata": doc.metadata, "content": doc.page_content, } for doc in docs]
+            docs, ai_message = answer_index(system_instruction, user_message, verbose=False)
+            docs_serialized = [
+                {"score": float(doc_score), "metadata": doc.metadata, "content": doc.page_content, }
+                for doc, doc_score in docs]
             ai_response = f"AI ответ: {ai_message}"
 
             # Добавляем сообщения в историю

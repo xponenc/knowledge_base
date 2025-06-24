@@ -30,8 +30,7 @@ from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedCo
 from app_sources.report_models import CloudStorageUpdateReport, WebSiteUpdateReport, ReportStatus
 from app_sources.source_models import NetworkDocument, URL, SourceStatus
 from app_sources.storage_models import CloudStorage, Storage, LocalStorage, WebSite, URLBatch
-from app_sources.tasks import process_cloud_files, download_and_create_raw_content, \
-    download_and_create_raw_content_parallel
+from app_sources.tasks import process_cloud_files
 from recognizers.dispatcher import ContentRecognizerDispatcher
 from utils.tasks import get_task_status
 
@@ -304,7 +303,6 @@ class CloudStorageUpdateReportDetailView(LoginRequiredMixin, DetailView):
         network_documents = report.networkdocument_set.select_related("report__storage", "storage").prefetch_related(
             Prefetch('rawcontent_set', queryset=rawcontent_qs, to_attr='related_rawcontents')
         )
-
         # Назначаем явно (0 или 1 элемент)
         for doc in network_documents:
             doc.created_rawcontent = doc.related_rawcontents[0] if doc.related_rawcontents else None
