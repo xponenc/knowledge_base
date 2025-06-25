@@ -16,6 +16,7 @@
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
+    background-color: var(--block-bg-color)
 }
 
 
@@ -29,6 +30,7 @@
 .cell-tree {
     display: flex;
     flex-direction: column;
+    overflow: hidden;
     padding: var(--gap-half);
     border: 1px solid var(--block-border-shadow-color);
     border-radius: var(--gap-half);

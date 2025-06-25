@@ -53,10 +53,24 @@
                     <dd class="description__defination">
                         <pre class="text">{{ website.pk }}</pre> 
                     </dd>
+                    <dt class="description__term">облако тегов</dt>
+                    <dd class="description__defination">
+                        {% comment %} <div class="tags">
+                            {% for tag in website.tags %}
+                                <span class="tag tag--simple">{{ tag }}</span>
+                            {% endfor %}
+                        </div> {% endcomment %}
+                    </dd>
                 </dl>
             </div>
             <div class="info-page__footer">
                 <div class="btns _jc-fe">
+                    <a href="{% url 'sources:storage_tags' 'website' website.pk %}" class="btn btn--reset btn--simple">
+                        <span>Управление тегами</span>
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#tags"></use>
+                        </svg>
+                    </a>
                 </div>
             </div>
         </div>
@@ -289,20 +303,64 @@
                                         {% endfor %}
                                     {% endfor %}
                                 </div>
-                                <div class="grader__header">
-                                    <h5 class="grader__heading">Ранжирование</h5>
-                                </div>
-                                <div class="grader__content grader__range range-grader">
-                                    <div class="range-grader__container">
-                                        <label class="range-grader__label" for="date_from">
-                                            <span>c </span>
-                                        </label>
-                                        <input class="range-grader__date js-filter" type="date" id="date_from" name="date_from" autocomplete="off" onchange="graderChexboxChange(event)"/>
-                                        <label class="range-grader__label" for="date_from"><span> по </span>
-                                        </label>
-                                        <input class="range-grader__date js-filter" type="date" id="date-to" name="date-to" autocomplete="off" onchange="graderChexboxChange(event)"/>
+                                {% for range_name, range_data in standard_range_list.items %}
+                                    <div class="grader__header">
+                                        <h5 class="grader__heading">{{ range_name }}</h5>
                                     </div>
-                                </div>
+                                    <div class="grader__content grader__range range-grader">
+                                        <div class="range-grader__container">
+                                            {% for range_value, range_name in range_data.pairs %}
+                                                <label class="range-grader__label" for="id_{{ range_value }}">
+                                                    <span>{{ range_name }} </span>
+                                                </label>
+                                                <input
+                                                    class="range-grader__date js-filter"
+                                                    type="{{ range_data.type }}"
+                                                    id="id_{{ range_value }}"
+                                                    name="{{ range_value }}"
+                                                    autocomplete="off"
+                                                    onchange="graderChexboxChange(event)"
+                                                    {% if request.GET|get:range_value %}
+                                                        {% if range_data.type == 'date' %}
+                                                            value="{{ request.GET|get:range_value|as_iso_date }}"
+                                                        {% else %}
+                                                            value="{{ request.GET|get:range_value }}"
+                                                        {% endif %}
+                                                    {% endif %}
+                                                />
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                                {% for range_name, range_data in nonstandard_range_list.items %}
+                                    <div class="grader__header">
+                                        <h5 class="grader__heading">{{ range_name }}</h5>
+                                    </div>
+                                    <div class="grader__content grader__range range-grader">
+                                        <div class="range-grader__container">
+                                            {% for range_value, range_name in range_data.pairs %}
+                                                <label class="range-grader__label" for="id_{{ range_value }}">
+                                                    <span>{{ range_name }} </span>
+                                                </label>
+                                                <input
+                                                    class="range-grader__date js-filter"
+                                                    type="{{ range_data.type }}"
+                                                    id="id_{{ range_value }}"
+                                                    name="{{ range_value }}"
+                                                    autocomplete="off"
+                                                    onchange="graderChexboxChange(event)"
+                                                    {% if request.GET|get:range_value %}
+                                                        {% if range_data.type == 'date' %}
+                                                            value="{{ request.GET|get:range_value|as_iso_date }}"
+                                                        {% else %}
+                                                            value="{{ request.GET|get:range_value }}"
+                                                        {% endif %}
+                                                    {% endif %}
+                                                />
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endfor %}
                                 <div class="grader__header">
                                     <h5 class="grader__heading">Сортировка</h5>
                                 </div>

@@ -1,6 +1,7 @@
 import csv
 import logging
 import os.path
+from datetime import datetime
 from pprint import pprint
 
 from dateutil.parser import parse
@@ -14,6 +15,7 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.utils import timezone
+from django.utils.timezone import make_aware
 from django.views import View
 from django.contrib import messages
 from django.views.generic import DetailView, ListView, CreateView, UpdateView, DeleteView
@@ -30,6 +32,7 @@ from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedCo
 from app_sources.report_models import CloudStorageUpdateReport, WebSiteUpdateReport, ReportStatus
 from app_sources.source_models import NetworkDocument, URL, SourceStatus
 from app_sources.storage_models import CloudStorage, Storage, LocalStorage, WebSite, URLBatch
+from app_sources.storage_views import StoragePermissionMixin
 from app_sources.tasks import process_cloud_files
 from recognizers.dispatcher import ContentRecognizerDispatcher
 from utils.tasks import get_task_status
@@ -37,18 +40,7 @@ from utils.tasks import get_task_status
 logger = logging.getLogger(__name__)
 
 
-class StoragePermissionMixin(UserPassesTestMixin):
-    """
-    Mixin для проверки прав доступа к хранилищу:
-    доступ разрешён только владельцу связанной базы знаний (KnowledgeBase) или суперпользователю.
-    """
 
-    def test_func(self):
-        if self.request.user.is_superuser:
-            return True
-        storage = self.get_object()
-        kb = getattr(storage, "knowledge_base", None)
-        return kb and kb.owner == self.request.user
 
 
 class DocumentPermissionMixin(UserPassesTestMixin):
@@ -549,6 +541,15 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
     """Детальный просмотр объекта модели Вебсайт (с проверкой прав доступа)"""
     model = WebSite
 
+
+    @staticmethod
+    def parse_date_param(param):
+        try:
+            # Преобразуем ISO-дату "YYYY-MM-DD" → datetime + timezone
+            return make_aware(datetime.strptime(param, "%Y-%m-%d"))
+        except (ValueError, TypeError):
+            return None
+
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
         context = self.get_context_data()
@@ -567,13 +568,8 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
         context = super().get_context_data(**kwargs)
         website = self.object
 
-        source_statuses = [
-            (status.value, status.display_name) for status in SourceStatus
-        ]
-
-        filters = {
-            "status": source_statuses
-        }
+        source_statuses = [(status.value, status.display_name) for status in SourceStatus]
+        filters = {"status": source_statuses}
 
         sorting_list = [
             ("-created_at", "дата создания по возрастанию"),
@@ -584,71 +580,149 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
             ("url", "url по убыванию"),
         ]
 
-        # Получаем параметры поиска и фильтрации из запроса
-        search_query = self.request.GET.get("search", "").strip()
-        status_filter = self.request.GET.getlist("status", None)
-        sorting = self.request.GET.get("sorting", None)
+        standard_range_list = {
+            "дата создания": {
+                "type": "date",
+                "pairs": (
+                    ("created_at__gte", "с"),
+                    ("created_at__lte", "по"),
+                ),
+            }
+        }
 
-        urls = website.url_set.order_by("title")
+        nonstandard_range_list = {
+            "длина контента (символов)": {
+                "annotations": {"urlcontent__body_length": Length("urlcontent__body")},
+                "type": "number",
+                "pairs": (
+                    ("urlcontent__body_length__gte", "от"),
+                    ("urlcontent__body_length__lte", "до"),
+                ),
+            },
+        }
 
+        request_get = self.request.GET
+        search_query = request_get.get("search", "").strip()
+        status_filter = request_get.getlist("status", None)
+        sorting = request_get.get("sorting", None)
+
+        urls = website.url_set.all()
+
+        # 🔍 Поиск
         if search_query:
             urls = urls.filter(
-                Q(title__icontains=search_query) |
-                Q(url__icontains=search_query)
+                Q(title__icontains=search_query) | Q(url__icontains=search_query)
             )
 
-        if status_filter:
-            valid_statuses = [status.value for status in SourceStatus]
-            # Оставляем только корректные значения
-            status_filter = [s for s in status_filter if s in valid_statuses]
-            if status_filter:
-                urls = urls.filter(status__in=status_filter)
+        # ✅ Статусы
+        # if status_filter:
+        #     valid_statuses = [status.value for status in SourceStatus]
+        #     filtered_statuses = [s for s in status_filter if s in valid_statuses]
+        #     if filtered_statuses:
+        #         urls = urls.filter(status__in=filtered_statuses)
 
-        if sorting:
-            valid_sorting = [value for value, name in sorting_list]
-            if sorting in valid_sorting:
-                urls = urls.order_by(sorting)
+        # 📅 Стандартный диапазон (даты)
+        standard_range_query = {}
+        for group in standard_range_list.values():
+            for param_key, _ in group["pairs"]:
+                raw_value = request_get.get(param_key)
+                if raw_value and raw_value.strip():
+                    aware_date = self.parse_date_param(raw_value)
+                    if aware_date:
+                        standard_range_query[param_key] = aware_date
+        # if standard_range_query:
+        #     urls = urls.filter(**standard_range_query)
 
-        url_content_qs = URLContent.objects.filter(
-            status=ContentStatus.READY.value
-        ).order_by("-created_at")[:1]
-        url_content_qs = URLContent.objects.order_by("-created_at")[:1]
+        # 🔧 Аннотации + нестандартный диапазон (числовые)
+        combined_annotations = {}
+        nonstandard_range_query = {}
+        for item in nonstandard_range_list.values():
+            item_annotations = item.get("annotations", {})
+            should_add_annotation = False
 
-        # Prefetch rawcontent_set → в each networkdocument.related_rawcontents будет список из 0 или 1
-        urls = urls.select_related(
-            "report__storage", "site"
-        ).prefetch_related(
-            Prefetch('urlcontent_set', queryset=url_content_qs, to_attr='related_urlcontents')
-        ).annotate(
-            urlcontent_total_count=Count('urlcontent')
-        )
+            for param_key, _ in item["pairs"]:
+                val = request_get.get(param_key)
+                if val is not None and val.strip() != "":
+                    try:
+                        if item.get("type") == "number":
+                            int_val = int(val.strip())
+                            nonstandard_range_query[param_key] = int_val
+                        else:
+                            nonstandard_range_query[param_key] = val.strip()
+                        should_add_annotation = True
+                    except ValueError:
+                        # Некорректное значение — пропускаем
+                        pass
 
+            if should_add_annotation:
+                combined_annotations.update(item_annotations)
+
+        # if combined_annotations:
+        #     urls = urls.annotate(**combined_annotations)
+        # if nonstandard_range_query:
+        #     urls = urls.filter(**nonstandard_range_query)
+
+        # ↕ Сортировка
+        # valid_sorting = [value for value, _ in sorting_list]
+        # if sorting in valid_sorting:
+        #     urls = urls.order_by(sorting)
+        # else:
+        #     urls = urls.order_by("title")
+
+        # TODO потом раскомментировать и убрать без фильтрации STATUS
+        # url_content_qs = URLContent.objects.filter(
+        #     status=ContentStatus.READY.value
+        # ).order_by("-created_at")[:1]
+        # url_content_qs = URLContent.objects.order_by("-created_at")[:1]
+        #
+        # urls = urls.select_related("report__storage", "site").prefetch_related(
+        #     Prefetch("urlcontent_set", queryset=url_content_qs, to_attr="related_urlcontents")
+        # ).annotate(
+        #     urlcontent_total_count=Count("urlcontent")
+        # )
+
+        # Подзапрос для получения самой последней записи URLContent для каждого URL
+        url_content_qs = URLContent.objects.filter(url_id=OuterRef("id")).order_by("-created_at")[:1]
+
+        # Основной запрос с аннотацией подзапроса
+        urls = website.url_set.select_related("report__storage", "site").annotate(
+            # urlcontent_total_count=Count("urlcontent"),
+            # latest_urlcontent_body=Subquery(url_content_qs.values("body")[:1]),
+            # latest_urlcontent_created_at=Subquery(url_content_qs.values("created_at")[:1])
+        ).order_by("title")[:3]
+
+        # 📄 Пагинация
         paginator = Paginator(urls, 3)
-        page_number = self.request.GET.get("page")
+        page_number = request_get.get("page")
         page_obj = paginator.get_page(page_number)
 
-        # Назначаем явно (0 или 1 элемент)
-        for url in page_obj.object_list:
-            print(url.related_urlcontents)
-            url.active_urlcontent = url.related_urlcontents[0] if url.related_urlcontents else None
+        # # 🎯 Назначаем active_urlcontent
+        # for url in page_obj.object_list:
+        #     url.active_urlcontent = url.related_urlcontents[0] if url.related_urlcontents else None
 
-        # Формируем query string без page
-        query_params = self.request.GET.copy()
-        query_params.pop('page', None)
+        # 🧩 Query string без page
+        query_params = request_get.copy()
+        query_params.pop("page", None)
         paginator_query = query_params.urlencode()
         if paginator_query:
-            paginator_query += '&'
+            paginator_query += "&"
 
-        context["page_obj"] = page_obj
-        context["paginator_query"] = paginator_query
-        context["paginator"] = paginator
-        context["urls"] = page_obj.object_list
-        context["is_paginated"] = page_obj.has_other_pages()
-        context["search_query"] = search_query
-        context["status_filter"] = status_filter
-        context["source_statuses"] = source_statuses
-        context["filters"] = filters
-        context["sorting_list"] = sorting_list
+        # 📦 Контекст
+        context.update({
+            "page_obj": page_obj,
+            "paginator_query": paginator_query,
+            "paginator": paginator,
+            "urls": page_obj.object_list,
+            "is_paginated": page_obj.has_other_pages(),
+            "search_query": search_query,
+            "status_filter": status_filter,
+            "source_statuses": source_statuses,
+            "filters": filters,
+            "sorting_list": sorting_list,
+            "standard_range_list": standard_range_list,
+            "nonstandard_range_list": nonstandard_range_list,
+        })
+
         return context
 
 
@@ -1111,21 +1185,25 @@ class URLDetailView(LoginRequiredMixin, DocumentPermissionMixin, DetailView):
 
 
 class RawContentRecognizeCreateView(LoginRequiredMixin, View):
-    def get(self, request, pk):
+    def get(self, request, pk, *args, **kwargs):
         raw_content = get_object_or_404(RawContent, pk=pk)
+        document = raw_content.network_document
+        storage = document.storage
+        kb = storage.kb
+        context = {
+            "content": raw_content,
+            "document": document,
+            "storage": storage,
+            "kb": kb,
+        }
+        # форма выбора класса распознавателя
         dispatcher = ContentRecognizerDispatcher()
         file_extension = raw_content.file_extension()
-        # available = dispatcher.get_recognizers_for_extension(ext)
-        # print(f"{available=}")
-        #
-        # recognizer_choices = [(r.name, r.label) for r in available]
         recognizers = dispatcher.get_recognizers_for_extension(file_extension)
         form = ContentRecognizerForm(recognizers=recognizers)
+        context["form"] = form
+        return render(request, "app_sources/rawcontent_recognize.html", context)
 
-        return render(request, "app_sources/rawcontent_recognize.html", {
-            "raw_content": raw_content,
-            "form": form,
-        })
 
     def post(self, request, pk):
         raw_content = get_object_or_404(RawContent, pk=pk)
@@ -1148,6 +1226,8 @@ class RawContentRecognizeCreateView(LoginRequiredMixin, View):
                 recognition_quality_report = recognizer_report.get("quality_report", {})
                 if not recognized_text.strip():
                     raise ValueError("Не удалось распознать текст.")
+                # Уничтожение существующего CleanedContent
+                CleanedContent.objects.filter(raw_content=raw_content).delete()
 
                 # Создаём CleanedContent без файла
                 cleaned_content = CleanedContent.objects.create(
@@ -1171,10 +1251,18 @@ class RawContentRecognizeCreateView(LoginRequiredMixin, View):
                 return redirect("sources:cleanedcontent_detail", pk=cleaned_content.pk)
             except Exception as e:
                 messages.error(request, f"Ошибка при обработке файла: {e}")
-        return render(request, "app_sources/rawcontent_recognize.html", {
-            "raw_content": raw_content,
+        print(form.errors)
+        document = raw_content.network_document
+        storage = document.storage
+        kb = storage.kb
+        context = {
+            "content": raw_content,
+            "document": document,
+            "storage": storage,
+            "kb": kb,
             "form": form,
-        })
+        }
+        return render(request, "app_sources/rawcontent_recognize.html", context)
 
 
 class RawContentDetailView(LoginRequiredMixin, DetailView):

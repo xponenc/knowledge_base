@@ -71,7 +71,7 @@
                     {% endif %}
                     <dd class="description__defination">
                         <div class="tags">
-                            {% for tag in tags %}
+                            {% for tag in objects.tags %}
                                 <span class="tag tag--simple">{{ tag }}</span>
                             {% endfor %}
                         </div>
@@ -152,7 +152,7 @@
             </div>
         </div>
     </div>
-    <article class="page__content">
+    <article class="page__content _mb">
         <h3 class="page__subheading">История обновлений источника</h3>
         <ul class="page__tree tree">
             {% for raw_content in object.rawcontent_set.all %}
@@ -239,14 +239,15 @@
                             {% if raw_content.cleanedcontent %}
                                 <div class="cell-tree__footer">
                                     <div class="btns _jc-fe">
-                                        <a href="{{ raw_content.cleanedcontent.file.url }}" target="_blank" class="btn btn--reset btn--round" title="Сохранить файл" aria-label="Сохранить файл">
+                                        <a href="{{ raw_content.cleanedcontent.file.url }}" download class="btn btn--reset btn--round" title="Сохранить файл" aria-label="Сохранить файл">
                                             <svg class="btn__icon">
                                                 <use xlink:href="{% static 'img/icons/sprite.svg' %}#download"></use>
                                             </svg>
                                         </a>
-                                        <a href="{% url 'sources:cleanedcontent_detail' raw_content.cleanedcontent.id %}" class="btn btn--reset btn--round" title="Посмотреть очищенный контент" aria-label="Посмотреть очищенный контент">
+                                        <a href="{% url 'sources:cleanedcontent_detail' raw_content.cleanedcontent.id %}" class="btn btn--reset btn--simple" title="Посмотреть очищенный контент" aria-label="Посмотреть очищенный контент">
+                                            <span>Посмотреть</span>
                                             <svg class="btn__icon">
-                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#download"></use>
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#details"></use>
                                             </svg>
                                         </a>
                                         <a href="{% url 'sources:cleanedcontent_update' raw_content.cleanedcontent.id %}" class="btn btn--reset btn--round" title="Редактировать очищенный контент" aria-label="Редактировать очищенный контент">
@@ -264,6 +265,8 @@
                             <div class="cell-tree__header">
                                 <h4 class="cell-tree__heading">Чанки</h4>
                             </div>
+                            <div class="cell-tree__body">
+                            </div>
                         </div>
                     </div>
                     <div class="tree__embedding">
@@ -271,147 +274,14 @@
                             <div class="cell-tree__header">
                                 <h4 class="cell-tree__heading">Вектора</h4>
                             </div>
+                            <div class="cell-tree__body">
+                            </div>
                         </div>
                     </div>
                 </li>
             {% endfor %}
         </ul>
     </article>
+    {% include "include/object_history.html" %}
 </div>
-
-
-
-<div class="container my-4">
-    <h4 class="mb-3">История обновлений источника</h4>
-
-    {% for object in object.rawcontent_set.all %}
-        <div class="card mb-4 shadow-sm border-0 rounded-4{% if object.cleanedcontent %}  border-success bg-light {% endif %}">
-        <div class="card-body">
-            <div class="row align-items-center">
-            <div class="col-md-2 text-center">
-                {% if object.is_image %}
-                <img src="{{ object.file.url }}" class="img-fluid rounded" alt="preview">
-                {% else %}
-                <i class="bi {{ object.get_icon_class }} fs-1 text-secondary"></i>
-                {% endif %}
-                <p class="mt-2">
-                <a href="{{ object.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
-                    Скачать файл
-                </a>
-                </p>
-            </div>
-
-            <div class="col-md-10">
-                <dl class="row mb-0">
-                {% if object.url %}
-                    <dt class="col-sm-4">Источник URL:</dt><dd class="col-sm-8">{{ object.url }}</dd>
-                {% endif %}
-                {% if object.network_document %}
-                    <dt class="col-sm-4">Сетевой документ:</dt><dd class="col-sm-8">{{ object.network_document }}</dd>
-                {% endif %}
-                {% if object.local_document %}
-                    <dt class="col-sm-4">Локальный документ:</dt><dd class="col-sm-8">{{ object.local_document }}</dd>
-                {% endif %}
-                
-                <dt class="col-sm-4">статус:</dt><dd class="col-sm-8"><code>{{ object.get_status_display }}</code></dd>
-                <dt class="col-sm-4">Hash контента:</dt><dd class="col-sm-8"><code>{{ object.hash_content }}</code></dd>
-                <dt class="col-sm-4">Создан:</dt><dd class="col-sm-8">{{ object.created_at|date:"d.m.Y H:i" }}</dd>
-                <dt class="col-sm-4">Обновлен:</dt><dd class="col-sm-8">{{ object.updated_at|date:"d.m.Y H:i" }}</dd>
-                <dt class="col-sm-4">Автор:</dt><dd class="col-sm-8">{{ object.author }}</dd>
-                </dl>
-
-                {% if object.cleanedcontent %}
-                <div class="border-top mt-3 pt-3">
-                <h6 class="text-success">Очищенный контент</h6>
-                <dl class="row mb-0">
-                    <dt class="col-sm-4">Файл:</dt>
-                    <dd class="col-sm-8">
-                    <i class="bi {{ object.cleanedcontent.get_icon_class }} fs-4 text-secondary"></i>
-                    <a href="{{ object.cleanedcontent.file.url }}" target="_blank" download>Скачать очищенный файл</a>
-                    </dd>
-                    <dt class="col-sm-4">Создан:</dt><dd class="col-sm-8">{{ object.cleanedcontent.created_at|date:"d.m.Y H:i" }}</dd>
-                    <dt class="col-sm-4">Обновлен:</dt><dd class="col-sm-8">{{ object.cleanedcontent.updated_at|date:"d.m.Y H:i" }}</dd>
-                    <dt class="col-sm-4">Автор:</dt><dd class="col-sm-8">{{ object.cleanedcontent.author }}</dd>
-                </dl>
-                <a href="{% url 'sources:cleanedcontent_detail' object.cleanedcontent.id %}" class="btn btn-sm btn-outline-secondary mt-2 pe-3 pe-lg-4">
-                    <i class="bi bi-file-earmark-text"></i> Посмотреть очищенный контент
-                </a>
-                <a href="{% url 'sources:cleanedcontent_update' object.cleanedcontent.id %}" class="btn btn-sm btn-outline-secondary mt-2">
-                    <i class="bi bi-pencil-square"></i> Редактировать очищенный контент
-                </a>
-                </div>
-                {% else %}
-                <a href="{% url 'sources:process_raw_content' object.id %}" class="btn btn-sm btn-outline-success mt-3">
-                    <i class="bi bi-magic"></i> Распознать и создать очищенный контент
-                </a>
-                {% endif %}
-            </div>
-            </div>
-        </div>
-        </div>
-    {% empty %}
-        <p class="text-muted">Нет загруженного исходного контента.</p>
-    {% endfor %}
-</div>
-
-
-
-
-<hr>
-<h3>История изменений</h3>
-{% if object.history %}
-    <table class="table table-sm table-bordered">
-        <thead>
-            <tr>
-                <th>Когда</th>
-                <th>Кто</th>
-                <th>Действие</th>
-                <th>Изменения</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for entry in object.history|dictsortreversed:"timestamp" %}
-                <tr>
-                    <td>{{ entry.timestamp }}</td>
-                    <td>{{ entry.username }}</td>
-                    <td>{{ entry.action }}</td>
-                    <td>
-                        <ul>
-                            {% for key, val in entry.changes.items %}
-                                <li>
-                                    <strong>{{ key }}</strong>:
-                                    {% if val.from and val.to %}
-                                        <span class="text-muted">{{ val.from }}</span> → <span class="text-success">{{ val.to }}</span>
-                                    {% elif val.added or val.removed %}
-                                        {% if val.added %}
-                                            добавлено:
-                                            <ul>
-                                                {% for item in val.added %}
-                                                    <li>{{ item.username }}</li>
-                                                {% endfor %}
-                                            </ul>
-                                        {% endif %}
-                                        {% if val.removed %}
-                                            удалено:
-                                            <ul>
-                                                {% for item in val.removed %}
-                                                    <li>{{ item.username }}</li>
-                                                {% endfor %}
-                                            </ul>
-                                        {% endif %}
-                                    {% else %}
-                                        {{ val }}
-                                    {% endif %}
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-{% else %}
-    <p class="text-muted">История пуста.</p>
-{% endif %}
-
 {% endblock %}

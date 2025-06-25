@@ -1,0 +1,192 @@
+/* Стилицзация choices.js
+.custom-choices */
+
+.custom-choices.choices {
+    margin-bottom: 0;
+    min-height: 45px;
+    width: 100%;
+    color: var(--input-text-color);
+
+}
+
+.custom-field:has(.custom-choices.choices .custom-field__input_empty) {
+    display: none;
+    visibility: hidden;
+}
+
+form input[value="addresses_form"]~.crm-form__container .field-container:has(.custom-field .custom-choices.choices .custom-field__input_empty)::after {
+    content: "Для данного абонента нет действующих адресов";
+    margin-bottom: var(--gap);
+    font-size: max(11px, 0.9em);
+    font-weight: 700;
+    opacity: 0.7;
+}
+
+.custom-choices.choices::after,
+.custom-choices.choices[data-type*=select-one]:after {
+    border-color: var(--form-input-border-color) transparent transparent;
+}
+
+.custom-choices.choices.is-open::after,
+.custom-choices.choices[data-type*=select-one].is-open::after {
+    border-color: transparent transparent var(--form-input-border-color);
+}
+
+.custom-choices.choices .choices__inner {
+    padding: calc(var(--field-padding) - 4px);
+    height: 100%;
+    min-height: 45px;
+    border: 1px solid var(--form-input-border-color);
+    border-radius: var(--gap-half);
+    transition: border-color ease-in-out 0.3s;
+}
+
+.custom-choices.custom-choices_hb.choices .choices__inner {
+    border: none;
+    border-bottom: 1px solid var(--form-input-border-color);
+    border-left: 1px solid var(--form-input-border-color);
+    border-radius: unset;
+}
+
+.custom-choices.choices:hover .choices__inner,
+.custom-choices.choices:focus-within .choices__inner {
+    border-color: var(--form-input-border-hover-color);
+}
+
+.custom-choices.choices .choices__inner .choices__input[type="search"] {
+    background-color: inherit;
+    caret-color: var(--carret-color);
+    color: var(--input-text-color);
+}
+
+.custom-choices_transparent.choices .choices__inner .choices__list {
+    background-color: var(--choice-bg-color);
+}
+
+.choices .choices__inner .choices__item.choices__item--selectable {
+    background-color: transparent;
+    color: var(--input-text-color);
+    border-color: var(--accent-color);
+}
+
+.choices .choices__inner .choices__item.choices__item--selectable .choices__button {
+    background-image: none;
+    border-left: 1px solid var(--accent-color);
+}
+
+.choices .choices__inner .choices__list--single .choices__item.choices__item--selectable .choices__button {
+    border-left: none;
+}
+
+.choices .choices__inner .choices__item.choices__item--selectable .choices__button::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 55%;
+    height: 2px;
+    background-color: var(--accent-color);
+    transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.choices .choices__inner .choices__item.choices__item--selectable .choices__button::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 55%;
+    height: 2px;
+    background-color: var(--accent-color);
+    transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.custom-choices.choices .choices__list.choices__list--dropdown {
+    z-index: 6000;
+    border: 1px solid var(--form-input-border-color);
+    border-radius: var(--gap-half);
+}
+
+.custom-choices.custom-choices_hb.choices .choices__list.choices__list--dropdown {
+    border-radius: unset;
+}
+
+
+.custom-choices.choices .choices__list.choices__list--dropdown .choices__input {
+    background-color: inherit;
+    caret-color: var(--carret-color);
+    color: var(--input-text-color);
+    border-bottom: 1px solid var(--form-input-border-color);
+}
+
+.custom-choices.choices .choices__list.choices__list--dropdown .choices__input::placeholder {
+    opacity: 0.5;
+}
+
+.custom-choices.choices .choices__list.choices__list--dropdown .choices__placeholder {
+    opacity: 0.8;
+}
+
+.custom-choices.choices .choices__list.choices__list--dropdown .choices__item--selectable {
+    transition-property: background-color, color;
+    transition-timing-function: ease-in-out;
+    transition-duration: 0.3s;
+}
+
+.custom-choices.choices .choices__list.choices__list--dropdown .choices__item--selectable:not(:last-child) {
+    border-bottom: 1px solid var(--form-input-border-color);
+}
+
+.custom-choices.choices .choices__list.choices__list--dropdown .choices__item--selectable.is-highlighted {
+    color: var(--choice-highlighted-text-color);
+    background-color: var(--choice-highlighted-color);
+}
+
+.custom-choices.choices .choices__list.choices__list--dropdown .choices__item--selectable.is-selected {
+    border: none;
+    color: var(--choice-selected-color);
+    background-color: var(--choice-highlighted-color);
+    font-weight: 600;
+}
+
+.custom-choices.choices .choices__list.choices__list--dropdown .choices__item--selectable.is-selected.is-highlighted {
+    color: var(--choice-highlighted-text-color);
+}
+
+.custom-choices.choices .choices__list.choices__list--dropdown .choices__item--selectable.is-selected:not(:last-child) {
+    border-bottom: 1px solid var(--form-input-border-color);
+}
+
+.custom-choices.choices .choices__list--dropdown .choices__item--selectable.is-highlighted::after,
+.custom-choices.choices .choices__list[aria-expanded] .choices__item--selectable.is-highlighted::after {
+    transition: opacity ease-in-out 0.3s;
+}
+
+
+.custom-choices_transparent.choices {
+    background-color: inherit;
+}
+
+.custom-choices_transparent.choices .choices__inner,
+.custom-choices_transparent.choices.is-disabled .choices__inner {
+    background-color: inherit;
+}
+
+.custom-choices_transparent.choices .choices__inner .choices__list {
+    background-color: inherit;
+}
+
+.custom-choices_transparent.choices .choices__list.choices__list--dropdown {
+    border: 1px solid var(--form-input-border-color);
+    border-radius: var(--gap-half);
+    background-color: inherit;
+}
+
+.custom-choices_transparent.choices .choices__list.choices__list--dropdown .choices__list,
+.custom-choices_transparent.choices .choices__list[aria-expanded] .choices__list {
+    background-color: inherit;
+}
+
+.custom-choices_transparent.choices .choices__list.choices__list--dropdown .choices__input {
+    background-color: inherit;
+    caret-color: var(--carret-color);
+}

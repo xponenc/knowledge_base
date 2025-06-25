@@ -18,7 +18,7 @@
 }
 
 .breadcrumb-item+.breadcrumb-item::before {
-    content: "›";
+    content: "\203A";
     color: var(--text-color-mute);
     margin: 0 8px;
 }

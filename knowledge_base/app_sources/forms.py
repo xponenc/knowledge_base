@@ -68,8 +68,12 @@ class CloudStorageForm(forms.ModelForm):
 
 
 class ContentRecognizerForm(forms.Form):
-    recognizer = forms.ChoiceField(label="Распознаватель", choices=[],
-                                   widget=forms.Select(attrs={"class": "form-select"}))
+    recognizer = forms.ChoiceField(label="Метод распознавания", choices=[],
+                                   widget=forms.Select(
+                                       attrs={
+                                           "class": "custom-field__input custom-field__input_wide",
+                                           "placeholder": "",
+                                       }))
 
     def __init__(self, *args, recognizers=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -78,9 +82,14 @@ class ContentRecognizerForm(forms.Form):
             for cls in (recognizers or [])
         ]
         self.fields["recognizer"].choices = choices
-        self.fields["recognizer"].widget.attrs.update({
-                    "class": "form-select",
-                })
+        # self.fields["recognizer"].widget.attrs.update({
+        #             "class": "custom-field__input",
+        #         })
+        # self.fields['description'].widget.attrs.update({
+        #     'class': 'custom-field__input custom-field__input_textarea custom-field__input_wide',
+        #     'placeholder': ' ',
+        # })
+
 
     def clean_recognizer(self):
         value = self.cleaned_data["recognizer"]

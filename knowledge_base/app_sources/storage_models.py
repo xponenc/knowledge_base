@@ -18,6 +18,10 @@ class Storage(TrackableModel, SoftDeleteModel):
     kb = models.ForeignKey(KnowledgeBase, verbose_name="база знаний", on_delete=models.CASCADE)
 
     name = models.CharField(max_length=200, help_text="название")
+    tags = models.JSONField(verbose_name="список тегов",
+                            default=list,
+                            blank=True,
+                            help_text="Категории в формате JSON, например ['news', 'tech', ]")
     description = models.CharField(verbose_name="описание", max_length=1000, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

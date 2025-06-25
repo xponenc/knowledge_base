@@ -7,6 +7,7 @@
     --local-accent-color: #6f5a4b;
     --website-accent-color: #e64709;
     --urlbatch-accent-color: #673147;
+    --content-accent-color: #0c3d48;
 }
 
 .page--kb {
@@ -37,6 +38,12 @@
     --banner-color: var(--urlbatch-accent-color);
     --header-color: var(--urlbatch-accent-color);
     --accent-color: var(--urlbatch-accent-color);
+}
+
+.page--content {
+    --banner-color: var(--content-accent-color);
+    --header-color: var(--content-accent-color);
+    --accent-color: var(--content-accent-color);
 }
 
 .page__heading {
@@ -89,6 +96,16 @@
     border-radius: var(--gap-half);
 }
 
+.page__warning {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin:calc(-1 * var(--gap-half));
+    margin-bottom: var(--gap-half);
+    padding: var(--gap-half);
+    background-color: var(--warning-bg-color);
+}
+
 .page__grader .form__container {
     display: grid;
     align-items: center;
@@ -116,20 +133,30 @@
 
 .info-page--cloud {
     --banner-color: var(--cloud-accent-color);
+    --header-color: var(--cloud-accent-color);
     --accent-color: var(--cloud-accent-color);
 }
 .info-page--local {
     --banner-color: var(--local-accent-color);
+    --header-color: var(--local-accent-color);
     --accent-color: var(--local-accent-color);
 }
 
 .info-page--website {
     --banner-color: var(--website-accent-color);
+    --header-color: var(--website-accent-color);
     --accent-color: var(--website-accent-color);
 }
 .info-page--urlbatch {
     --banner-color: var(--urlbatch-accent-color);
+    --header-color: var(--urlbatch-accent-color);
     --accent-color: var(--urlbatch-accent-color);
+}
+
+.info-page--content {
+    --banner-color: var(--content-accent-color);
+    --header-color: var(--content-accent-color);
+    --accent-color: var(--content-accent-color);
 }
 
 .info-page:has(.info-page__banner) {

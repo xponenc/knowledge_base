@@ -5,7 +5,7 @@
     right: 0;
     background-color: var(--navbar-bg-color);
     color: var(--navbar-text-color);
-    z-index: 1000;
+    z-index: 10000;
     padding: 0.5rem 1rem;
     height: var(--navbar-height);
     box-shadow: 0 2px 6px var(--navbar-shadow-color);

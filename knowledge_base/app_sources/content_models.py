@@ -9,6 +9,7 @@ from django.db import models
 from django.db.models import CheckConstraint, Q
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
+from django.urls import reverse_lazy
 from django.utils.text import slugify
 
 from app_sources.report_models import WebSiteUpdateReport, CloudStorageUpdateReport
@@ -142,6 +143,9 @@ class RawContent(Content):
         }
         return icon_map.get(ext, 'bi-file-earmark')
 
+    def get_absolute_url(self):
+        return reverse_lazy("sources:rawcontent_detail", kwargs={"pk": self.pk})
+
 
 def get_cleaned_file_path(instance, filename):
     """Генерирует путь и имя файла для CleanedContent"""
@@ -152,7 +156,8 @@ def get_cleaned_file_path(instance, filename):
     if instance.local_document or instance.network_document:
         document = instance.local_document if instance.local_document else instance.network_document
         base_path = 'source_content/document_content'
-        return f'{base_path}/document_{document.id}_{timestamp}_cleaned_content.txt'
+        prefix_name = "network_document" if instance.network_document else "local_document"
+        return f'{base_path}/{prefix_name}_{document.id}_{timestamp}_cleaned_content.txt'
     return None
 
 
@@ -172,6 +177,9 @@ class CleanedContent(Content):
     @staticmethod
     def get_icon_class(self):
         return 'bi-filetype-txt'
+
+    def get_absolute_url(self):
+        return reverse_lazy("sources:cleanedcontent_detail", kwargs={"pk": self.pk})
 
 
 @receiver(post_delete, sender=RawContent)
@@ -214,3 +222,6 @@ class URLContent(Content):
     class Meta:
         verbose_name = "URL Cleaned Content"
         verbose_name_plural = "URL Cleaned Contents"
+
+    def get_absolute_url(self):
+        return reverse_lazy("sources:urlcontent_detail", kwargs={"pk": self.pk})

@@ -1,17 +1,15 @@
 from django.urls import path
-from .views import (CloudStorageListView, CloudStorageCreateView, CloudStorageDetailView, CloudStorageSyncView,
-                    LocalStorageListView, LocalStorageCreateView,
-                    LocalStorageDetailView, CloudStorageUpdateView, CloudStorageDeleteView,
-                    CloudStorageUpdateReportDetailView,
-                    NetworkDocumentDetailView, NetworkDocumentListView, NetworkDocumentUpdateView,
-                    RawContentRecognizeCreateView,
-                    RawContentDetailView, CleanedContentDetailView, CleanedContentUpdateView,
-                    WebSiteDetailView, WebSiteCreateView, WebSiteUpdateView, WebSiteDeleteView,
-                    WebSiteTestParseReportView, WebSiteUpdateReportDetailView, WebSiteTestParseView,
-                    WebSiteBulkParseView,
-                    WebSiteSynchronizationView, URLDetailView, NetworkDocumentStatusUpdateView,
-                    URLBatchDetailView, URLBatchCreateView, URLBatchUpdateView, URLBatchDeleteView,
-                    CloudStorageUpdateReportListView)
+
+from app_sources.views import CloudStorageListView, CloudStorageDetailView, CloudStorageCreateView, \
+    CloudStorageUpdateView, CloudStorageDeleteView, CloudStorageSyncView, CloudStorageUpdateReportDetailView, \
+    CloudStorageUpdateReportListView, LocalStorageListView, LocalStorageDetailView, LocalStorageCreateView, \
+    WebSiteDetailView, WebSiteCreateView, WebSiteUpdateView, WebSiteDeleteView, URLBatchDetailView, URLBatchCreateView, \
+    URLBatchUpdateView, URLBatchDeleteView, WebSiteTestParseView, WebSiteTestParseReportView, WebSiteBulkParseView, \
+    WebSiteSynchronizationView, WebSiteUpdateReportDetailView, NetworkDocumentDetailView, NetworkDocumentListView, \
+    NetworkDocumentUpdateView, NetworkDocumentStatusUpdateView, RawContentRecognizeCreateView, RawContentDetailView, \
+    CleanedContentDetailView, CleanedContentUpdateView, URLDetailView
+
+from app_sources.storage_views import StorageTagsView
 
 app_name = 'sources'
 
@@ -72,5 +70,7 @@ urlpatterns = [
     path('cleaned-content/<int:pk>/update', CleanedContentUpdateView.as_view(), name='cleanedcontent_update'),
 
     path('url/<int:pk>', URLDetailView.as_view(), name='url_detail'),
+
+    path('<str:storage_type>/<int:storage_pk>/tags/', StorageTagsView.as_view(), name='storage_tags'),
 
 ]

@@ -26,7 +26,6 @@
 
 <h2>{{ object.title|default:"" }}</h2>
 
-<a href="{% url 'sources:networkdocument_update' object.id %}" class="btn btn-warning">Редактировать</a>
 
 <div class="card shadow-sm rounded-4 border-0 mb-4">
     <div class="card-body">
@@ -100,6 +99,8 @@
                     <dt class="col-sm-4">Создан:</dt><dd class="col-sm-8">{{ content.created_at|date:"d.m.Y H:i" }}</dd>
                     <dt class="col-sm-4">Обновлен:</dt><dd class="col-sm-8">{{ content.updated_at|date:"d.m.Y H:i" }}</dd>
                     <dt class="col-sm-4">Автор:</dt><dd class="col-sm-8">{{ content.author }}</dd>
+                    <dt class="col-sm-4">tags:</dt><dd class="col-sm-8">{{ content.tags }}</dd>
+                    <dt class="col-sm-4">metadata:</dt><dd class="col-sm-8">{{ content.metadata }}</dd>
                     </dl>
                     <a class="btn btn-primary" href="{% url 'chunks:create_chunks_from_url_content' content.pk %}">Создать чанки</a>
                     <div class="border-top mt-3 pt-3">

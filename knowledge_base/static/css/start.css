@@ -125,6 +125,13 @@
   --carret-color: var(--text-color);
   --placeholder-color: var(--text-color);
 
+    /* choices */
+  --choice-bg-color: inherit;
+  --choice-dropdown-bg-color: var(--block-bg-color);
+  --choice-highlighted-color: #efeff0;
+  --choice-highlighted-text-color: #262626;
+  --choice-selected-color: var(--accent-color);
+
 }
 
 * {
@@ -504,7 +511,9 @@ fieldset {
 
 
 
-.text {}
+.text {
+  margin-bottom: 4px;
+}
 
 .text--fat {
   font-weight: 600;

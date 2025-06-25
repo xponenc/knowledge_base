@@ -1,0 +1,139 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+{% load humanize %}
+{% load custom_filters %}
+{% load status_tags %}
+
+{% block extra_css %}
+    <link href="{% static 'css/storage.css' %}" rel="stylesheet">
+    <link href="{% static 'libs/choices/choices.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/custom_choices.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a href="{{ storage.kb.get_absolute_url }}" itemprop="item">
+            <span itemprop="name">База знаний {{ storage.kb.name }}</span>
+        </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a href="{{ storage.get_absolute_url }}" itemprop="item">
+            <span itemprop="name">База знаний {{ storage.name }}</span>
+        </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+        <span itemprop="name">Облако тегов</span>
+        <meta itemprop="position" content="2" />
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block title %}{{ storage.name }}{% endblock %}
+
+{% block content %}
+<div class="page page--{{ storage_type }}">
+    <div class="page__top page__grid">
+        <div class="page__info info-page">
+            <span class="info-page__banner">ВЕБ-САЙТ</span>
+            <div class="info-page__header">
+                <h2 class="page__heading _ta-e">{{ storage.name }}</h2>
+                <h3 class="info-page__heading  _ta-e">{{ storage.base_url }}</h3>
+            </div>
+            <div class="info-page__body">
+                
+            </div>
+            <div class="info-page__footer">
+                
+            </div>
+        </div>
+        <div></div>
+        <div class="page__info info-page">
+            <div class="info-page__header">
+                <h2 class="page__heading">Облако тегов</h2>
+                <h3 class="info-page__heading"></h3>
+                <p class="text text--muted">Используется для фильтрации источников
+                </p>
+            </div>
+            <div class="info-page__body">
+                {% with form=storage_tags_update_form %}
+                    <form action="{% url 'sources:storage_tags' storage_type storage.pk %}" method="POST" class="form">
+                        {% csrf_token %}
+                        {% include "widgets/_form_content-widget.html" %}
+                        <button class="btn btn--reset btn--simple" type="submit">
+                            сохранить
+                        </button>
+                    </form>
+                {% endwith %}
+            </div>
+            <div class="info-page__footer">
+                <div class="btns _jc-fe">
+                    
+                </div>
+            </div>
+        </div>
+        <div class="page__info info-page">
+            <div class="info-page__header">
+                <h2 class="page__heading">Сканирование тегов источников</h2>
+                <h3 class="info-page__heading"></h3>
+                <p class="text text--muted">Будут отсканированы все теги источников на заданную в форме глубину и добавлены в облако тегов хранлища. 
+                    На данный момент максимальная глубина тегов по хранилищу:  <span class="text text--fat">{{ longest_tags|length }}</span>. 
+                </p>
+                <p class="text text--muted">Пример: <span class="text text--fat">{{ longest_tags|join:", " }}</span>
+                </p>
+            </div>
+            <div class="info-page__body">
+                {% with form=storage_tags_scan_form %}
+                    <form action="{% url 'sources:storage_tags' storage_type storage.pk %}" method="POST" class="form">
+                        {% csrf_token %}
+                        {% include "widgets/_form_content-widget.html" %}
+                        <button class="btn btn--reset btn--simple" type="submit">
+                            Сканировать
+                        </button>
+                    </form>
+                {% endwith %}
+            
+            </div>
+            <div class="info-page__footer">
+                <div class="btns _jc-fe">
+                    
+                </div>
+            </div>
+        </div>
+        
+    </div>
+
+    <article class="page__content">
+        
+        <h3 class="page__subheading">🗂️ Источники</h3>
+        <form class="page__grader form" action="" method="GET" id="url-filter-form">
+            {% csrf_token %}
+            {% comment %} {% include "widgets/_form_content-widget.html" %} {% endcomment %}
+            
+        <form>
+    
+    </article>
+</div>
+{% endblock content %}
+
+{% block script %}
+    <script src="{% static 'libs/choices/choices.min.js' %}"></script>
+    <script>
+            new Choices("#id_executors", {
+                allowHTML: true,
+                classNames: {
+                    containerOuter: 'choices custom-choices custom-choices_transparent',
+                },
+                position: 'down',
+                searchEnabled: true,
+                itemSelectText: 'Выберите исполнителя',
+                removeItems: true,
+                removeItemButton: true,
+                // renderChoiceLimit: 5,
+            })
+    </script>
+{% endblock script%}
