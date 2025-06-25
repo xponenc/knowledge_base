@@ -36,14 +36,16 @@ function setGraderStatus(currentGrader) {
     const graderFilterRange = currentGrader.querySelectorAll(".js-filter[type='date']");
     const graderSorters = currentGrader.querySelectorAll(".js-sort");
     const graderResetSort = currentGrader.querySelector(".js-reset-sort");
+    const graderSelect = currentGrader.querySelector("#id_tags");
 
-    console.log(graderFilterCheckBox)
-    console.log("CHECKED FIELDS:", [...graderFilterCheckBox].filter(x => x.checked).map(x => x.value));
-
-
+    // Проверка чекбоксов
     let checkedOneCheckBox = Array.prototype.slice.call(graderFilterCheckBox).some(x => x.checked);
+    // Проверка диапазонов
     let filledOneCheckBox = Array.prototype.slice.call(graderFilterRange).some(x => x.value);
-    if (checkedOneCheckBox || filledOneCheckBox) {
+    // Проверка выбранных тегов в <select>
+    let hasSelectedTags = graderSelect && Array.from(graderSelect.options).some(option => option.selected);
+
+    if (checkedOneCheckBox || filledOneCheckBox || hasSelectedTags) {
         graderFilterIcon.classList.remove("visually-hidden");
     } else {
         graderFilterIcon.classList.add("visually-hidden");

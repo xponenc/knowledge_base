@@ -4,12 +4,15 @@ import pickle
 import re
 import tempfile
 from collections import Counter
+from datetime import datetime
 
 import tiktoken
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import NotSupportedError
 from django.http import HttpResponse, JsonResponse
+from django.utils.timezone import make_aware
 from django.views import View
-from django.db.models import Subquery, OuterRef
+from django.db.models import Subquery, OuterRef, Q, Prefetch, Count
 from django.db.models.functions import Length
 from django.http import StreamingHttpResponse
 from django.shortcuts import render, redirect
@@ -23,8 +26,8 @@ from app_chunks.tasks import test_model_answer
 from app_embeddings.services.embedding_config import system_instruction
 from app_embeddings.services.retrieval_engine import answer_index
 from app_sources.content_models import URLContent
-from app_sources.source_models import URL
-
+from app_sources.source_models import URL, SourceStatus
+from app_sources.storage_models import WebSite
 
 
 def split_markdown_text(markdown_text,
@@ -235,6 +238,7 @@ def save_documents_to_response(request, documents, is_ajax=False):
             os.unlink(temp_file_path)
         return HttpResponse(f"Error serializing documents: {str(e)}", status=500)
 
+
 class ChunkCreateFromURLContentView(LoginRequiredMixin, View):
     """Создание чанков из URLContent"""
 
@@ -273,52 +277,147 @@ class ChunkCreateFromURLContentView(LoginRequiredMixin, View):
 class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
     """Создание чанков из URLContent"""
 
+    @staticmethod
+    def parse_date_param(param):
+        try:
+            # Преобразуем ISO-дату "YYYY-MM-DD" → datetime + timezone
+            return make_aware(datetime.strptime(param, "%Y-%m-%d"))
+        except (ValueError, TypeError):
+            return None
+
+    @staticmethod
+    def parse_int_param(param):
+        try:
+            return int(param) if param else None
+        except (ValueError, TypeError):
+            return None
+
     def post(self, request, pk):
-        #    # Получаем параметры из POST-запроса
+        website = WebSite.objects.get(pk=pk)
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-        status = request.POST.get('status')
-        response_status = request.POST.get('response_status')
 
-        def parse_int_param(param):
-            try:
-                return int(request.POST.get(param)) if request.POST.get(param) else None
-            except (ValueError, TypeError):
-                return None
+        standard_range_filter = {
+            "дата создания": {
+                "type": "date",
+                "pairs": (
+                    ("created_at__gte", "с"),
+                    ("created_at__lte", "по"),
+                ),
+            }
+        }
+        nonstandard_range_filter = {
+            "длина контента (символов)": {
+                "annotations": {"urlcontent__body_length": Length("urlcontent__body")},
+                "type": "number",
+                "pairs": (
+                    ("urlcontent__body_length__gte", "от"),
+                    ("urlcontent__body_length__lte", "до"),
+                ),
+            }
+        }
 
-        body_length_min = parse_int_param('min_body_length')
-        body_length_max = parse_int_param('max_body_length')
+        # Получаем параметры из POST
+        search_query = request.POST.get("search", "").strip()
+        status_filter = request.POST.getlist("status", None)
+        tags_filter = request.POST.getlist("tags", None)
+        print(search_query)
+        print(status_filter)
+        print(tags_filter)
 
-        # Подзапросы для получения последнего URLContent
-        latest_content = URLContent.objects.filter(
-            url=OuterRef('pk')
-        ).order_by('-created_at')
+        urls = website.url_set.all()
 
-        urls_qs = URL.objects.filter(site_id=pk).annotate(
-            latest_content_id=Subquery(latest_content.values('id')[:1]),
-            latest_content_title=Subquery(latest_content.values('title')[:1]),
-            latest_content_status=Subquery(latest_content.values('status')[:1]),
-            latest_content_response_status=Subquery(latest_content.values('response_status')[:1]),
-            latest_content_tags=Subquery(latest_content.values('tags')[:1]),
-            latest_content_error_message=Subquery(latest_content.values('error_message')[:1]),
-            latest_content_body_length=Subquery(
-                latest_content.annotate(body_length=Length('body')).values('body_length')[:1]
-            ),
-        )
+        # 🔍 Поиск
+        if search_query:
+            urls = urls.filter(
+                Q(title__icontains=search_query) | Q(url__icontains=search_query)
+            )
 
-        # Фильтрация
-        if status:
-            urls_qs = urls_qs.filter(latest_content_status=status)
-        if response_status:
-            urls_qs = urls_qs.filter(latest_content_response_status=response_status)
-        if body_length_min is not None:
-            urls_qs = urls_qs.filter(latest_content_body_length__gte=body_length_min)
-        if body_length_max is not None:
-            urls_qs = urls_qs.filter(latest_content_body_length__lte=body_length_max)
+        # ✅ Статусы
+        if status_filter:
+            valid_statuses = [status.value for status in SourceStatus]
+            filtered_statuses = [s for s in status_filter if s in valid_statuses]
+            if filtered_statuses:
+                urls = urls.filter(status__in=filtered_statuses)
+
+        # 🏷 Фильтрация по тегам
+        # Версия для PostgreSQL
+        # if tags_filter:
+        #     # Фильтруем URL, у которых есть URLContent с указанными тегами
+        #     urls = urls.filter(
+        #         urlcontent__tags__contains=tags_filter
+        #     ).distinct()
+
+        if tags_filter:
+            # Получаем ID всех URLContent, где tags содержат хотя бы один тег из tags_filter
+            urlcontent_ids = URLContent.objects.filter(
+                url__site=website
+            ).values_list("id", "tags")
+            matching_url_ids = set()
+            for uc_id, tags in urlcontent_ids:
+                if tags and any(tag in tags for tag in tags_filter):
+                    url_id = URLContent.objects.get(id=uc_id).url_id
+                    matching_url_ids.add(url_id)
+            urls = urls.filter(id__in=matching_url_ids).distinct()
+
+        # 📅 Стандартный диапазон (даты)
+        standard_range_query = {}
+        for group in standard_range_filter.values():
+            for param_key, _ in group["pairs"]:
+                raw_value = request.POST.get(param_key)
+                if raw_value and raw_value.strip():
+                    aware_date = self.parse_date_param(raw_value)
+                    if aware_date:
+                        standard_range_query[param_key] = aware_date
+        if standard_range_query:
+            urls = urls.filter(**standard_range_query)
+
+        # 🔧 Аннотации + нестандартный диапазон (числовые)
+        combined_annotations = {}
+        nonstandard_range_query = {}
+        for item in nonstandard_range_filter.values():
+            item_annotations = item.get("annotations", {})
+            should_add_annotation = False
+
+            for param_key, _ in item["pairs"]:
+                val = request.POST.get(param_key)
+                if val is not None and val.strip() != "":
+                    try:
+                        if item["type"] == "number":
+                            int_val = self.parse_int_param(val.strip())
+                            if int_val is not None:
+                                nonstandard_range_query[param_key] = int_val
+                                should_add_annotation = True
+                    except ValueError:
+                        pass
+
+            if should_add_annotation:
+                combined_annotations.update(item_annotations)
+
+        if combined_annotations:
+            urls = urls.annotate(**combined_annotations)
+        if nonstandard_range_query:
+            urls = urls.filter(**nonstandard_range_query)
 
         # Получаем только последние URLContent для отфильтрованных URL
-        latest_ids = urls_qs.values_list("latest_content_id", flat=True)
-        url_contents = URLContent.objects.select_related("url").filter(id__in=latest_ids)
+        url_content_qs = URLContent.objects.filter(url_id=OuterRef("id")).order_by("-created_at")[:1]
+        urls = urls.prefetch_related(
+            Prefetch(
+                "urlcontent_set",
+                queryset=URLContent.objects.filter(id__in=Subquery(url_content_qs.values("id"))),
+                to_attr="related_urlcontents"
+            )
+        ).annotate(
+            urlcontent_total_count=Count("urlcontent")
+        )
 
+        # Собираем URLContent
+        url_contents = []
+        for url in urls:
+            if url.related_urlcontents:
+                url_contents.append(url.related_urlcontents[0])
+
+        print(url_contents)
+        print("Длина сета", len(url_contents))
         documents = []
         for url_content in url_contents:
             url = url_content.url.url

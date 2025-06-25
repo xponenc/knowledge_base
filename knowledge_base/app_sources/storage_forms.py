@@ -8,10 +8,11 @@ class StorageTagsForm(forms.ModelForm):
     tags = forms.MultipleChoiceField(
         choices=[],
         required=False,
-        widget=forms.CheckboxSelectMultiple(
+        widget=forms.SelectMultiple(
             attrs={
                 "class": "custom-field__input custom-field__input_wide",
                 "placeholder": "",
+                "multiple": "multiple",
             }),
         label="Теги",
     )
@@ -24,7 +25,12 @@ class StorageTagsForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         if self.instance and isinstance(self.instance.tags, list):
-            self.initial['tags'] = self.instance.tags
+            choices = [
+                (choice, choice) for choice in self.instance.tags
+            ]
+            if not choices:
+                choices = [("", "Нет доступных тегов")]
+            self.fields["tags"].choices = choices
 
     def clean_tags(self):
         # Список -> JSON (в Django JSONField можно сохранять как list)

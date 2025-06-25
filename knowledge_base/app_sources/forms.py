@@ -90,7 +90,6 @@ class ContentRecognizerForm(forms.Form):
         #     'placeholder': ' ',
         # })
 
-
     def clean_recognizer(self):
         value = self.cleaned_data["recognizer"]
         module_name, class_name = value.rsplit(".", 1)

@@ -51,31 +51,6 @@
                 
             </div>
         </div>
-        <div></div>
-        <div class="page__info info-page">
-            <div class="info-page__header">
-                <h2 class="page__heading">Облако тегов</h2>
-                <h3 class="info-page__heading"></h3>
-                <p class="text text--muted">Используется для фильтрации источников
-                </p>
-            </div>
-            <div class="info-page__body">
-                {% with form=storage_tags_update_form %}
-                    <form action="{% url 'sources:storage_tags' storage_type storage.pk %}" method="POST" class="form">
-                        {% csrf_token %}
-                        {% include "widgets/_form_content-widget.html" %}
-                        <button class="btn btn--reset btn--simple" type="submit">
-                            сохранить
-                        </button>
-                    </form>
-                {% endwith %}
-            </div>
-            <div class="info-page__footer">
-                <div class="btns _jc-fe">
-                    
-                </div>
-            </div>
-        </div>
         <div class="page__info info-page">
             <div class="info-page__header">
                 <h2 class="page__heading">Сканирование тегов источников</h2>
@@ -104,36 +79,50 @@
                 </div>
             </div>
         </div>
-        
     </div>
-
-    <article class="page__content">
-        
-        <h3 class="page__subheading">🗂️ Источники</h3>
-        <form class="page__grader form" action="" method="GET" id="url-filter-form">
-            {% csrf_token %}
-            {% comment %} {% include "widgets/_form_content-widget.html" %} {% endcomment %}
-            
-        <form>
-    
-    </article>
+    <div class="page__content">
+        <div class="page__info info-page">
+            <div class="info-page__header">
+                <h2 class="page__heading">Облако тегов</h2>
+                <h3 class="info-page__heading"></h3>
+                <p class="text text--muted">Используется для фильтрации источников
+                </p>
+            </div>
+            <div class="info-page__body">
+                {% with form=storage_tags_update_form %}
+                    <form action="{% url 'sources:storage_tags' storage_type storage.pk %}" method="POST" class="form">
+                        {% csrf_token %}
+                        {% include "widgets/_form_content-widget.html" %}
+                        <button class="btn btn--reset btn--simple" type="submit">
+                            сохранить
+                        </button>
+                    </form>
+                {% endwith %}
+            </div>
+            <div class="info-page__footer">
+                <div class="btns _jc-fe">
+                    
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock content %}
 
 {% block script %}
     <script src="{% static 'libs/choices/choices.min.js' %}"></script>
     <script>
-            new Choices("#id_executors", {
+            new Choices("#id_tags", {
                 allowHTML: true,
                 classNames: {
                     containerOuter: 'choices custom-choices custom-choices_transparent',
                 },
                 position: 'down',
                 searchEnabled: true,
-                itemSelectText: 'Выберите исполнителя',
+                itemSelectText: 'Выберите теги',
                 removeItems: true,
                 removeItemButton: true,
-                // renderChoiceLimit: 5,
+                renderChoiceLimit: 5,
             })
     </script>
 {% endblock script%}

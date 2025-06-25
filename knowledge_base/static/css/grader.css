@@ -129,6 +129,7 @@
     padding: var(--gap-half);
     border: 1px solid var(--grader-active-border-color);
     border-radius: var(--gap-half);
+    background-color: inherit;
     transform: translateY(10px);
     background-color: inherit;
     transition-property: opacity, transform, visibility;
@@ -143,6 +144,10 @@
     transform: translateY(0);
 }
 
+.grader__section {
+    background-color: inherit;
+}
+
 .grader__header {
     text-transform: uppercase;
     opacity: 0.5;
@@ -154,7 +159,7 @@
 }
 .grader__content {
     padding: var(--gap-half);
-
+    background-color: inherit;
 }
 
 .grader__icon {

@@ -541,7 +541,6 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
     """Детальный просмотр объекта модели Вебсайт (с проверкой прав доступа)"""
     model = WebSite
 
-
     @staticmethod
     def parse_date_param(param):
         try:
@@ -567,6 +566,8 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         website = self.object
+
+        available_tags = website.tags
 
         source_statuses = [(status.value, status.display_name) for status in SourceStatus]
         filters = {"status": source_statuses}
@@ -605,6 +606,7 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
         search_query = request_get.get("search", "").strip()
         status_filter = request_get.getlist("status", None)
         sorting = request_get.get("sorting", None)
+        tags_filter = request_get.getlist("tags", None)
 
         urls = website.url_set.all()
 
@@ -615,11 +617,32 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
             )
 
         # ✅ Статусы
-        # if status_filter:
-        #     valid_statuses = [status.value for status in SourceStatus]
-        #     filtered_statuses = [s for s in status_filter if s in valid_statuses]
-        #     if filtered_statuses:
-        #         urls = urls.filter(status__in=filtered_statuses)
+        if status_filter:
+            valid_statuses = [status.value for status in SourceStatus]
+            filtered_statuses = [s for s in status_filter if s in valid_statuses]
+            if filtered_statuses:
+                urls = urls.filter(status__in=filtered_statuses)
+
+        # 🏷 Фильтрация по тегам
+
+        # Версия для PostgreSQL
+        # if tags_filter:
+        #     # Фильтруем URL, у которых есть URLContent с указанными тегами
+        #     urls = urls.filter(
+        #         urlcontent__tags__contains=tags_filter
+        #     ).distinct()
+
+        if tags_filter:
+            # Получаем ID всех URLContent, где tags содержат хотя бы один тег из tags_filter
+            urlcontent_ids = URLContent.objects.filter(
+                url__site=website
+            ).values_list("id", "tags")
+            matching_url_ids = set()
+            for uc_id, tags in urlcontent_ids:
+                if tags and any(tag in tags for tag in tags_filter):
+                    url_id = URLContent.objects.get(id=uc_id).url_id
+                    matching_url_ids.add(url_id)
+            urls = urls.filter(id__in=matching_url_ids).distinct()
 
         # 📅 Стандартный диапазон (даты)
         standard_range_query = {}
@@ -630,8 +653,8 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
                     aware_date = self.parse_date_param(raw_value)
                     if aware_date:
                         standard_range_query[param_key] = aware_date
-        # if standard_range_query:
-        #     urls = urls.filter(**standard_range_query)
+        if standard_range_query:
+            urls = urls.filter(**standard_range_query)
 
         # 🔧 Аннотации + нестандартный диапазон (числовые)
         combined_annotations = {}
@@ -657,17 +680,17 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
             if should_add_annotation:
                 combined_annotations.update(item_annotations)
 
-        # if combined_annotations:
-        #     urls = urls.annotate(**combined_annotations)
-        # if nonstandard_range_query:
-        #     urls = urls.filter(**nonstandard_range_query)
+        if combined_annotations:
+            urls = urls.annotate(**combined_annotations)
+        if nonstandard_range_query:
+            urls = urls.filter(**nonstandard_range_query)
 
         # ↕ Сортировка
-        # valid_sorting = [value for value, _ in sorting_list]
-        # if sorting in valid_sorting:
-        #     urls = urls.order_by(sorting)
-        # else:
-        #     urls = urls.order_by("title")
+        valid_sorting = [value for value, _ in sorting_list]
+        if sorting in valid_sorting:
+            urls = urls.order_by(sorting)
+        else:
+            urls = urls.order_by("title")
 
         # TODO потом раскомментировать и убрать без фильтрации STATUS
         # url_content_qs = URLContent.objects.filter(
@@ -680,16 +703,30 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
         # ).annotate(
         #     urlcontent_total_count=Count("urlcontent")
         # )
+        #
+        # # Подзапрос для получения самой последней записи URLContent для каждого URL
+        # url_content_qs = URLContent.objects.filter(url_id=OuterRef("id")).order_by("-created_at")[:1]
+        #
+        # # Основной запрос с аннотацией подзапроса
+        # urls = urls.select_related("report__storage", "site").annotate(
+        #     urlcontent_total_count=Count("urlcontent"),
+        #     # latest_urlcontent_body=Subquery(url_content_qs.values("body")[:1]),
+        #     # latest_urlcontent_created_at=Subquery(url_content_qs.values("created_at")[:1])
+        # )
 
-        # Подзапрос для получения самой последней записи URLContent для каждого URL
+        # Подзапрос для последней записи URLContent для каждого URL
         url_content_qs = URLContent.objects.filter(url_id=OuterRef("id")).order_by("-created_at")[:1]
 
-        # Основной запрос с аннотацией подзапроса
-        urls = website.url_set.select_related("report__storage", "site").annotate(
-            # urlcontent_total_count=Count("urlcontent"),
-            # latest_urlcontent_body=Subquery(url_content_qs.values("body")[:1]),
-            # latest_urlcontent_created_at=Subquery(url_content_qs.values("created_at")[:1])
-        ).order_by("title")[:3]
+        # Основной запрос
+        urls = urls.select_related("report__storage", "site").prefetch_related(
+            Prefetch(
+                "urlcontent_set",
+                queryset=URLContent.objects.filter(id__in=Subquery(url_content_qs.values("id"))),
+                to_attr="related_urlcontents"
+            )
+        ).annotate(
+            urlcontent_total_count=Count("urlcontent")
+        )
 
         # 📄 Пагинация
         paginator = Paginator(urls, 3)
@@ -697,8 +734,8 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
         page_obj = paginator.get_page(page_number)
 
         # # 🎯 Назначаем active_urlcontent
-        # for url in page_obj.object_list:
-        #     url.active_urlcontent = url.related_urlcontents[0] if url.related_urlcontents else None
+        for url in page_obj.object_list:
+            url.active_urlcontent = url.related_urlcontents[0] if url.related_urlcontents else None
 
         # 🧩 Query string без page
         query_params = request_get.copy()
@@ -716,6 +753,8 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
             "is_paginated": page_obj.has_other_pages(),
             "search_query": search_query,
             "status_filter": status_filter,
+            "available_tags": available_tags,
+            "tags_filter": tags_filter,
             "source_statuses": source_statuses,
             "filters": filters,
             "sorting_list": sorting_list,

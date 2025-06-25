@@ -8,6 +8,8 @@
     <link href="{% static 'css/pagination.css' %}" rel="stylesheet">
     <link href="{% static 'css/storage.css' %}" rel="stylesheet">
     <link href="{% static 'css/grader.css' %}" rel="stylesheet">
+    <link href="{% static 'libs/choices/choices.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/custom_choices.css' %}" rel="stylesheet">
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -173,7 +175,7 @@
                         </form>
                         <form action="{% url 'sources:website_synchronization' website.pk %}" method="POST" class="mb-4">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn--reset btn--simple">
+                            <button type="submit" class="btn btn--reset btn--simple btn--primary">
                                 🔄 Полная синхронизация
                             </button>
                         </form>
@@ -223,7 +225,7 @@
             </div>
             <div class="info-page__footer">
                 <div class="btns _jc-fe">
-                    <a href="{% url 'sources:website_test_parse' website.pk %}" class="btn btn--reset btn--simple">
+                    <a href="{% url 'sources:website_test_parse' website.pk %}" class="btn btn--reset btn--simple btn--primary">
                         🧪 Тестовый парсинг
                     </a>
                 </div>
@@ -233,27 +235,40 @@
     </div>
 
     <article class="page__content">
-        <div class="mb-4 border-primary border-1 rounded-1">
-            <p class="text-muted fst-italic mb-2">
-                Пока заглушка - получение файла c сериализованными pickle чанкам (формат Langchain Document) по отфильтрованному контенту 
-            </p>
-            <pre class="font-monospace bg-light p-3 rounded">
-                with open(file_path, 'rb') as f:<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;# Загружаем (десериализуем) список документов из файла<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;all_documents = pickle.load(f)
-            </pre>
-            <form method="post" action="{% url 'chunks:create_chunks_from_website' website.pk %}" class="mb-3" id="create-chunks-form">
-                {% csrf_token %}
-                {% for key, value in request.GET.items %}
-                    <input type="hidden" name="{{ key }}" value="{{ value }}">
-                {% endfor %}
-                <button type="submit" class="btn btn-primary" id="submit-btn">
-                    Создать чанки
-                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="loader"></span>
-                </button>
-            </form>
+        <div class="page__info info-page _mb">
+            <div class="info-page__header">
+                <h2 class="page__heading"></h2>
+                <h3 class="info-page__heading">pickle chunks</h3>
+                <p class="text text--muted">Пока заглушка - получение файла c сериализованными pickle чанкам (формат Langchain Document) по отфильтрованному контенту
+                </p>
+                <p class="text text--code">
+                    with open(file_path, 'rb') as f:<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;# Загружаем (десериализуем) список документов из файла<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;all_documents = pickle.load(f)
+                </p>
+            </div>
+            <div class="info-page__body">
+                <form method="post" action="{% url 'chunks:create_chunks_from_website' website.pk %}" class="form" id="create-chunks-form">
+                    {% csrf_token %}
+                    {% for key, value in request.GET.items %}
+                        <input type="hidden" name="{{ key }}" value="{{ value }}">
+                    {% endfor %}
+                    <div class="btns _jc-c">
+                        <button type="submit" class="btn btn--reset btn--simple btn--primary" id="submit-btn">
+                            <span>Скачать чанки</span>
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#rocket"></use>
+                            </svg>
+                        </button>
+                    </div>
+                </form>
+            
+            </div>
+            <div class="info-page__footer">
+            </div>
         </div>
-        <h3 class="page__subheading">🗂️ Источники</h3>
+        
+        <h3 class="page__subheading">Источники данных(URL)</h3>
         <form class="page__grader form" action="" method="GET" id="url-filter-form">
             {% csrf_token %}
             {% comment %} {% include "widgets/_form_content-widget.html" %} {% endcomment %}
@@ -302,6 +317,14 @@
                                             </label>
                                         {% endfor %}
                                     {% endfor %}
+                                </div>
+                                <div class="grader__content">
+                                    <label for="id_tags" class="grader__label">Фильтр по тегам</label>
+                                    <select name="tags" multiple="multiple" class="grader__select filter-select" id="id_tags">
+                                        {% for tag in available_tags %}
+                                            <option value="{{ tag|escape }}" {% if tag in tags_filter %}selected{% endif %}>{{ tag|escape }}</option>
+                                        {% endfor %}
+                                    </select>
                                 </div>
                                 {% for range_name, range_data in standard_range_list.items %}
                                     <div class="grader__header">
@@ -408,11 +431,39 @@
 {% endblock content %}
 
 {% block script %}
+    <script src="{% static 'libs/choices/choices.min.js' %}"></script>
     <script src="{% static 'js/grader.js' %}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            let choicesInstance = new Choices("#id_tags", {
+                allowHTML: true,
+                classNames: {
+                    containerOuter: 'choices custom-choices custom-choices_transparent',
+                },
+                position: 'down',
+                searchEnabled: true,
+                itemSelectText: 'Выберите теги',
+                removeItems: true,
+                removeItemButton: true,
+                renderChoiceLimit: 10,
+            });
+
             const container = document.querySelector('#url-container');
             const form = document.querySelector('#url-filter-form');
+
+            // Инициализация состояний иконок grader при инициализации Choices.js
+            const tagsSelectElement = choicesInstance.passedElement.element;
+            const grader = tagsSelectElement.closest('.grader');
+            if (grader) {
+                setGraderStatus(grader);
+            }
+
+
+            // Обработчик события изменения Choices.js
+            choicesInstance.passedElement.element.addEventListener('change', function (event) {
+                let currentGrader = event.target.closest('.grader')
+                setGraderStatus(currentGrader);
+            });
 
             function fetchAndUpdate(url) {
                 fetch(url, {
@@ -459,20 +510,32 @@
             event.preventDefault(); // Предотвращаем стандартную отправку формы
 
             const submitBtn = document.getElementById('submit-btn');
-            const loader = document.getElementById('loader');
+            const submitBtnSpan = submitBtn.querySelector('span');
             const form = this;
 
             // Блокируем кнопку
             submitBtn.disabled = true;
-            submitBtn.innerHTML = 'Обработка... <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
-            loader.classList.remove('d-none');
+            submitBtnSpan.innerHTML = 'Обработка...';
+
+            // Создаём FormData
+            const formData = new FormData();
+
+            // Добавляем CSRF-токен
+            const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+            formData.append('csrfmiddlewaretoken', csrfToken);
+
+            // Извлекаем параметры из URL (аналог request.GET)
+            const urlParams = new URLSearchParams(window.location.search);
+            for (const [key, value] of urlParams.entries()) {
+                formData.append(key, value); // Добавляем все параметры, включая множественные
+            }
 
             // Отправляем форму через fetch
             fetch(form.action, {
                 method: 'POST',
-                body: new FormData(form),
+                body: formData,
                 headers: {
-                    'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value
+                    'X-CSRFToken': csrfToken
                 }
             })
             .then(response => {
@@ -494,16 +557,14 @@
 
                 // Разблокируем кнопку
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = 'Создать чанки';
-                loader.classList.add('d-none');
+                submitBtnSpan.innerHTML = 'Скачать чанки';
             })
             .catch(error => {
                 console.error('Error:', error);
                 alert('Ошибка при создании чанков');
                 // Разблокируем кнопку при ошибке
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = 'Создать чанки';
-                loader.classList.add('d-none');
+                submitBtnSpan.innerHTML = 'Скачать чанки';
             });
         });
     </script>

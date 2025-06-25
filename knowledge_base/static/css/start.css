@@ -37,6 +37,7 @@
   --block-bg-color: #fbfbfb;
   --block-border-color: #e5e5e5;
   --block-border-shadow-color: #dcdcdc;
+  --code-bg-color: #696767;
 
   --article-bg-color: #f7f7f7;
   --article-border-color: #e5e5e5;
@@ -50,6 +51,7 @@
   --text-light: #c5c4c4;
   --text-inverse-color: #eee;
   --text-on-accent-bg-color: #eee;
+  --text-code-color: #eee;
 
   --accent-color: #2e8247;
 
@@ -95,7 +97,7 @@
   --btn-hover-text-color: #727272;
   --btn-accent-hover-text-color: #eee;
   --btn-hover-border-color: #7c7c7c;
-  --btn-hover-bg-color: #111;
+  --btn-hover-bg-color: #dad9d9;
 
   --button-inverse-text-color: deeppink;
   --button-hover-inverse-text-color: deeppink;
@@ -388,6 +390,25 @@ fieldset {
   color: var(--alarm-color)
 }
 
+.btn--primary {
+  opacity: 1;
+  background-color: var(--accent-color);
+  color: var(--text-on-accent-bg-color);
+}
+.btn--primary:focus,
+.btn--primary:hover {
+  color: var(--accent-color);
+  background-color: var(--btn-hover-bg-color);
+  border-color: var(--btn-hover-border-color);
+}
+
+.btn--primary:active {
+  opacity: 1;
+  color: var(--btn-active-color);
+  border-color: var(--btn-active-border-color);
+  background-color: var(--btn-active-bg-color);
+}
+
 .btn__icon {
   display: block;
   width: 100%;
@@ -534,6 +555,17 @@ fieldset {
 }
 
 .text--info {}
+
+.text--code {
+  padding: var(--gap);
+  line-height: 1;
+  border-radius: var(--gap);
+  background-color: var(--code-bg-color);
+  color: var(--text-code-color);
+  font-family: monospace;
+  unicode-bidi: isolate;
+  white-space: pre;
+}
 
 
 .description {
