@@ -103,7 +103,7 @@ class URL(AbstractSource):
     """Модель страницы сайта с информацией"""
     site = models.ForeignKey(WebSite, verbose_name="сайт", on_delete=models.CASCADE, blank=True, null=True)
     batch = models.ForeignKey(URLBatch, verbose_name="пакет", on_delete=models.CASCADE, blank=True, null=True)
-    report = models.ForeignKey(CloudStorageUpdateReport, verbose_name="создано в отчете", on_delete=models.CASCADE,
+    report = models.ForeignKey(WebSiteUpdateReport, verbose_name="создано в отчете", on_delete=models.CASCADE,
                                blank=True, null=True)
 
     def __str__(self):

@@ -47,7 +47,7 @@
 }
 .cell-tree__description {
 }
-.cell-tree__preview {
+.cell-tree__preview  {
     margin-bottom: 8px;
     position: relative;
     display: flex;
@@ -56,8 +56,12 @@
     max-height: 80px;
     width: 100%;
     overflow: hidden;
-    position: relative;
     aspect-ratio: 16 / 9;
+}
+
+.cell-tree__preview--text {
+    max-height: unset;
+    aspect-ratio: unset;
 }
 .cell-tree__img {
     width: 100%;

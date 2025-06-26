@@ -18,9 +18,9 @@
 
   /* Навигация */
   --navbar-height: 48px;
-  --navbar-bg-color: #1f1f1f;
-  --navbar-text-color: #fff;
-  --navbar-link-color: #fff;
+  --navbar-bg-color: #fbfbfb;
+  --navbar-text-color: #333;
+  --navbar-link-color: #333;
   --navbar-link-hover-color: #1693cf;
   --navbar-link-active-color: var(--accent-color);
   --navbar-shadow-color: rgba(0, 0, 0, 0.2);
@@ -597,6 +597,13 @@ fieldset {
   /* white-space:pre-wrap; */
   word-break: break-word;
   overflow-wrap: break-word;
+}
+.description__defination--clamp3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3; /* Ограничение тремя строками */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .description--column .description__defination {
   margin-bottom: var(--gap-third);

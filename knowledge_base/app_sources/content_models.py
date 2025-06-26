@@ -33,7 +33,7 @@ class ContentStatus(Enum):
     def display_name(self):
         """Русское название статуса для отображения."""
         display_names = {
-            "ready": "В работе",
+            "ready": "Готов к работе",
             "error": "Ошибка",
             "canceled": "Отменен",
             "active": "Активен",
@@ -214,10 +214,10 @@ class URLContent(Content):
                                      blank=True,
                                      )
 
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    author = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
+    # created_at = models.DateTimeField(auto_now_add=True)
+    # updated_at = models.DateTimeField(auto_now=True)
+    #
+    # author = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
 
     class Meta:
         verbose_name = "URL Cleaned Content"

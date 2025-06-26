@@ -1221,6 +1221,26 @@ class URLBatchDeleteView(LoginRequiredMixin, DeleteView):
 class URLDetailView(LoginRequiredMixin, DocumentPermissionMixin, DetailView):
     """Детальный просмотр объекта модели Модель страницы сайта URL (с проверкой прав доступа)"""
     model = URL
+    urlcontent_preview_set = Prefetch(
+        "urlcontent_set",
+        queryset=URLContent.objects
+            .select_related("report", "author")
+            .annotate(
+                body_length=Length("body"),
+                body_preview=Left("body", 200)
+            ).defer("body"),
+        to_attr="urlcontent_preview_set"
+    )
+    queryset = (URL.objects.select_related("site", "site__kb", "report",)
+                .prefetch_related(urlcontent_preview_set, "tasks"))
+
+
+class URLUpdateView(LoginRequiredMixin, DocumentPermissionMixin, DetailView):
+    """Редактирование объекта модели Модель страницы сайта URL (с проверкой прав доступа)"""
+    model = URL
+
+    def get(self,*args, **kwargs):
+        return HttpResponse("Заглушка")
 
 
 class RawContentRecognizeCreateView(LoginRequiredMixin, View):
@@ -1354,6 +1374,36 @@ class CleanedContentUpdateView(LoginRequiredMixin, View):
             content = form.cleaned_data.get("content")
             cleaned_content.file.save("ignored.txt", ContentFile(content.encode('utf-8')))
             return redirect(reverse_lazy("sources:cleanedcontent_detail", args=[cleaned_content.pk]))
+        context = {
+            "form": form,
+        }
+        return render(request=request, template_name="app_sources/cleanedcontent_form.html", context=context)
+
+
+class URLContentDetailView(LoginRequiredMixin, DetailView):
+    """Детальный просмотр объекта URLContent"""
+    model = URLContent
+
+
+class URLContentUpdateView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        url_content = URLContent.objects.get(pk=pk)
+        editor_content = url_content.body
+
+        form = CleanedContentEditorForm(initial={"content": editor_content})
+        context = {
+            "form": form,
+        }
+        return render(request=request, template_name="app_sources/cleanedcontent_form.html", context=context)
+
+    def post(self, request, pk):
+        url_content = URLContent.objects.get(pk=pk)
+        form = CleanedContentEditorForm(request.POST)
+        if form.is_valid():
+            content = form.cleaned_data.get("content")
+            url_content.body = content
+            url_content.save()
+            return redirect(reverse_lazy("sources:urlcontent_detail", args=[url_content.pk]))
         context = {
             "form": form,
         }

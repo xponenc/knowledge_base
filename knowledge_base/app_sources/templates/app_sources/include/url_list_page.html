@@ -43,7 +43,7 @@
                 <div class="source__wrapper">
                     <div class="source__raw-content">
                         <div class="source__history">Количество обновлений: {{ document.urlcontent_total_count }}</div>
-                        <div class="source__content source-content">
+                        {% comment %} <div class="source__content source-content">
                             <div class="source-content__header">
                                 <h4 class="source-content__heading">Исходный контент источника</h4>
                             </div>
@@ -67,10 +67,10 @@
                                     </a>
                                 </div>
                             </div>
-                        </div>
+                        </div> {% endcomment %}
                     </div>
                 </div>
-                <div class="source__wrapper">
+                {% comment %} <div class="source__wrapper">
                     <div class="source__manage">
                         <dl class="source__description description">
                             <dt class="description__term">Формат документа в базе знаний</dt>
@@ -82,29 +82,35 @@
                             </svg>
                         </a>
                     </div>
-                </div>
+                </div> {% endcomment %}
                 {% if document.active_urlcontent %}
-                    <div class="source__wrapper">
-                        <div class="source__cleaned-content">
-                            <div class="source__content source-content">
+                    <div class="source__cleaned-content">
+                        <div class="source__wrapper">
+                            <div class="source__content source-content _mb">
                                 <div class="source-content__header">
                                     <h4 class="source-content__heading">Очищенный контент источника (превью)</h4>
                                 </div>
                                 <div class="source-content__preview source-content__preview--cleaned">
                                     <p class="text text--info">{{ document.active_urlcontent.body|slice:"200" }}</p>
                                 </div>
-                                <dl class="source__description description">
-                                    <dt class="description__term">Размер</dt>
-                                    <dd class="description__defination">{{ document.active_urlcontent.body|length }} символа(ов)</dd>
-                                </dl>
-                                <div class="source-content__footer">
-                                    <div class="btns _jc-fe">
-                                        <a class="btn btn--reset btn--round" href="{% url 'sources:url_detail' document.active_urlcontent.pk %}" aria-label="Посмотреть очищенный документ" title="Посмотреть очищенный документ">
-                                            <svg class="btn__icon">
-                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#download"></use>
-                                            </svg>
-                                        </a>
-                                    </div>
+                            </div>
+                        </div>
+                        <div class="source__wrapper">
+                            <dl class="source__description description">
+                                <dt class="description__term">Размер</dt>
+                                <dd class="description__defination">{{ document.active_urlcontent.body|length }} символа(ов)</dd>
+                                <dt class="description__term">Теги</dt>
+                                <dd class="description__defination">{{ document.active_urlcontent.tags|join:", " }}</dd>
+                                <dt class="description__term">Metadata</dt>
+                                <dd class="description__defination description__defination--clamp3">{{ document.active_urlcontent.metadata }}</dd>
+                            </dl>
+                            <div class="source-content__footer">
+                                <div class="btns _jc-fe">
+                                    <a class="btn btn--reset btn--round" href="{% url 'sources:url_detail' document.active_urlcontent.pk %}" aria-label="Посмотреть очищенный документ" title="Посмотреть очищенный документ">
+                                        <svg class="btn__icon">
+                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#download"></use>
+                                        </svg>
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -113,8 +119,8 @@
                 <div class="source__wrapper">
                     <h4 class="source__subheading">Описание источника</h4>
                     <dl class="source__description--info description">
-                        <dt class="description__term">Статус</dt>
-                        <dd class="description__defination">{{ document.status }}</dd>
+                        {% comment %} <dt class="description__term">Статус</dt>
+                        <dd class="description__defination">{{ document.status }}</dd> {% endcomment %}
                         <dt class="description__term">URL</dt>
                         <dd class="description__defination">{{ document.url }}</dd>
                         <dt class="description__term">Язык</dt>
@@ -127,28 +133,28 @@
                         <dd class="description__defination">{{ document.error_message }}</dd>
                         <dt class="description__term">Метаданные</dt>
                         <dd class="description__defination">{{ document.metadata }}</dd>
-                        <dt class="description__term">Дата обновления в источнике</dt>
+                        {% comment %} <dt class="description__term">Дата обновления в источнике</dt>
                         <dd class="description__defination">{{ document.remote_updated }}</dd>
                         <dt class="description__term">Дата локального обновления ?</dt>
                         <dd class="description__defination">{{ document.local_updated }}</dd>
                         <dt class="description__term">Дата синхронизации ?</dt>
-                        <dd class="description__defination">{{ document.synchronized_at }}</dd>
+                        <dd class="description__defination">{{ document.synchronized_at }}</dd> {% endcomment %}
                         <dt class="description__term">Дата создания</dt>
                         <dd class="description__defination">{{ document.created_at }}</dd>
                         <dt class="description__term">Дата обновления</dt>
                         <dd class="description__defination">{{ document.updated_at }}</dd>
-                        <dt class="description__term">Дата мягкого удаления</dt>
+                        {% comment %} <dt class="description__term">Дата мягкого удаления</dt>
                         <dd class="description__defination">{{ document.soft_deleted_at }}</dd>
                         <dt class="description__term">Хранилище</dt>
-                        <dd class="description__defination">{{ document.storage }}</dd>
+                        <dd class="description__defination">{{ document.storage }}</dd> {% endcomment %}
                         <dt class="description__term">Создан в рамках отчета</dt>
-                        <dd class="description__defination">{{ document.report }}</dd>
-                        <dt class="description__term">Путь</dt>
-                        <dd class="description__defination">{{ document.path }}</dd>
-                        <dt class="description__term">ID на облачном диске</dt>
+                        <dd class="description__defination">{{ document.report }} [id{{ document.report.pk }}]</dd>
+                        {% comment %} <dt class="description__term">Путь</dt>
+                        <dd class="description__defination">{{ document.path }}</dd> {% endcomment %}
+                        {% comment %} <dt class="description__term">ID на облачном диске</dt>
                         <dd class="description__defination">{{ document.file_id }}</dd>
                         <dt class="description__term">Формат вывода в БД</dt>
-                        <dd class="description__defination">{{ document.output_format }}</dd>
+                        <dd class="description__defination">{{ document.output_format }}</dd> {% endcomment %}
                         <dt class="description__term">Описание</dt>
                         <dd class="description__defination">{{ document.description }}</dd>
                     </dl>

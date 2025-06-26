@@ -27,6 +27,14 @@
     text-decoration: none;
     font-weight: bold;
 }
+.navbar-logo {
+    height: calc(var(--navbar-height) - 2 * 0.5rem);
+    width: fit-content;
+}
+.navbar-logo > * {
+    height: 100%;
+    width: fit-content;
+}
 
 .navbar-toggle {
     font-size: var(--navbar-toggle-size);

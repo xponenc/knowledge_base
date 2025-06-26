@@ -50,7 +50,7 @@
                     <dd class="description__defination">{{ object.description|default:"" }}</dd>
                     <dt class="description__term">Статус</dt>
                     <dd class="description__defination">
-                        <span class="tag tag--fat{% if document.status == "ready" %} tag--success{% elif document.status == "de" %} tag--deleted{% elif document.status == "ex" %} tag--disabled {% elif document.status == "er" %} tag--alarm{% else %} tag--warning{% endif %}">
+                        <span class="tag tag--fat{% if object.status == "ready" %} tag--success{% elif object.status == "de" %} tag--deleted{% elif object.status == "ex" %} tag--disabled {% elif object.status == "er" %} tag--alarm{% else %} tag--warning{% endif %}">
                             {{ object.get_status_display  }}
                         </span>
                     </dd>
@@ -71,7 +71,7 @@
                     {% endif %}
                     <dd class="description__defination">
                         <div class="tags">
-                            {% for tag in objects.tags %}
+                            {% for tag in object.tags %}
                                 <span class="tag tag--simple">{{ tag }}</span>
                             {% endfor %}
                         </div>

@@ -1,13 +1,6 @@
 from django.urls import path
 
-from app_sources.views import CloudStorageListView, CloudStorageDetailView, CloudStorageCreateView, \
-    CloudStorageUpdateView, CloudStorageDeleteView, CloudStorageSyncView, CloudStorageUpdateReportDetailView, \
-    CloudStorageUpdateReportListView, LocalStorageListView, LocalStorageDetailView, LocalStorageCreateView, \
-    WebSiteDetailView, WebSiteCreateView, WebSiteUpdateView, WebSiteDeleteView, URLBatchDetailView, URLBatchCreateView, \
-    URLBatchUpdateView, URLBatchDeleteView, WebSiteTestParseView, WebSiteTestParseReportView, WebSiteBulkParseView, \
-    WebSiteSynchronizationView, WebSiteUpdateReportDetailView, NetworkDocumentDetailView, NetworkDocumentListView, \
-    NetworkDocumentUpdateView, NetworkDocumentStatusUpdateView, RawContentRecognizeCreateView, RawContentDetailView, \
-    CleanedContentDetailView, CleanedContentUpdateView, URLDetailView
+from app_sources.views import *
 
 from app_sources.storage_views import StorageTagsView
 
@@ -70,6 +63,10 @@ urlpatterns = [
     path('cleaned-content/<int:pk>/update', CleanedContentUpdateView.as_view(), name='cleanedcontent_update'),
 
     path('url/<int:pk>', URLDetailView.as_view(), name='url_detail'),
+    path('url/<int:pk>/update', URLUpdateView.as_view(), name='url_update'),
+
+    path('url-content/<int:pk>', URLContentDetailView.as_view(), name='urlcontent_detail'),
+    path('url-content/<int:pk>/update', URLContentUpdateView.as_view(), name='urlcontent_update'),
 
     path('<str:storage_type>/<int:storage_pk>/tags/', StorageTagsView.as_view(), name='storage_tags'),
 

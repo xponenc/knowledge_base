@@ -43,25 +43,26 @@
             <div class="info-page__body">
                 <h3 class="info-page__heading"></h3>
                 <dl class="description">
-                    <dt class="description__term">🔌Основная ссылка</dt>
+                    <dt class="description__term">Основная ссылка</dt>
                     <dd class="description__defination">
                         {{ website.base_url }}
                     </dd>
-                    <dt class="description__term">🔌Ссылка на XML карту</dt>
+                    <dt class="description__term">Ссылка на XML карту</dt>
                     <dd class="description__defination">
-                        {{ website.xml_map_url }}
+                        {{ website.xml_map_url|default:"-" }}
                     </dd>
-                    <dt class="description__term">🆔 ID</dt>
+                    <dt class="description__term">ID</dt>
                     <dd class="description__defination">
                         <pre class="text">{{ website.pk }}</pre> 
                     </dd>
                     <dt class="description__term">облако тегов</dt>
-                    <dd class="description__defination">
-                        {% comment %} <div class="tags">
-                            {% for tag in website.tags %}
+                    <dd class="description__defination description__defination--clamp3">
+                        <div class="tags">
+                            {% for tag in website.tags|slice:10 %}
                                 <span class="tag tag--simple">{{ tag }}</span>
                             {% endfor %}
-                        </div> {% endcomment %}
+                            {% if website.tags|length > 10 %}<span class="tag tag--simple">...</span>{% endif %}
+                        </div>
                     </dd>
                 </dl>
             </div>
@@ -92,9 +93,9 @@
                         {% for report in website.reports.all %}
                             <tr class="elastic-table__tr">
                                 <td class="elastic-table__td">
-                                    <a href="{{ report }}" class="link-marker">
+                                    <a href="{{ report.get_absolute_url }}" class="link-marker">
                                         <div class="elastic-table__cell">
-                                            <span>{{ report }}</span>
+                                            <span>{{ report }} [id{{ report.pk }}]</span>
                                             <span>{{ report.created_at|date:"d.m.Y H:i" }}</span>
                                             <span>{{ report.author.get_full_name|default:report.author }}</span>
                                         </div>
