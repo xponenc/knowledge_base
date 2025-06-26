@@ -1,0 +1,199 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+
+
+
+{% block extra_css %}
+    <link href="{% static 'css/source.css' %}" rel="stylesheet">
+    <link href="{% static 'css/storage.css' %}" rel="stylesheet">
+{% endblock %}
+
+
+{% block title %}Чистый контент{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        {% comment %} база знаний {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ kb.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">База знаний {{ kb.name }}</span>
+            </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        {% comment %} хранилище {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <a href="{{ storage.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">{{ storage_type_ru }} {{ storage.name }}</span>
+            </a>
+            <meta itemprop="position" content="2" />
+        </li>
+        {% comment %} источник {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">{{ cloudstorage.name }}</span>
+            <a href="{{ document.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">{{ document_type_ru }} {{ document.title|default:"" }}</span>
+            </a>
+            <meta itemprop="position" content="3" />
+        </li>
+        {% comment %} контент {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <a href="{{ content.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">Исходный контент</span>
+            </a>
+            <meta itemprop="position" content="4" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">Распознавание</span>
+            <meta itemprop="position" content="5" />
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+
+<div class="page page--content">
+    <div class="page__top page__grid">
+        <div class="page__info info-page info-page--content _jc-fs">
+            <span class="info-page__banner info-page__banner--medium">Чистый контент</span>
+            <div class="info-page__header">
+                <h2 class="page__heading _ta-e"></h2>
+                <h3 class="info-page__heading"></h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                <h3 class="info-page__heading">Детали очищенного контента</h3>
+                <dl class="source__description--info description">
+                    <dt class="description__term">Наименование</dt>
+                    <dd class="description__defination">{{ content.title|default:content.url }}</dd>
+                    <dt class="description__term">Описание</dt>
+                    <dd class="description__defination">{{ content.description|default:"" }}</dd>
+                    <dt class="description__term">Статус</dt>
+                    <dd class="description__defination">
+                        <span class="tag{% if content.status == "ready" %} tag--warning{% elif content.status == "canceled" %} tag--deleted{% elif content.status == "active" %} tag--success{% else %} tag--alarm{% endif %}">
+                            {{ content.get_status_display }}
+                        </span>
+                    </dd>
+                    <dt class="description__term">Теги</dt>
+                    <dd class="description__defination">
+                        <div class="tags">
+                            {% for tag in content.tags %}
+                                <span class="tag tag--simple">{{ tag }}</span>
+                            {% endfor %}
+                        </div>
+                    </dd>
+                    <dt class="description__term">Размер</dt>
+                    <dd class="description__defination">{{ content.body|length }} символа(ов)</dd>
+                    <dt class="description__term">Теги</dt>
+                    <dd class="description__defination">{{ content.tags|join:", "|default:"-" }}</dd>
+                    <dt class="description__term">Metadata</dt>
+                    <dd class="description__defination description__defination--clamp3">{{ content.metadata }}</dd>
+                    <dt class="description__term">Автор</dt>
+                    <dd class="description__defination">{{ content.author.get_full_name|default:content.author.username }}</dd>
+                    <dt class="description__term">Создан в рамках обновления</dt>
+                    <dd class="description__defination">
+                        <a href="{{ content.report.get_absolute_url }}" class="link-marker">
+                            <span>Отчет обновления [id{{ content.report.pk }}] от {{ content.report.created_at|date:"d.m.Y H:i" }}</span>
+                            <svg class="link-marker__marker">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#report"></use>
+                        </a>
+                        </svg>
+                    </dd>
+                    <dt class="description__term">Статус http response</dt>
+                    <dd class="description__defination">{{ content.response_status }}</dd>
+                    <dt class="description__term">хеш контента</dt>
+                    <dd class="description__defination">{{ content.hash_content }}</dd>
+                    {% if content.error_message %}
+                        <dt class="description__term">Ошибка</dt>
+                        <dd class="description__defination"><span class="text text--fat text--alarm">{{ content.error_message }}</span></dd>
+                    {% endif %}
+                </dl>
+            </div>
+            <div class="info-page__footer">
+                <div class="btns  _jc-fe">
+                    <a href="{% url 'sources:urlcontent_update' content.pk %}" class="btn btn--reset btn--round" target="_blank" title="Редактировать чистый контент" aria-label="Редактировать чистый контент">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="page__info info-page info-page--{{ storage_type_eng }} _jc-fs">
+            <span class="info-page__banner">ИСТОЧНИК</span>
+            <div class="info-page__header">
+                <h2 class="page__heading _ta-e">{{ document.title|default:document.url|default:"" }}</h2>
+                <h3 class="info-page__heading _ta-e">{{ document_type_ru }} </h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                <h3 class="info-page__heading">Детали источника</h3>
+                <dl class="source__description--info description">
+                    <dt class="description__term">Описание</dt>
+                    <dd class="description__defination">{{ document.description|default:"" }}</dd>
+                    <dt class="description__term">Статус</dt>
+                    <dd class="description__defination">
+                        <span class="tag tag--fat{% if document.status == "ready" %} tag--success{% elif document.status == "de" %} tag--deleted{% elif document.status == "ex" %} tag--disabled {% elif document.status == "er" %} tag--alarm{% else %} tag--warning{% endif %}">
+                            {{ document.get_status_display  }}
+                        </span>
+                    </dd>
+                    <dt class="description__term">Теги</dt>
+                    <dd class="description__defination">
+                        <div class="tags">
+                            {% for tag in document.tags %}
+                                <span class="tag tag--simple">{{ tag }}</span>
+                            {% endfor %}
+                        </div>
+                    </dd>
+                    <dt class="description__term">Создан в рамках обновления</dt>
+                    <dd class="description__defination">
+                        <a href="{% url 'sources:websiteupdatereport_detail' content.report.pk %}" class="link-marker">
+                            <span>Отчет обновления [id{{ content.report.pk }}] от {{ content.report.created_at|date:"d.m.Y H:i" }}</span>
+                            <svg class="link-marker__marker">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#report"></use>
+                        </a>
+                        </svg>
+                    </dd>
+                </dl>
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+    </div>
+    <article class="page__content _mb">
+        <h3 class="page__subheading">Данные чистого контента</h3>
+        <div class="source">
+            <div class="source__header">
+                <h3 class="source__heading">
+                </h3>
+            </div>
+            <div class="source__body">
+                <div class="source__wrapper">
+                    <h5 class="source__heading">
+                        metadata
+                    </h5>
+                    <div class="source__manage json">
+                        <div class="json-container">
+                            {% include 'widgets/_json_recursive.html' with data=content.metadata level=0 %}
+                        </div>
+                    </div>
+                </div>
+                <div class="source__wrapper">
+                    <h5 class="source__heading">
+                        контент
+                    </h5>
+                    <div class="source__manage json">
+                        {{ content.body|linebreaks }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </article>
+</div>
+{% endblock %}
+
+
+{% block script %}
+    
+{% endblock script%}

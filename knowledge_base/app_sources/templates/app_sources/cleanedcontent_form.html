@@ -1,24 +1,38 @@
-{% extends 'base.html' %}
+{% extends 'clear_base.html' %}
 {% load static %}
 
+
 {% block extra_css %}
-<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css">
+    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css">
 {% endblock %}
 
 
-{% block title %}Редактировать чистый контент{% endblock %}
+{% block title %}Редактирование чистого контента{% endblock %}
 
 
 {% block content %}
-<h2>Редактировать чистый контент</h2>
+<div class="page page--content">
+    <h2 class="page__heading">Редактирование чистого контента</h2>
 
-<form method="post">
-    {% csrf_token %}
-    {{ form.content }}
-    <div id="editor"></div>
-
-    <button type="submit" class="btn btn-primary mt-3">Сохранить</button>
-</form>
+    <form method="post" class="form">
+        <div class="form__container">
+            <div class="form__wrapper">
+                <div class="form__btn-block ">
+                    <a href="{{ content.get_absolute_url }}" class="btn btn--reset btn--simple">отменить</a>
+                    <button type="submit" class="btn btn--reset btn--simple btn--primary">Сохранить</button>
+                </div>
+                {% csrf_token %}
+                {{ form.content }}
+                <div id="editor"></div>
+                <div class="form__btn-block">
+                    <a href="{{ content.get_absolute_url }}" class="btn btn--reset btn--simple">отменить</a>
+                    <button type="submit" class="btn btn--reset btn--simple btn--primary">Сохранить</button>
+                </div>
+            </div>
+        </div>
+        
+    </form>
+</div>
 {% endblock %}
 
 {% block script %}
@@ -33,9 +47,30 @@
             initialValue: `{{ form.initial.content|default:""|escapejs }}`
         });
     
-        // При отправке формы запишем текст в скрытое поле
-        document.querySelector('form').addEventListener('submit', function () {
-        document.querySelector('#id_content').value = editor.getMarkdown();
+        // Проверка формы и поля
+        const form = document.querySelector('.form');
+        const contentInput = document.querySelector('#id_content');
+        const outputDiv = document.querySelector('#output');
+
+        if (!form) {
+            console.error('Форма не найдена');
+        }
+        if (!contentInput) {
+            console.error('Поле #id_content не найдено');
+        }
+
+        // Вывод начального значения id_content
+
+        // Обработчик отправки формы
+        form.addEventListener('submit', function (event) {
+            event.preventDefault(); // Останавливаем отправку формы
+            try {
+                const markdownValue = editor.getMarkdown();
+                contentInput.value = markdownValue;
+                form.submit()
+            } catch (error) {
+                console.error('Ошибка при получении Markdown:', error);
+            }
         });
     </script>
 

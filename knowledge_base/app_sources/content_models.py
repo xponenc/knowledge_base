@@ -60,7 +60,7 @@ class Content(models.Model):
     report = models.ForeignKey(CloudStorageUpdateReport, verbose_name="создано в отчете", on_delete=models.CASCADE,
                                blank=True, null=True)
 
-    hash_content = models.CharField(max_length=64, null=True, blank=True)
+    hash_content = models.CharField(max_length=128, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -199,7 +199,7 @@ class URLContent(Content):
 
     body = models.TextField(verbose_name="полезный контент", null=True, blank=True)
     metadata = models.JSONField(verbose_name="метаданные", null=True, blank=True)
-    hash = models.CharField(verbose_name="хеш контента для анализа изменений", max_length=128, null=True, blank=True)
+    # hash = models.CharField(verbose_name="хеш контента для анализа изменений", max_length=128, null=True, blank=True)
     title = models.CharField(verbose_name="наименование документа",
                              max_length=500,
                              blank=True,

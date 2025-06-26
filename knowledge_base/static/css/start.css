@@ -566,12 +566,16 @@ fieldset {
   unicode-bidi: isolate;
   white-space: pre;
 }
+.text--alarm {
+  color: var(--alarm-color);
+  font-size: 1.1em;
+}
 
 
 .description {
   display: grid;
   grid-template-columns: min-content 1fr;
-  gap: 6px var(--gap-half);
+  gap: var(--gap-third) var(--gap-half);
   align-items: center;
   margin: 0;
 }
@@ -610,12 +614,16 @@ fieldset {
 }
 
 .tags {
+  justify-self: start;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--gap-half);
+  justify-content: flex-start;
+  align-items: center;
+  gap: var(--gap-third);
 }
 
 .tag {
+  justify-self: flex-start;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -652,4 +660,23 @@ fieldset {
 .tag--deleted {
   color: var(--deleted-text-color);
   background-color: var(--deleted-bg-color);
+}
+
+
+.json {}
+.json__container {
+  font-family: monospace;
+  padding: var(--gap);
+  white-space: pre-wrap;
+}
+.json__key {
+  font-weight: 600;
+  color: var(--accent-color); /* Зеленый для ключей */
+}
+.json__string {
+}
+.json__array {
+}
+.json__indent {
+  margin-left: var(--gap);
 }

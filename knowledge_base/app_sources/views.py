@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import logging
 import os.path
 from datetime import datetime
@@ -1372,6 +1373,9 @@ class CleanedContentUpdateView(LoginRequiredMixin, View):
         form = CleanedContentEditorForm(request.POST)
         if form.is_valid():
             content = form.cleaned_data.get("content")
+            print(content[:200])
+            cleaned_content.preview = content[:200] if content else None,
+            cleaned_content.save(update_fields=["preview", ])
             cleaned_content.file.save("ignored.txt", ContentFile(content.encode('utf-8')))
             return redirect(reverse_lazy("sources:cleanedcontent_detail", args=[cleaned_content.pk]))
         context = {
@@ -1383,6 +1387,24 @@ class CleanedContentUpdateView(LoginRequiredMixin, View):
 class URLContentDetailView(LoginRequiredMixin, DetailView):
     """Детальный просмотр объекта URLContent"""
     model = URLContent
+    queryset = URLContent.objects.select_related()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        url_content = self.object
+        url = url_content.url
+        site = url.site
+        kb = site.kb
+        context.update({
+            "content": url_content,
+            "document": url,
+            "document_type_ru": "веб-страница",
+            "storage_type_eng": "website",
+            "storage": site,
+            "storage_type_ru": "веб-сайт",
+            "kb": kb,
+        })
+        return context
 
 
 class URLContentUpdateView(LoginRequiredMixin, View):
@@ -1393,6 +1415,7 @@ class URLContentUpdateView(LoginRequiredMixin, View):
         form = CleanedContentEditorForm(initial={"content": editor_content})
         context = {
             "form": form,
+            "content": url_content,
         }
         return render(request=request, template_name="app_sources/cleanedcontent_form.html", context=context)
 
@@ -1401,10 +1424,12 @@ class URLContentUpdateView(LoginRequiredMixin, View):
         form = CleanedContentEditorForm(request.POST)
         if form.is_valid():
             content = form.cleaned_data.get("content")
+            print(content)
             url_content.body = content
             url_content.save()
             return redirect(reverse_lazy("sources:urlcontent_detail", args=[url_content.pk]))
         context = {
             "form": form,
+            "content": url_content,
         }
         return render(request=request, template_name="app_sources/cleanedcontent_form.html", context=context)

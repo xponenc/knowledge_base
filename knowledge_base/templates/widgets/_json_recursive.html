@@ -1,0 +1,80 @@
+{% load json_tags %}
+
+{% if data is not none %}
+    {% if data|is_dict %}
+        {
+        <div class="json__indent">
+            {% for key, value in data.items %}
+                <div>
+                    <span class="json__key">"{{ key }}"</span>: 
+                    {% if value is not none %}
+                        {% if value|is_dict %}
+                            {% include 'widgets/_json_recursive.html' with data=value level=level|add:1 %}
+                        {% elif value|is_list %}
+                            <span class="json__array">
+                                [
+                                <div class="json__indent">
+                                    {% for item in value %}
+                                        {% if key == 'external_links' or key == 'internal_links' %}
+                                            [
+                                            <div class="json__indent">
+                                                <span class="json__string">"{{ item.0 }}"</span>,
+                                                <a href="{{ item.1 }}" class="json__string">{{ item.1 }}</a>
+                                            </div>
+                                            ]
+                                        {% elif item|is_dict or item|is_list %}
+                                            {% include 'widgets/_json_recursive.html' with data=item level=level|add:1 %}
+                                        {% else %}
+                                            {% if item|is_url %}
+                                                <a href="{{ item }}" class="json__string">{{ item }}</a>
+                                            {% else %}
+                                                <span class="json__string">"{{ item }}"</span>
+                                            {% endif %}
+                                        {% endif %}
+                                        {% if not forloop.last %},{% endif %}
+                                    {% endfor %}
+                                </div>
+                                ]
+                            </span>
+                        {% else %}
+                            {% if value|is_url %}
+                                <a href="{{ value }}" class="json__string">{{ value }}</a>
+                            {% else %}
+                                <span class="json__string">"{{ value }}"</span>
+                            {% endif %}
+                        {% endif %}
+                    {% else %}
+                        null
+                    {% endif %}
+                    {% if not forloop.last %},{% endif %}
+                </div>
+            {% endfor %}
+        </div>
+        }
+    {% elif data|is_list %}
+        [
+        <div class="json__indent">
+            {% for item in data %}
+                {% if item|is_dict or item|is_list %}
+                    {% include 'widgets/_json_recursive.html' with data=item level=level|add:1 %}
+                {% else %}
+                    {% if item|is_url %}
+                        <a href="{{ item }}" class="json__string">{{ item }}</a>
+                    {% else %}
+                        <span class="json__string">"{{ item }}"</span>
+                    {% endif %}
+                {% endif %}
+                {% if not forloop.last %},{% endif %}
+            {% endfor %}
+        </div>
+        ]
+    {% else %}
+        {% if data|is_url %}
+            <a href="{{ data }}" class="json__string">{{ data }}</a>
+        {% else %}
+            <span class="json__string">"{{ data }}"</span>
+        {% endif %}
+    {% endif %}
+{% else %}
+    null
+{% endif %}

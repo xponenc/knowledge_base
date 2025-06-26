@@ -160,8 +160,8 @@
                                     <dt class="description__term">Создан</dt>
                                     <dd class="description__defination">{{ content.cleanedcontent.created_at|date:"d.m.Y H:i" }}</dd>
                                 <dl>
-                                <div class="cell-tree__preview">
-                                    <p class="text">{{ content.cleanedcontent.preview }}</p>
+                                <div class="cell-tree__preview cell-tree__preview--text">
+                                    <p class="text">{{ content.cleanedcontent.preview|linebreaks  }}</p>
                                 </div>
                                 <dl class="cell-tree__description description--column">
                                     {% if  content.cleanedcontent.file %}

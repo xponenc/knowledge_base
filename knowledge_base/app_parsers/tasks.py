@@ -428,6 +428,7 @@ def parse_urls_task(self,
                 if not existing_url:
                     new_url = URL.objects.create(
                         site=website,
+                        report=website_update_report,
                         url=current_url,
                         status=SourceStatus.CREATED.value if response_status == 200 else SourceStatus.ERROR.value,
 
@@ -438,9 +439,9 @@ def parse_urls_task(self,
                         report=website_update_report,
                         url=new_url,
                         response_status=response_status,
-                        status=ContentStatus.CREATED.value if response_status == 200 else ContentStatus.ERROR.value,
+                        status=ContentStatus.READY.value if response_status == 200 else ContentStatus.ERROR.value,
                         author=author,
-                        hash=hash_content,
+                        hash_content=hash_content,
                         body=driver_result["parsed_data"]["content"],
                         metadata=driver_result["parsed_data"].get("metadata", {}),
                         # language=None,
@@ -461,11 +462,24 @@ def parse_urls_task(self,
                             if latest_cleaned_content_hash == hash_content:
                                 parse_result['skipped_urls'].append(existing_url.pk)
                             else:
+                                # TODO задача на изменение
                                 cleaned_content = URLContent.objects.create(
-                                    url=existing_url,
+                                    # url=existing_url,
+                                    # author=author,
+                                    # hash=hash_content,
+                                    # body=driver_result["parsed_data"]["content"],
+                                    report=website_update_report,
+                                    url=new_url,
+                                    response_status=response_status,
+                                    status=ContentStatus.READY.value if response_status == 200 else ContentStatus.ERROR.value,
                                     author=author,
-                                    hash=hash_content,
+                                    hash_content=hash_content,
                                     body=driver_result["parsed_data"]["content"],
+                                    metadata=driver_result["parsed_data"].get("metadata", {}),
+                                    # language=None,
+                                    title=driver_result["parsed_data"].get("metadata", {}).get("title"),
+                                    tags=driver_result["parsed_data"].get("metadata", {}).get("tags", []),
+                                    error_message=error if error else None
                                 )
                                 parse_result['updated_urls'].append(existing_url.pk)
             except Exception as e:
