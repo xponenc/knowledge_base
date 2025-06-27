@@ -165,7 +165,11 @@
                             <div class="cell-tree__body">
                                 <dl class="cell-tree__description description--column">
                                     <dt class="description__term">Статус</dt>
-                                    <dd class="description__defination">{{ raw_content.get_status_display }}</dd>
+                                    <dd class="description__defination">
+                                        <span class="tag{% if raw_content.status == "ready" %} tag--warning{% elif raw_content.status == "canceled" %} tag--deleted{% elif raw_content.status == "active" %} tag--success{% else %} tag--alarm{% endif %}">
+                                            {{ raw_content.get_status_display }}
+                                        </span>
+                                    </dd>
                                     <dt class="description__term">Создан</dt>
                                     <dd class="description__defination">{{ raw_content.created_at|date:"d.m.Y H:i" }}</dd>
                                 <dl>
@@ -220,12 +224,16 @@
                                 {% if raw_content.cleanedcontent %}
                                     <dl class="cell-tree__description description--column">
                                         <dt class="description__term">Статус</dt>
-                                        <dd class="description__defination">{{ raw_content.cleanedcontent.get_status_display }}</dd>
+                                        <dd class="description__defination">
+                                            <span class="tag{% if raw_content.cleanedcontent.status == "ready" %} tag--warning{% elif raw_content.cleanedcontent.status == "canceled" %} tag--deleted{% elif raw_content.cleanedcontent.status == "active" %} tag--success{% else %} tag--alarm{% endif %}">
+                                                {{ raw_content.cleanedcontent.get_status_display }}
+                                            </span>
+                                        </dd>
                                         <dt class="description__term">Создан</dt>
                                         <dd class="description__defination">{{ raw_content.cleanedcontent.created_at|date:"d.m.Y H:i" }}</dd>
                                     <dl>
                                     <div class="cell-tree__preview cell-tree__preview--text">
-                                        <p class="text">{{ raw_content.cleanedcontent.preview|linebreaks  }}</p>
+                                        <p class="text">{{ raw_content.cleanedcontent.preview }}</p>
                                     </div>
                                     <dl class="cell-tree__description description--column">
                                         <dt class="description__term">Размер</dt>

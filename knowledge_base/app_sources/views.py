@@ -491,6 +491,15 @@ class NetworkDocumentListView(LoginRequiredMixin, ListView):
 class NetworkDocumentDetailView(LoginRequiredMixin, DocumentPermissionMixin, DetailView):
     """Детальный просмотр объекта модели Сетевой документ NetworkDocument (с проверкой прав доступа)"""
     model = NetworkDocument
+    rawcontent_set = Prefetch(
+        "rawcontent_set",
+        queryset=RawContent.objects
+        .select_related("report", "author")
+        .prefetch_related("cleanedcontent", "cleanedcontent__author")
+
+    )
+    queryset = (NetworkDocument.objects.select_related("storage", "storage__kb", "report", )
+                .prefetch_related(rawcontent_set, "tasks"))
 
 
 class NetworkDocumentUpdateView(LoginRequiredMixin, DocumentPermissionMixin, UpdateView):
@@ -1360,7 +1369,7 @@ class CleanedContentUpdateView(LoginRequiredMixin, View):
             except UnicodeDecodeError:
                 raise Http404("Не удалось прочитать содержимое файла: неподдерживаемая кодировка.")
             except Exception as e:
-                Http404("Ошибка при чтении файла")
+                Http404(f"Ошибка при чтении файла {str(e)}")
 
         form = CleanedContentEditorForm(initial={"content": editor_content})
         context = {
@@ -1374,7 +1383,7 @@ class CleanedContentUpdateView(LoginRequiredMixin, View):
         if form.is_valid():
             content = form.cleaned_data.get("content")
             print(content[:200])
-            cleaned_content.preview = content[:200] if content else None,
+            cleaned_content.preview = content[:200] if content else None
             cleaned_content.save(update_fields=["preview", ])
             cleaned_content.file.save("ignored.txt", ContentFile(content.encode('utf-8')))
             return redirect(reverse_lazy("sources:cleanedcontent_detail", args=[cleaned_content.pk]))

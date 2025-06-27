@@ -22,6 +22,10 @@
                                     {{ document.get_status_display  }}
                                 </span>
                             </dd>
+                            {% if document.description %}
+                                <dt class="description__term">Описание</dt>
+                                <dd class="description__defination">{{ document.description }}</dd>
+                            {% endif %}
                         </dl>
                         <a class="btn btn--reset btn--round" href="{% url 'sources:networkdocument_update_status' document.pk %}" aria-label="Изменить статус источника" title="Изменить статус источника">
                             <svg class="btn__icon">
@@ -105,8 +109,8 @@
                 <div class="source__wrapper">
                     <h4 class="source__subheading">Описание источника</h4>
                     <dl class="source__description--info description">
-                        <dt class="description__term">Статус</dt>
-                        <dd class="description__defination">{{ document.status }}</dd>
+                        {% comment %} <dt class="description__term">Статус</dt>
+                        <dd class="description__defination">{{ document.status }}</dd> {% endcomment %}
                         <dt class="description__term">URL</dt>
                         <dd class="description__defination">{{ document.url }}</dd>
                         <dt class="description__term">Язык</dt>
@@ -117,30 +121,30 @@
                         <dd class="description__defination">{{ document.tags }}</dd>
                         <dt class="description__term">Ошибки</dt>
                         <dd class="description__defination">{{ document.error_message }}</dd>
-                        <dt class="description__term">Метаданные</dt>
+                        {% comment %} <dt class="description__term">Метаданные</dt>
                         <dd class="description__defination">{{ document.metadata }}</dd>
                         <dt class="description__term">Дата обновления в источнике</dt>
                         <dd class="description__defination">{{ document.remote_updated }}</dd>
                         <dt class="description__term">Дата локального обновления ?</dt>
                         <dd class="description__defination">{{ document.local_updated }}</dd>
                         <dt class="description__term">Дата синхронизации ?</dt>
-                        <dd class="description__defination">{{ document.synchronized_at }}</dd>
+                        <dd class="description__defination">{{ document.synchronized_at }}</dd> {% endcomment %}
                         <dt class="description__term">Дата создания</dt>
                         <dd class="description__defination">{{ document.created_at }}</dd>
                         <dt class="description__term">Дата обновления</dt>
                         <dd class="description__defination">{{ document.updated_at }}</dd>
                         <dt class="description__term">Дата мягкого удаления</dt>
                         <dd class="description__defination">{{ document.soft_deleted_at }}</dd>
-                        <dt class="description__term">Хранилище</dt>
-                        <dd class="description__defination">{{ document.storage }}</dd>
+                        {% comment %} <dt class="description__term">Хранилище</dt>
+                        <dd class="description__defination">{{ document.storage }}</dd> {% endcomment %}
                         <dt class="description__term">Создан в рамках отчета</dt>
                         <dd class="description__defination">{{ document.report }}</dd>
                         <dt class="description__term">Путь</dt>
                         <dd class="description__defination">{{ document.path }}</dd>
-                        <dt class="description__term">ID на облачном диске</dt>
+                        {% comment %} <dt class="description__term">ID на облачном диске</dt>
                         <dd class="description__defination">{{ document.file_id }}</dd>
                         <dt class="description__term">Формат вывода в БД</dt>
-                        <dd class="description__defination">{{ document.output_format }}</dd>
+                        <dd class="description__defination">{{ document.output_format }}</dd> {% endcomment %}
                         <dt class="description__term">Описание</dt>
                         <dd class="description__defination">{{ document.description }}</dd>
                     </dl>
