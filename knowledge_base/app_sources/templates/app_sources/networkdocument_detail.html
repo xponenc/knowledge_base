@@ -32,6 +32,43 @@
         </li>
     </ol>
 </nav>
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        {% comment %} база знаний {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ kb.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">База знаний {{ kb.name }}</span>
+            </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        {% comment %} хранилище {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <a href="{{ storage.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">{{ storage_type_ru }} {{ storage.name }}</span>
+            </a>
+            <meta itemprop="position" content="2" />
+        </li>
+        {% comment %} источник {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">{{ cloudstorage.name }}</span>
+            <a href="{{ document.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">{{ document_type_ru }} {{ document.title|default:"" }}</span>
+            </a>
+            <meta itemprop="position" content="3" />
+        </li>
+        {% comment %} контент {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <a href="{{ content.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">Исходный контент</span>
+            </a>
+            <meta itemprop="position" content="4" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">Распознавание</span>
+            <meta itemprop="position" content="5" />
+        </li>
+    </ol>
+</nav>
 {% endblock %}
 
 {% block content %}

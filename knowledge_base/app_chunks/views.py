@@ -15,13 +15,14 @@ from django.views import View
 from django.db.models import Subquery, OuterRef, Q, Prefetch, Count
 from django.db.models.functions import Length
 from django.http import StreamingHttpResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 
 from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 
-from app_chunks.forms import ModelScoreTestForm
+from app_chunks.forms import ModelScoreTestForm, SplitterSelectForm
+from app_chunks.splitters.dispatcher import SplitterDispatcher
 from app_chunks.tasks import test_model_answer
 from app_embeddings.services.embedding_config import system_instruction
 from app_embeddings.services.retrieval_engine import answer_index
@@ -242,7 +243,25 @@ def save_documents_to_response(request, documents, is_ajax=False):
 class ChunkCreateFromURLContentView(LoginRequiredMixin, View):
     """Создание чанков из URLContent"""
 
-    def get(self, request, pk):
+    def get(self,request,  url_content_pk, *args, **kwargs):
+        url_content = get_object_or_404(URLContent, pk=url_content_pk)
+        document = url_content.url
+        storage = document.site
+        kb = storage.kb
+        context = {
+            "content": url_content,
+            "document": document,
+            "storage": storage,
+            "kb": kb,
+        }
+        # форма выбора класса распознавателя
+        dispatcher = SplitterDispatcher()
+        splitters = dispatcher.list_all()
+        form = SplitterSelectForm(splitters=splitters)
+        context["form"] = form
+        return render(request, "app_chunks/urlcontent_chunking.html", context)
+
+    def post(self, request, pk):
         url_content = URLContent.objects.select_related("url").get(pk=pk)
         url = url_content.url.url
         body = url_content.body

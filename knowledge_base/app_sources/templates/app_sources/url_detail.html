@@ -162,7 +162,6 @@
                             <div class="cell-tree__footer">
                             </div>
                         </div>
-                        
                     </div>
                     <div class="tree__clean">
                         <div class="tree__cell cell-tree">
@@ -216,6 +215,11 @@
                                     <a href="{% url 'sources:urlcontent_update' url_content.id %}" class="btn btn--reset btn--round" title="Редактировать очищенный контент" aria-label="Редактировать очищенный контент">
                                         <svg class="btn__icon">
                                             <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                                        </svg>
+                                    </a>
+                                    <a href="{% url 'chunks:create_chunks_from_url_content' url_content.id %}" class="btn btn--reset btn--round" title="Создать чанки для очищенного контента" aria-label="Создать чанки для очищенного контента">
+                                        <svg class="btn__icon">
+                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#chunk"></use>
                                         </svg>
                                     </a>
                                 </div>

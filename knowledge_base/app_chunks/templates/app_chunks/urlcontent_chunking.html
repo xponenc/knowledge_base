@@ -1,0 +1,230 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+
+
+{% block extra_css %}
+    <link href="{% static 'libs/choices/choices.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/source.css' %}" rel="stylesheet">
+    <link href="{% static 'css/custom_choices.css' %}" rel="stylesheet">
+{% endblock %}
+
+
+{% block title %}Разбиение на чанки{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        {% comment %} база знаний {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ kb.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">База знаний {{ kb.name }}</span>
+            </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        {% comment %} хранилище {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <a href="{{ storage.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">Хранилище {{ storage.name }}</span>
+            </a>
+            <meta itemprop="position" content="2" />
+        </li>
+        {% comment %} источник {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">{{ cloudstorage.name }}</span>
+            <a href="{{ document.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">Источник {{ document.title|default:"" }}</span>
+            </a>
+            <meta itemprop="position" content="3" />
+        </li>
+        {% comment %} контент {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <a href="{{ content.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">Исходный контент</span>
+            </a>
+            <meta itemprop="position" content="4" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">Разбиение на чанки</span>
+            <meta itemprop="position" content="5" />
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+
+<div class="page page--content">
+    <div class="page__top page__grid">
+        <div class="page__info info-page info-page--content _jc-fs">
+            <span class="info-page__banner info-page__banner--medium">исходный контент</span>
+            <div class="info-page__header">
+                <h2 class="page__heading _ta-e">РАСПОЗНАВАНИЕ</h2>
+                <h3 class="info-page__heading"></h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                <h3 class="info-page__heading">Детали источника</h3>
+                <dl class="source__description--info description">
+                    <dt class="description__term">Наименование</dt>
+                    <dd class="description__defination">{{ document.title|default:document.url }}</dd>
+                    <dt class="description__term">Описание</dt>
+                    <dd class="description__defination">{{ document.description|default:"" }}</dd>
+                    <dt class="description__term">Статус</dt>
+                    <dd class="description__defination">
+                        <span class="tag tag--fat{% if document.status == "ready" %} tag--success{% elif document.status == "de" %} tag--deleted{% elif document.status == "ex" %} tag--disabled {% elif document.status == "er" %} tag--alarm{% else %} tag--warning{% endif %}">
+                            {{ document.get_status_display  }}
+                        </span>
+                    </dd>
+                    <dd class="description__defination">
+                        <div class="tags">
+                            {% for tag in document.tags %}
+                                <span class="tag tag--simple">{{ tag }}</span>
+                            {% endfor %}
+                        </div>
+                    </dd>
+                </dl>
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+    </div>
+    <article class="page__content _mb">
+        <h3 class="page__subheading">цепочка источника</h3>
+        <div class="page__tree tree">
+            <div class="tree__row">
+                <div class="tree__raw">
+                    <div class="tree__cell cell-tree">
+                        <div class="cell-tree__header">
+                            <h4 class="cell-tree__heading">HTML</h4>
+                        </div>
+                        <div class="cell-tree__body">
+                        
+                        </div> 
+                        <div class="cell-tree__footer">
+                        </div>
+                    </div>
+                </div>
+                <div class="tree__clean">
+                    <div class="tree__cell cell-tree">
+                        <div class="cell-tree__header">
+                            <h4 class="cell-tree__heading">Чистый контент</h4>
+                        </div>
+                        <div class="cell-tree__body">
+                            <dl class="cell-tree__description description--column">
+                                <dt class="description__term">Заголовок</dt>
+                                <dd class="description__defination">{{ content.title }}</dd>
+                                <dt class="description__term">Статус</dt>
+                                <dd class="description__defination">
+                                    <span class="tag{% if content.status == "ready" %} tag--warning{% elif content.status == "canceled" %} tag--deleted{% elif content.status == "active" %} tag--success{% else %} tag--alarm{% endif %}">
+                                        {{ content.get_status_display }}
+                                    </span>
+                                </dd>
+                                <dt class="description__term">Создан</dt>
+                                <dd class="description__defination">{{ content.created_at|date:"d.m.Y H:i" }}</dd>
+                            <dl>
+                            <div class="cell-tree__preview cell-tree__preview--text">
+                                <p class="text">{{ content.body_preview }} {% if content.body_length > 200 %} ...{% endif %}</p>
+                            </div>
+                            <dl class="cell-tree__description description--column">
+                                <dt class="description__term">Размер</dt>
+                                <dd class="description__defination">{{ content.body_length }} символа(ов)</dd>
+                                <dt class="description__term">Теги</dt>
+                                <dd class="description__defination">{{ content.tags|join:", "|default:"-" }}</dd>
+                                <dt class="description__term">Metadata</dt>
+                                <dd class="description__defination description__defination--clamp3">{{ content.metadata }}</dd>
+                                <dt class="description__term">Автор</dt>
+                                <dd class="description__defination">{{ content.author.get_full_name|default:content.author.username }}</dd>
+                                <dt class="description__term">Создан в рамках обновления</dt>
+                                <dd class="description__defination">
+                                    <a href="{% url 'sources:websiteupdatereport_detail' content.report.pk %}" class="link-marker">
+                                        <span>Отчет обновления [id{{ content.report.pk }}] от {{ content.report.created_at|date:"d.m.Y H:i" }}</span>
+                                        <svg class="link-marker__marker">
+                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#report"></use>
+                                    </a>
+                                    </svg>
+                                </dd>
+                            <dl>
+                        </div>
+                        <div class="cell-tree__footer">
+                            <div class="btns _jc-fe">
+                                <a href="{% url 'sources:urlcontent_detail' content.id %}" class="btn btn--reset btn--simple" title="Посмотреть очищенный контент" aria-label="Посмотреть очищенный контент">
+                                    <span>Посмотреть</span>
+                                    <svg class="btn__icon">
+                                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#details"></use>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tree__chunk">
+                    <div class="tree__cell cell-tree">
+                        <div class="cell-tree__header">
+                            {% if content.chunk_set.count > 0 %}
+                                <div class="page__warning">
+                                    <p class="text text--fat">ВНИМАНИЕ</p>
+                                    <p class="text _ta-c">При чанковании будет создана задача на изменение чанков/векторов</p>
+                                </div>
+                            {% endif %}
+                            <h4 class="cell-tree__heading">Чанки</h4>
+                        </div>
+                        <div class="cell-tree__body">
+                        </div>
+                    </div>
+                </div>
+                <div class="tree__embedding">
+                    <div class="tree__cell cell-tree">
+                        <div class="cell-tree__header">
+                            {% if content.cleanedcontent %}
+                                <div class="page__warning">
+                                    <p class="text text--fat">ВНИМАНИЕ</p>
+                                    <p class="text _ta-c">При распознавании векторы будут удалены из базы</p>
+                                </div>
+                            {% endif %}
+                            <h4 class="cell-tree__heading">Вектора</h4>
+                        </div>
+                        <div class="cell-tree__body">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </article>
+    <article class="page__content _mb">
+        <h3 class="page__subheading">Распознавание исходного контента</h3>
+        <form action="" method="POST" class="form" id="start-recognize">
+            {% csrf_token %}
+            {% include "widgets/_form_content-widget.html" %}
+            <div class="form__btn-block">
+                <a href="{{ document.get_absolute_url }}" class="btn btn--reset btn--simple">ОТМЕНИТЬ</a>
+                <button type="submit" class="btn btn--reset btn--simple btn--accent" id="submit-btn">
+                    Запустить распознавание
+                </button>
+            </div>
+        </form>
+        </div>
+    </article>
+</div>
+{% endblock %}
+
+
+{% block script %}
+    <script src="{% static 'libs/choices/choices.min.js' %}"></script>
+    <script>
+        // Инициализация choice.js для #id_recognizer
+        let statusSelect = new Choices("#id_splitters", {
+            allowHTML: true,
+            classNames: {
+                containerOuter: 'choices custom-choices custom-choices_transparent',
+            },
+            position: 'down',
+            itemSelectText: 'splitter',
+            searchEnabled: false,
+            searchPlaceholderValue: 'поиск',
+            maxItemText: 'Выбрано максимально допустимое количество',
+            //removeItems: true,
+            //removeItemButton: true,
+            noResultsText: 'Ничего не найдено',
+        })
+    </script>
+{% endblock script%}

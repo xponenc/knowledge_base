@@ -45,7 +45,6 @@ class StorageTagsView(LoginRequiredMixin, StoragePermissionMixin, View):
         except (storage_class.DoesNotExist, ValueError):
             return None
 
-
     @staticmethod
     def get_longest_tags(storage):
         """Поиск самой длинной цепочки тегов у источника. Версия для PostgreSQL"""
@@ -93,7 +92,6 @@ class StorageTagsView(LoginRequiredMixin, StoragePermissionMixin, View):
 
         # Версия для PostgreSQL
         # longest_tags = self.get_longest_tags(storage)
-
 
         context = {
             "storage": storage,

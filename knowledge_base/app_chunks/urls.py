@@ -6,7 +6,7 @@ from app_chunks.views import ChunkCreateFromURLContentView, ChunkCreateFromWebSi
 app_name = "chunks"
 
 urlpatterns = [
-    path("chunk-crete/url-content/<int:pk>", ChunkCreateFromURLContentView.as_view(), name="create_chunks_from_url_content"),
+    path("chunk-crete/url-content/<int:url_content_pk>", ChunkCreateFromURLContentView.as_view(), name="create_chunks_from_url_content"),
     path("chunk-crete/website/<int:pk>", ChunkCreateFromWebSiteView.as_view(), name="create_chunks_from_website"),
     path("ask/frida", TestAskFridaView.as_view(), name="ask_frida"),
     path("test-model", TestModelScoreView.as_view(), name="test_model_score"),

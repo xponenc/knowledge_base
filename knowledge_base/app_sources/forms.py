@@ -3,8 +3,8 @@ from importlib import import_module
 from django import forms
 from django.core.signing import Signer
 
-from app_sources.models import CloudStorage
 from app_sources.source_models import NetworkDocument
+from app_sources.storage_models import CloudStorage
 
 
 class CloudStorageForm(forms.ModelForm):

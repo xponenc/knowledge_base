@@ -30,6 +30,7 @@ from app_parsers.services.parsers.dispatcher import WebParserDispatcher
 from app_sources.content_models import URLContent, RawContent, CleanedContent, ContentStatus
 from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedContentEditorForm, \
     NetworkDocumentStatusUpdateForm
+from app_sources.models import HierarchicalContextMixin
 from app_sources.report_models import CloudStorageUpdateReport, WebSiteUpdateReport, ReportStatus
 from app_sources.source_models import NetworkDocument, URL, SourceStatus
 from app_sources.storage_models import CloudStorage, Storage, LocalStorage, WebSite, URLBatch
@@ -39,9 +40,6 @@ from recognizers.dispatcher import ContentRecognizerDispatcher
 from utils.tasks import get_task_status
 
 logger = logging.getLogger(__name__)
-
-
-
 
 
 class DocumentPermissionMixin(UserPassesTestMixin):
@@ -488,7 +486,7 @@ class NetworkDocumentListView(LoginRequiredMixin, ListView):
     model = NetworkDocument
 
 
-class NetworkDocumentDetailView(LoginRequiredMixin, DocumentPermissionMixin, DetailView):
+class NetworkDocumentDetailView(LoginRequiredMixin, DocumentPermissionMixin, HierarchicalContextMixin, DetailView):
     """Детальный просмотр объекта модели Сетевой документ NetworkDocument (с проверкой прав доступа)"""
     model = NetworkDocument
     rawcontent_set = Prefetch(
@@ -547,9 +545,11 @@ class LocalStorageCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateV
     fields = "__all__"
 
 
-class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
+class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, HierarchicalContextMixin, DetailView):
     """Детальный просмотр объекта модели Вебсайт (с проверкой прав доступа)"""
     model = WebSite
+    queryset = (WebSite.objects.select_related("author", "mainparser__author")
+                .prefetch_related("test_parsers__author", "reports__author"))
 
     @staticmethod
     def parse_date_param(param):
@@ -618,7 +618,7 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
         sorting = request_get.get("sorting", None)
         tags_filter = request_get.getlist("tags", None)
 
-        urls = website.url_set.all()
+        urls = website.url_set.select_related("report", "report__author").all()
 
         # 🔍 Поиск
         if search_query:
