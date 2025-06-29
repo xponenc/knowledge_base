@@ -9,7 +9,8 @@ from datetime import datetime
 import tiktoken
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import NotSupportedError
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
+from django.template.loader import render_to_string
 from django.utils.timezone import make_aware
 from django.views import View
 from django.db.models import Subquery, OuterRef, Q, Prefetch, Count
@@ -21,7 +22,7 @@ from django.urls import reverse_lazy
 from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 
-from app_chunks.forms import ModelScoreTestForm, SplitterSelectForm
+from app_chunks.forms import ModelScoreTestForm, SplitterSelectForm, SplitterDynamicConfigForm
 from app_chunks.splitters.dispatcher import SplitterDispatcher
 from app_chunks.tasks import test_model_answer
 from app_embeddings.services.embedding_config import system_instruction
@@ -29,6 +30,29 @@ from app_embeddings.services.retrieval_engine import answer_index
 from app_sources.content_models import URLContent
 from app_sources.source_models import URL, SourceStatus
 from app_sources.storage_models import WebSite
+
+
+class SplitterConfigView(LoginRequiredMixin, View):
+    """Вью получения конфигурации сплиттера по классу"""
+    def get(self, request, *args, **kwargs):
+        splitter_class_name = request.GET.get("splitter_class_name")
+        if not splitter_class_name:
+            return HttpResponseBadRequest("Параметр 'splitter_class_name' обязателен")
+
+        try:
+            dispatcher = SplitterDispatcher()
+            splitter_cls = dispatcher.get_by_name(splitter_class_name)
+        except ValueError:
+            return HttpResponseBadRequest("Сплиттер не найден")
+
+        config_schema = getattr(splitter_cls, "config_schema", {})
+        config_form = SplitterDynamicConfigForm(schema=config_schema)
+
+        html = render_to_string("widgets/_form_content-widget.html", {
+            "form": config_form,
+        }, request=request)
+
+        return HttpResponse(html)
 
 
 def split_markdown_text(markdown_text,
@@ -96,6 +120,9 @@ def split_text(text, max_count):
     # print(source_chunk_token_counts)
 
     return source_chunks, fragments
+
+
+
 
 
 def deep_clean_metadata(obj):
@@ -257,40 +284,52 @@ class ChunkCreateFromURLContentView(LoginRequiredMixin, View):
         # форма выбора класса распознавателя
         dispatcher = SplitterDispatcher()
         splitters = dispatcher.list_all()
-        form = SplitterSelectForm(splitters=splitters)
-        context["form"] = form
+        splitter_select_form = SplitterSelectForm(splitters=splitters)
+        config_form = SplitterDynamicConfigForm()
+        context["form"] = splitter_select_form
+        context["config_form"] = config_form
         return render(request, "app_chunks/urlcontent_chunking.html", context)
 
-    def post(self, request, pk):
-        url_content = URLContent.objects.select_related("url").get(pk=pk)
+    def post(self, request, url_content_pk, *args, **kwargs):
+        print(request.POST)
+        url_content = get_object_or_404(URLContent, pk=url_content_pk)
+        document = url_content.url
+        storage = document.site
+        kb = storage.kb
+        context = {
+            "content": url_content,
+            "document": document,
+            "storage": storage,
+            "kb": kb,
+        }
+
+        dispatcher = SplitterDispatcher()
+        splitters = dispatcher.list_all()
+        splitter_select_form = SplitterSelectForm(request.POST, splitters=splitters)
+
+        if not splitter_select_form.is_valid():
+            context["form"] = splitter_select_form
+            context["config_form"] = None
+            return render(request, "app_chunks/urlcontent_chunking.html", context)
+        splitter_cls = splitter_select_form.cleaned_data.get("splitters")
+        splitter_config_schema = getattr(splitter_cls, "config_schema", {})
+        config_form = SplitterDynamicConfigForm(request.POST, schema=splitter_config_schema)
+        if not config_form.is_valid():
+            context["form"] = splitter_select_form
+            context["config_form"] = config_form
+            return render(request, "app_chunks/urlcontent_chunking.html", context)
+        splitter_config = config_form.cleaned_data.get("config")
+        print(config_form.cleaned_data)
+        splitter = splitter_cls(splitter_config)
+
         url = url_content.url.url
         body = url_content.body
         metadata = url_content.metadata
-        metadata.pop("internal_links")
+        documents = splitter.split(metadata=metadata, text_to_split=body)
 
-        total_header = ""
-        if metadata.get("title"):
-            total_header += "Заголовок: " + metadata.get("title") + ". "
-        if metadata.get("tags"):
-            total_header += "Категории: " + ", ".join(metadata.get("tags")) + ". "
+        save_documents_to_file(documents, "chunk.pickle")
 
-        # chunks = split_markdown_text(body)
-        source_chunks, fragments = split_text(body, 600)
-        for chunk in source_chunks:
-            chunk.metadata.update(metadata)
-            chunk.metadata["url"] = url
-
-        source_chunks = [process_document(chunk) for chunk in source_chunks]
-
-        for chunk in source_chunks:
-            chunk.page_content = total_header + chunk.page_content
-            chunk.metadata = flatten_metadata(chunk.metadata)
-
-        # pprint(source_chunks)
-
-        save_documents_to_file(source_chunks, "chunk.pickle")
-
-        return HttpResponse("<br><br><br>".join(chunk.page_content for chunk in source_chunks))
+        return HttpResponse("<br><br><br>".join(f'CHUNK\nmetadata: {chunk.metadata}\ncontent: {chunk.page_content}' for chunk in documents))
 
 
 class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):

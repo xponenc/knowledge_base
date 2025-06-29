@@ -22,6 +22,8 @@ class SplitterDispatcher:
         Raises:
             ValueError: Если не найден распознаватель с указанным именем.
         """
+        print(name)
+        print(CHUNK_SPLITTER_REGISTRY)
         splitter_cls = CHUNK_SPLITTER_REGISTRY.get(name)
 
         if splitter_cls:

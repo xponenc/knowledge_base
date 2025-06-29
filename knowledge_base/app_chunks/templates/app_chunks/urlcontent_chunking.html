@@ -191,14 +191,20 @@
         </div>
     </article>
     <article class="page__content _mb">
-        <h3 class="page__subheading">Распознавание исходного контента</h3>
+        <h3 class="page__subheading">Разбиение на чанки исходного контента</h3>
         <form action="" method="POST" class="form" id="start-recognize">
             {% csrf_token %}
             {% include "widgets/_form_content-widget.html" %}
+            <!-- Контейнер для динамических полей конфигурации -->
+            <div id="config-form-container" class="mb-3">
+                {% if config_form %}
+                    {% include "widgets/_form_content-widget.html" with form=config_form %}
+                {% endif %}
+            </div>
             <div class="form__btn-block">
                 <a href="{{ document.get_absolute_url }}" class="btn btn--reset btn--simple">ОТМЕНИТЬ</a>
                 <button type="submit" class="btn btn--reset btn--simple btn--accent" id="submit-btn">
-                    Запустить распознавание
+                    Запустить
                 </button>
             </div>
         </form>
@@ -226,5 +232,34 @@
             //removeItemButton: true,
             noResultsText: 'Ничего не найдено',
         })
+        document.addEventListener('DOMContentLoaded', () => {
+            const splitterSelect = document.querySelector('#id_splitters');
+            const configContainer = document.getElementById('config-form-container');
+        
+            splitterSelect.addEventListener('change', () => {
+                const splitter = splitterSelect.value;
+                console.log(splitter)
+                if (!splitter) {
+                    configContainer.innerHTML = '';
+                    return;
+                }
+                fetch(`{% url 'chunks:splitter_config' %}?splitter_class_name=${encodeURIComponent(splitter)}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Ошибка загрузки конфигурации');
+                    return response.text();
+                })
+                .then(html => {
+                    configContainer.innerHTML = html;
+                })
+                .catch(err => {
+                    configContainer.innerHTML = '<div class="text--danger">Не удалось загрузить конфигурацию сплиттера</div>';
+                    console.error(err);
+                });
+            });
+        });
     </script>
 {% endblock script%}

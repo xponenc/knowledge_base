@@ -1,7 +1,7 @@
 from django.urls import path
 
 from app_chunks.views import ChunkCreateFromURLContentView, ChunkCreateFromWebSiteView, TestAskFridaView, ClearChatView, \
-    CurrentTestChunksView, TestModelScoreView, TestModelScoreReportView
+    CurrentTestChunksView, TestModelScoreView, TestModelScoreReportView, SplitterConfigView
 
 app_name = "chunks"
 
@@ -13,4 +13,6 @@ urlpatterns = [
     path("test-model-report", TestModelScoreReportView.as_view(), name="test_model_report"),
     path('clear/frida/', ClearChatView.as_view(), name='clear_frida'),
     path('chunks/show-current/', CurrentTestChunksView.as_view(), name='current_chuncks'),
+
+    path("config/", SplitterConfigView.as_view(), name="splitter_config"),
 ]
