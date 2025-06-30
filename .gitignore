@@ -3,6 +3,7 @@
 
 
 temp/
+credentials.json
 
 # Игнорировать все миграции всех приложений
 **/migrations/*.py
