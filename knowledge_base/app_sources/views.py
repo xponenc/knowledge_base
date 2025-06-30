@@ -32,10 +32,12 @@ from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedCo
     NetworkDocumentStatusUpdateForm
 from app_sources.models import HierarchicalContextMixin
 from app_sources.report_models import CloudStorageUpdateReport, WebSiteUpdateReport, ReportStatus
+from app_sources.services.google_sheets_manager import GoogleSheetsManager
 from app_sources.source_models import NetworkDocument, URL, SourceStatus
 from app_sources.storage_models import CloudStorage, Storage, LocalStorage, WebSite, URLBatch
 from app_sources.storage_views import StoragePermissionMixin
 from app_sources.tasks import process_cloud_files
+from knowledge_base.settings import BASE_DIR
 from recognizers.dispatcher import ContentRecognizerDispatcher
 from utils.tasks import get_task_status
 
@@ -63,10 +65,38 @@ class CloudStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailV
     """Детальный просмотр объекта модели Облачное хранилище"""
     model = CloudStorage
 
+    def update_document_descriptions_from_csv(self, csv_path):
+        csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), csv_path )
+        with open(csv_path, newline='', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile, delimiter=',')
+            updated = 0
+            not_found = []
+
+            for row in reader:
+                title = row.get("Название файла", "").strip()
+                description = row.get("Название документа", "").strip()
+
+                if not title:
+                    continue  # пропускаем строки без названия файла
+
+                try:
+                    doc = NetworkDocument.objects.get(title=title)
+                    doc.description = description
+                    doc.save()
+                    updated += 1
+                except NetworkDocument.DoesNotExist:
+                    not_found.append(title)
+
+        print(f"Обновлено документов: {updated}")
+        if not_found:
+            print("Не найдены документы с названиями файлов:")
+            for title in not_found:
+                print(f" - {title}")
+
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
         context = self.get_context_data()
-
+        self.update_document_descriptions_from_csv("DocScanner_Summary - Лист1.csv")
         if request.headers.get("x-requested-with") == "XMLHttpRequest":
             html = render_to_string(
                 "app_sources/include/network_documents_page.html",
@@ -289,6 +319,27 @@ class CloudStorageSyncView(View):
                 'result': {'error': f"Ошибка получения файлов: {e}"},
                 'cloud_storage': cloud_storage
             })
+
+
+class CloudStorageExportGoogleSheetView(LoginRequiredMixin, StoragePermissionMixin, View):
+    """Экспорт данных облачного хранилища в GoogleSheets"""
+
+    def get(self, request, pk, *args, **kwargs):
+        pass
+
+
+    def post(self, request, pk, *args, **kwargs):
+        cloud_storage = get_object_or_404(CloudStorage, kwargs={"pk": pk})
+        network_documents = cloud_storage.network_documents.all()
+        credentials_file = os.path.join(BASE_DIR, "product_config", "credentials.json")
+        google_sheets_manager = GoogleSheetsManager(
+            credentials_file=credentials_file,
+            short_sheet_name="DocScanner_Summary",
+            full_sheet_name="DocScanner_FullSummary"
+        )
+
+        google_sheets_manager.export_short_summary()
+
 
 
 class CloudStorageUpdateReportDetailView(LoginRequiredMixin, DetailView):

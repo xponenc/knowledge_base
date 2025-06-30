@@ -14,6 +14,8 @@ urlpatterns = [
     path('cloud_storage/<int:pk>/delete/', CloudStorageDeleteView.as_view(), name='cloudstorage_delete'),
 
     path('cloud_storage/<int:pk>/full-scan', CloudStorageSyncView.as_view(), name='cloudstorage_sync'),
+    path('cloud_storage/<int:pk>/export_to_google_sheet', CloudStorageExportGoogleSheetView.as_view(),
+         name='export_to_google_sheet'),
 
     path('storage-update-report/<int:pk>/',
          CloudStorageUpdateReportDetailView.as_view(),
