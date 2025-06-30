@@ -56,13 +56,23 @@
             </div>
             <div class="info-page__footer">
                 <div class="btns _jc-fe">
-                    <form action="{% url 'sources:cloudstorage_sync' cloudstorage.pk %}" method="POST" class="mb-4">
+                    <form action="{% url 'sources:cloudstorage_sync' cloudstorage.pk %}" method="POST">
                         {% csrf_token %}
                         <button type="submit" class="btn btn--reset btn--simple">
                             🔄 Полное сканирование облака
                         </button>
                     </form>
+                    <form id="export-form" action="{% url 'sources:export_to_google_sheet' cloudstorage.pk %}" method="POST">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn--reset btn--simple">
+                            выгрузить отчет
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#up"></use>
+                            </svg>
+                        </button>
+                    </form>
                 </div>
+                <div id="export-result" class="text"></div>
             </div>
         </div>
         <div class="page__reports reports">
@@ -286,6 +296,52 @@
                 input.checked = values.includes(input.value);
             });
         }
+
+        const exportForm = document.querySelector('#export-form');
+        const button = exportForm.querySelector('button[type="submit"]');
+        const resultDiv = document.querySelector('#export-result');
+
+        exportForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            // Заблокировать кнопку и показать загрузку
+            button.disabled = true;
+            button.classList.add("btn--disabled")
+            const originalHTML = button.innerHTML;
+            button.innerHTML = 'Выгружается...';
+
+            fetch(exportForm.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': exportForm.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.text())
+            .then(link => {
+                resultDiv.innerHTML = `
+                    <div>
+                        <p>Отчет успешно выгружен в Google Sheets: 
+                            <a href="${link}" target="_blank" class="link-marker">
+                                Открыть таблицу
+                                <svg class="link-marker__marker">
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#report"></use>
+                                </svg>
+                            </a>
+                        </p>
+                        
+                    </div>
+                `;
+            })
+            .catch(err => {
+                resultDiv.innerHTML = '<p style="color:red;">Ошибка выгрузки отчета</p>';
+                console.error(err);
+            })
+            .finally(() => {
+                button.disabled = false;
+                button.classList.remove("btn--disabled")
+                button.innerHTML = originalHTML;
+            });
+        });
     });
 </script>
 {% endblock script %}

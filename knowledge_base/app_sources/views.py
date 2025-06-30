@@ -327,18 +327,21 @@ class CloudStorageExportGoogleSheetView(LoginRequiredMixin, StoragePermissionMix
     def get(self, request, pk, *args, **kwargs):
         pass
 
-
     def post(self, request, pk, *args, **kwargs):
-        cloud_storage = get_object_or_404(CloudStorage, kwargs={"pk": pk})
+        cloud_storage = get_object_or_404(CloudStorage, pk=pk)
+        cloud_storage_name = cloud_storage.name
         network_documents = cloud_storage.network_documents.all()
         credentials_file = os.path.join(BASE_DIR, "product_config", "credentials.json")
+
         google_sheets_manager = GoogleSheetsManager(
             credentials_file=credentials_file,
-            short_sheet_name="DocScanner_Summary",
-            full_sheet_name="DocScanner_FullSummary"
+            short_sheet_name=f"{cloud_storage_name}_DocScanner_Summary",
+            full_sheet_name=f"{cloud_storage_name}_DocScanner_FullSummary"
         )
 
-        google_sheets_manager.export_short_summary()
+        google_sheets_manager.export_short_summary(request=request, export_data=network_documents)
+
+        return HttpResponse(google_sheets_manager.short_shared_link)
 
 
 
