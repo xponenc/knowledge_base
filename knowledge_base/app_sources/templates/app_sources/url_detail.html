@@ -232,6 +232,9 @@
                                 <h4 class="cell-tree__heading">Чанки</h4>
                             </div>
                             <div class="cell-tree__body">
+                                {% for chunk in url_content.chunk_set.all %}
+                                    {{ chunk }}
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
