@@ -64,39 +64,39 @@ class DocumentPermissionMixin(UserPassesTestMixin):
 class CloudStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
     """Детальный просмотр объекта модели Облачное хранилище"""
     model = CloudStorage
-
-    def update_document_descriptions_from_csv(self, csv_path):
-        csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), csv_path )
-        with open(csv_path, newline='', encoding='utf-8') as csvfile:
-            reader = csv.DictReader(csvfile, delimiter=',')
-            updated = 0
-            not_found = []
-
-            for row in reader:
-                title = row.get("Название файла", "").strip()
-                description = row.get("Название документа", "").strip()
-
-                if not title:
-                    continue  # пропускаем строки без названия файла
-
-                try:
-                    doc = NetworkDocument.objects.get(title=title)
-                    doc.description = description
-                    doc.save()
-                    updated += 1
-                except NetworkDocument.DoesNotExist:
-                    not_found.append(title)
-
-        print(f"Обновлено документов: {updated}")
-        if not_found:
-            print("Не найдены документы с названиями файлов:")
-            for title in not_found:
-                print(f" - {title}")
+    #
+    # def update_document_descriptions_from_csv(self, csv_path):
+    #     csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), csv_path )
+    #     with open(csv_path, newline='', encoding='utf-8') as csvfile:
+    #         reader = csv.DictReader(csvfile, delimiter=',')
+    #         updated = 0
+    #         not_found = []
+    #
+    #         for row in reader:
+    #             title = row.get("Название файла", "").strip()
+    #             description = row.get("Название документа", "").strip()
+    #
+    #             if not title:
+    #                 continue  # пропускаем строки без названия файла
+    #
+    #             try:
+    #                 doc = NetworkDocument.objects.get(title=title)
+    #                 doc.description = description
+    #                 doc.save()
+    #                 updated += 1
+    #             except NetworkDocument.DoesNotExist:
+    #                 not_found.append(title)
+    #
+    #     print(f"Обновлено документов: {updated}")
+    #     if not_found:
+    #         print("Не найдены документы с названиями файлов:")
+    #         for title in not_found:
+    #             print(f" - {title}")
 
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
         context = self.get_context_data()
-        self.update_document_descriptions_from_csv("DocScanner_Summary - Лист1.csv")
+        # self.update_document_descriptions_from_csv("DocScanner_Summary - Лист1.csv")
         if request.headers.get("x-requested-with") == "XMLHttpRequest":
             html = render_to_string(
                 "app_sources/include/network_documents_page.html",

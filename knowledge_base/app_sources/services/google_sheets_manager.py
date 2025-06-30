@@ -13,7 +13,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 sys.path.insert(0, project_root)
 
-logger = setup_logger(__name__, log_dir="google_sheets", log_file="sheets_operations.log")
+logger = setup_logger(__name__, log_dir="logs/google_sheets", log_file="sheets_operations.log")
 
 class GoogleSheetsManager:
     """
