@@ -1,0 +1,145 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+
+
+
+{% block extra_css %}
+    <link href="{% static 'css/source.css' %}" rel="stylesheet">
+    <link href="{% static 'css/storage.css' %}" rel="stylesheet">
+{% endblock %}
+
+
+{% block title %}Чистый контент{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        {% comment %} база знаний {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ kb.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">База знаний {{ kb.name }}</span>
+            </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        {% comment %} хранилище {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <a href="{{ storage.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">{{ storage_type_ru }} {{ storage.name }}</span>
+            </a>
+            <meta itemprop="position" content="2" />
+        </li>
+        {% comment %} источник {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">{{ cloudstorage.name }}</span>
+            <a href="{{ document.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">{{ document_type_ru }} {{ document.title|default:"" }}</span>
+            </a>
+            <meta itemprop="position" content="3" />
+        </li>
+        {% comment %} контент {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <a href="{{ content.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">Исходный контент</span>
+            </a>
+            <meta itemprop="position" content="4" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">Распознавание</span>
+            <meta itemprop="position" content="5" />
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+
+<div class="page page--content">
+    <div class="page__top page__grid">
+        <div class="page__info info-page info-page--content _jc-fs">
+            <span class="info-page__banner info-page__banner--medium">Чистый контент</span>
+            <div class="info-page__header">
+                <h2 class="page__heading _ta-e"></h2>
+                <h3 class="info-page__heading"></h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                <h3 class="info-page__heading">Детали очищенного контента</h3>
+                <dl class="source__description--info description">
+                    <dt class="description__term">Наименование</dt>
+                    <dd class="description__defination">{{ object.title|default:object.url }}</dd>
+                    <dt class="description__term">Описание</dt>
+                    <dd class="description__defination">{{ object.description|default:"" }}</dd>
+                    <dt class="description__term">Статус</dt>
+                    <dd class="description__defination">
+                        <span class="tag{% if object.status == "ready" %} tag--warning{% elif object.status == "canceled" %} tag--deleted{% elif object.status == "active" %} tag--success{% else %} tag--alarm{% endif %}">
+                            {{ object.get_status_display }}
+                        </span>
+                    </dd>
+                    
+                    {% if object.error_message %}
+                        <dt class="description__term">Ошибка</dt>
+                        <dd class="description__defination"><span class="text text--fat text--alarm">{{ object.error_message }}</span></dd>
+                    {% endif %}
+                </dl>
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+        <div class="page__info info-page info-page--{{ storage_type_eng }} _jc-fs">
+        </div>
+            
+    </div>
+    <article class="page__content _mb">
+        <h3 class="page__subheading">Чанки ({{ chunk_list|length }})</h3>
+        <div class="source">
+            {% for chunk in chunk_list %}
+                <div class="source__wrapper">
+                    <div class="source__header">
+                        <h3 class="source__heading">
+                            Чанк [id {{ chunk.id }}]  
+                        </h3>
+                        <div class="tags">
+                            <span class="tag {% if chunk.status == "ready" %} tag--warning{% elif chunk.status == "active" %} tag--success{% elif chunk.status == "canceled" %} tag--disabled{% else %} tag--alarm{% endif %}">
+                                {{ chunk.get_status_display  }}
+                            </span>
+                        </div>
+                        <dl class="source__description--info description">
+                            <dt class="description__term">сплиттер</dt>
+                            <dd class="description__defination">{{ chunk.splitter_cls }}</dd>
+                            <dt class="description__term">конфигурация сплитера</dt>
+                            <dd class="description__defination json-container"> {% include 'widgets/_json_recursive.html' with data=chunk.splitter_config level=0 %}</dd>
+                            <dt class="description__term">автор</dt>
+                            <dd class="description__defination">{{ chunk.author.get_full_name|default:chunk.author.username }}</dd>
+                            <dt class="description__term">создан</dt>
+                            <dd class="description__defination">{{ chunk.created_at|date:"d.m.Y H:i" }}</dd>
+                        </dl>
+                    </div>
+                    <div class="source__body">
+                        <h5 class="source__heading">
+                            metadata
+                        </h5>
+                        <div class="source__manage json">
+                            <div class="json-container">
+                                {% include 'widgets/_json_recursive.html' with data=chunk.metadata level=0 %}
+                            </div>
+                        </div>
+                        <div class="source__wrapper">
+                            <h5 class="source__heading">
+                                контент
+                            </h5>
+                            <div class="source__manage json">
+                                {{ chunk.page_content|linebreaks }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </article>
+</div>
+{% endblock %}
+
+
+{% block script %}
+    
+{% endblock script%}

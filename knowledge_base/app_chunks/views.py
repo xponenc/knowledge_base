@@ -18,11 +18,13 @@ from django.db.models.functions import Length
 from django.http import StreamingHttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
+from django.views.generic import ListView
 
 from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 
 from app_chunks.forms import ModelScoreTestForm, SplitterSelectForm, SplitterDynamicConfigForm
+from app_chunks.models import Chunk, ChunkStatus
 from app_chunks.splitters.dispatcher import SplitterDispatcher
 from app_chunks.tasks import test_model_answer
 from app_embeddings.services.embedding_config import system_instruction
@@ -34,6 +36,7 @@ from app_sources.storage_models import WebSite
 
 class SplitterConfigView(LoginRequiredMixin, View):
     """Вью получения конфигурации сплиттера по классу"""
+
     def get(self, request, *args, **kwargs):
         splitter_class_name = request.GET.get("splitter_class_name")
         if not splitter_class_name:
@@ -120,9 +123,6 @@ def split_text(text, max_count):
     # print(source_chunk_token_counts)
 
     return source_chunks, fragments
-
-
-
 
 
 def deep_clean_metadata(obj):
@@ -223,7 +223,8 @@ def save_documents_to_response(request, documents, is_ajax=False):
             return JsonResponse({"error": "No documents to save"}, status=400)
         return HttpResponse("No documents to save", status=400)
 
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pickle', dir=os.path.dirname(os.path.abspath(__file__)))
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pickle',
+                                            dir=os.path.dirname(os.path.abspath(__file__)))
     temp_file_path = temp_file.name
 
     try:
@@ -267,10 +268,31 @@ def save_documents_to_response(request, documents, is_ajax=False):
         return HttpResponse(f"Error serializing documents: {str(e)}", status=500)
 
 
+class ChunkListView(LoginRequiredMixin, ListView):
+    """Списковый просмотр чанков"""
+    # TODO право просмотра владельца
+    model = Chunk
+    queryset = Chunk.objects.select_related("author").annotate()
+
+    def get(self, *args, **kwargs):
+        queryset = super().get_queryset()
+        url_content_pk = self.request.GET.get("urlcontent")
+        if url_content_pk:
+            url_content = URLContent.objects.get(pk=url_content_pk)
+
+            queryset = queryset.filter(url_content=url_content)
+            context = {
+                "object": url_content,
+                "chunk_list": queryset,
+            }
+
+        return render(request=self.request, template_name="app_chunks/chunk_list.html", context=context)
+
+
 class ChunkCreateFromURLContentView(LoginRequiredMixin, View):
     """Создание чанков из URLContent"""
 
-    def get(self,request,  url_content_pk, *args, **kwargs):
+    def get(self, request, url_content_pk, *args, **kwargs):
         url_content = get_object_or_404(URLContent, pk=url_content_pk)
         document = url_content.url
         storage = document.site
@@ -291,7 +313,6 @@ class ChunkCreateFromURLContentView(LoginRequiredMixin, View):
         return render(request, "app_chunks/urlcontent_chunking.html", context)
 
     def post(self, request, url_content_pk, *args, **kwargs):
-        print(request.POST)
         url_content = get_object_or_404(URLContent, pk=url_content_pk)
         document = url_content.url
         storage = document.site
@@ -318,18 +339,34 @@ class ChunkCreateFromURLContentView(LoginRequiredMixin, View):
             context["form"] = splitter_select_form
             context["config_form"] = config_form
             return render(request, "app_chunks/urlcontent_chunking.html", context)
-        splitter_config = config_form.cleaned_data.get("config")
-        print(config_form.cleaned_data)
+        splitter_config = config_form.cleaned_data
         splitter = splitter_cls(splitter_config)
 
-        url = url_content.url.url
         body = url_content.body
         metadata = url_content.metadata
+
+        url = url_content.url.url
+        metadata["url"] = url
+
         documents = splitter.split(metadata=metadata, text_to_split=body)
 
         save_documents_to_file(documents, "chunk.pickle")
+        bulk_container = []
+        for document in documents:
+            chunk = Chunk(
+                url_content=url_content,
+                status=ChunkStatus.READY.value,
+                metadata=document.metadata,
+                page_content=document.page_content,
+                splitter_cls=splitter_cls.__name__,
+                splitter_config=splitter_config,
+                author=request.user,
+            )
+            bulk_container.append(chunk)
+        if bulk_container:
+            Chunk.objects.bulk_create(bulk_container)
 
-        return HttpResponse("<br><br><br>".join(f'CHUNK\nmetadata: {chunk.metadata}\ncontent: {chunk.page_content}' for chunk in documents))
+        return redirect(reverse_lazy("chunks:chunk_list") + f"?urlcontent={url_content.pk}")
 
 
 class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
@@ -628,6 +665,8 @@ class TestModelScoreReportView(LoginRequiredMixin, View):
             test_report = json.load(f)
             for test_name, test_data in test_report.items():
                 test_report[test_name]["chunks_counter"] = all_urls_counts.get(test_data.get("url"))
-                test_report[test_name]["used_chunks"] = len(list(doc for doc in test_data.get("ai_documents", []) if doc.get("metadata", {}).get("url") == test_data.get("url")))
+                test_report[test_name]["used_chunks"] = len(list(doc for doc in test_data.get("ai_documents", []) if
+                                                                 doc.get("metadata", {}).get("url") == test_data.get(
+                                                                     "url")))
 
         return render(self.request, 'app_chunks/test_model_results.html', {'tests': test_report})

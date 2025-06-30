@@ -10,6 +10,15 @@ from app_chunks.splitters.base import BaseSplitter
 
 class BoHybridMarkdownSplitter(BaseSplitter):
     config_schema = {
+        "encoding_name": {
+            "type": str,
+            "label": "Модель разбиения на токены",  # отображаемое имя
+            "help_text": '''"cl100k_base" -     gpt-4, gpt-4-turbo, gpt-3.5-turbo, text-embedding-ada-002\n
+            "p50k_base" -   code-davinci-002, text-davinci-002, text-davinci-003\n
+            "p50k_edit" -	text-davinci-edit-001, code-davinci-edit-001\n
+            "r50k_base" -	davinci, curie, babbage, ada"''',  # пояснение
+        },
+
         "chunk_size": {
             "type": int,  # или другой ожидаемый тип
             "label": "Максимальная длина чанка (в токенах)",  # отображаемое имя
@@ -35,10 +44,10 @@ class BoHybridMarkdownSplitter(BaseSplitter):
         super().__init__(config)
 
     def split(self, metadata: dict, text_to_split: str) -> List[Document]:
-
+        print(f"{self.config=}")
         total_header = self._generate_total_header_from_metadata(metadata=metadata)
 
-        source_chunks, fragments = self._split_text(text_to_split,
+        source_chunks = self._split_text(text_to_split,
                                                     chunk_size=self.config.get("chunk_size"),
                                                     chunk_overlap=self.config.get("chunk_overlap")
                                                     )
@@ -99,52 +108,35 @@ class BoHybridMarkdownSplitter(BaseSplitter):
         markdown_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on, strip_headers=False)
         fragments = markdown_splitter.split_text(text)
 
-        # Подсчет токенов для каждого фрагмента и построение графика
-        # fragment_token_counts = [self._num_tokens_from_string(fragment.page_content, "cl100k_base") for fragment in
-        #                          fragments]
-        # plt.hist(fragment_token_counts, bins=50, alpha=0.5, label='Fragments')
-        # plt.title('Distribution of Fragment Token Counts')
-        # plt.xlabel('Token Count')
-        # plt.ylabel('Frequency')
-        # plt.show()
-        # print(fragment_token_counts)
-        # for fragment in fragments:
-        #     if num_tokens_from_string(fragment.page_content, "cl100k_base") > max_count:
-        #         print(fragment)
+        encoding_name = self.config.get("encoding_name")
+        if not encoding_name:
+            raise ValueError("Не указано имя кодировки (`encoding_name`) в конфигурации сплиттера.")
 
-        recursive_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            length_function=lambda x: self._num_tokens_from_string(x, "cl100k_base")
-        )
+        try:
 
-        # source_chunks = [
-        #     Document(page_content=chunk, metadata=fragment.metadata)
-        #     for fragment in fragments
-        #     for chunk in splitter.split_text(fragment.page_content)
-        # ]
+            recursive_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+                length_function=lambda x: self._num_tokens_from_string(x, encoding_name)
+            )
+        except Exception as e:
+            raise RuntimeError(f"Ошибка инициализации RecursiveCharacterTextSplitter: {e}") from e
 
         source_chunks = []
 
         for fragment in fragments:
-            fragment_len = self._num_tokens_from_string(fragment.page_content, "cl100k_base")
+            fragment_len = self._num_tokens_from_string(fragment.page_content, encoding_name)
             if fragment_len > chunk_size:
                 chunks = recursive_splitter.split_text(fragment.page_content)
-                source_chunks.extend(
-                    Document(page_content=chunk, metadata=fragment.metadata) for chunk in chunks
-                )
-            else:
-                source_chunks.append(fragment)
+                for chunk in chunks:
+                    new_document = Document(page_content=chunk, metadata=fragment.metadata)
+                    new_document.metadata["size in chunks"] = self._num_tokens_from_string(new_document.page_content,
+                                                                                           encoding_name)
+                    source_chunks.append(new_document)
 
-        # Подсчет токенов для каждого source_chunk и построение графика
-        # source_chunk_token_counts = [self._num_tokens_from_string(chunk.page_content, "cl100k_base") for chunk in
-        #                              source_chunks]
-        # plt.hist(source_chunk_token_counts, bins=20, alpha=0.5, label='Source Chunks')
-        # plt.title('Distribution of Source Chunk Token Counts')
-        # plt.xlabel('Token Count')
-        # plt.ylabel('Frequency')
-        # plt.show()
-        # print(source_chunk_token_counts)
+            else:
+                fragment.metadata["size in chunks"] = fragment_len
+                source_chunks.append(fragment)
 
         return source_chunks
 

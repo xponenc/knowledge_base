@@ -5,9 +5,7 @@ import time
 
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from urllib.parse import urljoin, quote
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 
 from utils.setup_logger import setup_logger
 

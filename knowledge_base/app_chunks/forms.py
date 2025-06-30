@@ -1,7 +1,7 @@
 import ast
 import json
 import re
-from typing import get_origin
+from typing import get_origin, get_args
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -64,7 +64,7 @@ class SplitterSelectForm(forms.Form):
 
 
 class SplitterDynamicConfigForm(forms.Form):
-    """Динамическая форма конфигурации сплиттера"""
+    """Динамическая форма конфигурации сплиттера на основе schema"""
 
     def __init__(self, *args, schema: dict[str, dict] = None, initial_config=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -72,48 +72,90 @@ class SplitterDynamicConfigForm(forms.Form):
         self.initial_config = initial_config or {}
 
         for field_name, meta in self.schema.items():
-            field_type = meta.get("type", list[str])
+            field_type = meta.get("type", str)
             label = meta.get("label", field_name.replace("_", " ").capitalize())
-            help_text = meta.get("help_text", "Вводите значения через запятую")
+            help_text = meta.get("help_text", "")
+            required = meta.get("required", False)
+            initial_value = self.initial_config.get(field_name)
+
+            origin_type = get_origin(field_type)
+            args_type = get_args(field_type)
+
             if field_type == bool:
-                # Обрабатываем логическое значение
-                initial = bool(initial_value) if initial_value not in [None, ""] else False
                 self.fields[field_name] = forms.BooleanField(
                     required=False,
-                    initial=initial,
+                    initial=bool(initial_value),
                     label=label,
                     help_text=help_text,
-                    widget=forms.CheckboxInput(attrs={
-                        "class": "custom-field__input custom-field__input_wide",
-                        "placeholder": "",
-                    })
+                    widget=forms.CheckboxInput(attrs={"class": "custom-field__input custom-field__input_wide"})
                 )
-            else:
-                # Проверяем, является ли field_type параметризованным типом list
-                is_list_type = get_origin(field_type) is list
-                if is_list_type:
-                    initial_value = self.initial_config.get(field_name, [])
-                    if isinstance(initial_value, str):
-                        try:
-                            # Пытаемся десериализовать строку как Python список
-                            initial_value = ast.literal_eval(initial_value) if initial_value else []
-                            if not isinstance(initial_value, list):
-                                initial_value = []
-                        except (ValueError, SyntaxError):
-                            initial_value = initial_value.splitlines() if initial_value else []
-                    initial = ", ".join(str(v) for v in initial_value)
+
+            elif field_type == int:
+                self.fields[field_name] = forms.IntegerField(
+                    required=required,
+                    initial=initial_value,
+                    label=label,
+                    help_text=help_text,
+                    widget=forms.NumberInput(attrs={"class": "custom-field__input custom-field__input_wide"})
+                )
+
+            elif origin_type == list:
+
+                initial_list = initial_value or []
+
+                if isinstance(initial_list, str):
+
+                    try:
+
+                        initial_list = ast.literal_eval(initial_list)
+
+                        if not isinstance(initial_list, list):
+                            initial_list = []
+
+                    except Exception:
+
+                        initial_list = re.split(r"[,\n;]+", initial_list)
+
+                if not isinstance(initial_list, list):
+                    initial_list = []
+
+                # Используем тип элементов, если указан
+
+                if args_type and args_type[0] == int:
+
+                    initial_list = [str(int(v)) for v in initial_list if str(v).strip().isdigit()]
+
                 else:
-                    initial = str(self.initial_config.get(field_name, ""))
+
+                    initial_list = [str(v).strip() for v in initial_list]
+
+                initial = "\n".join(initial_list)
 
                 self.fields[field_name] = forms.CharField(
+
                     required=False,
+
                     initial=initial,
-                    widget=forms.Textarea(attrs={
-                        "class": "custom-field__input custom-field__input_textarea custom-field__input_wide",
-                        "placeholder": "",
-                    }),
+
                     label=label,
-                    help_text=help_text
+
+                    help_text=help_text,
+
+                    widget=forms.Textarea(attrs={
+
+                        "class": "custom-field__input custom-field__input_textarea custom-field__input_wide"
+
+                    })
+
+                )
+
+            else:  # str и прочее
+                self.fields[field_name] = forms.CharField(
+                    required=required,
+                    initial=initial_value or "",
+                    label=label,
+                    help_text=help_text,
+                    widget=forms.TextInput(attrs={"class": "custom-field__input custom-field__input_wide"})
                 )
 
     def clean(self):
@@ -122,38 +164,35 @@ class SplitterDynamicConfigForm(forms.Form):
 
         for field_name, meta in self.schema.items():
             raw_value = cleaned_data.get(field_name)
-            field_type = meta.get("type", list[str])
+            field_type = meta.get("type", str)
+            origin_type = get_origin(field_type)
+            args_type = get_args(field_type)
 
-            if field_type == list[str]:
-                try:
-                    # Попробуем сначала распарсить как JSON
-                    try:
-                        value = json.loads(raw_value)
-                        if not isinstance(value, list):
-                            raise ValueError("JSON должен быть списком")
-                    except json.JSONDecodeError:
-                        # Если это не JSON — разбиваем по , ; и \n
-                        parts = re.split(r'[,\n;]+', raw_value)
-                        value = [part.strip() for part in parts if part.strip()]
-                    result[field_name] = value
-                except Exception as e:
-                    self.add_error(field_name, "Некорректный список строк")
+            try:
+                if field_type == bool:
+                    result[field_name] = bool(raw_value)
 
-            elif field_type == list[int]:
-                try:
-                    value = [int(line.strip()) for line in raw_value.splitlines() if line.strip()]
-                    result[field_name] = value
-                except ValueError:
-                    self.add_error(field_name, "Должны быть целые числа, по одному на строку")
+                elif field_type == int:
+                    result[field_name] = int(raw_value)
 
-            elif field_type == bool:
-                result[field_name] = bool(raw_value)
+                elif origin_type == list and args_type:
+                    elem_type = args_type[0]
+                    parts = re.split(r"[,\n;]+", raw_value or "")
+                    if elem_type == str:
+                        result[field_name] = [p.strip() for p in parts if p.strip()]
+                    elif elem_type == int:
+                        result[field_name] = [int(p.strip()) for p in parts if p.strip()]
+                    else:
+                        raise ValueError(f"Неподдерживаемый тип элементов: {elem_type}")
 
-            elif field_type == str:
-                result[field_name] = raw_value.strip()
+                elif field_type == str:
+                    result[field_name] = raw_value.strip() if raw_value else ""
 
-            else:
-                self.add_error(field_name, "Неподдерживаемый тип поля")
+                else:
+                    raise ValueError("Неподдерживаемый тип поля")
+
+            except Exception:
+                self.add_error(field_name, f"Ошибка обработки значения: ожидается {field_type}")
 
         if self.errors:
             raise forms.ValidationError("Ошибки при валидации конфигурации")

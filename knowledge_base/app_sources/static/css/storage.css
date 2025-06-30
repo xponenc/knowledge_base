@@ -26,7 +26,11 @@
     opacity: 0.7;
 }
 
-.source__header {}
+.source__header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-half)
+}
 
 .source__heading {
     font-size: var(--h5fsz);
