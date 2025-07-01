@@ -972,17 +972,16 @@ class WebSiteTestParseView(LoginRequiredMixin, StoragePermissionMixin, View):
             test_parser_report.author = request.user
             test_parser_report.save()
 
-        parser_cls_name = test_parser.class_name
-        parser_config = test_parser.config
+        # parser_cls_name = test_parser.class_name
+        # parser_config = test_parser.config
 
-        parser_dispatcher = WebParserDispatcher()
-        parser_cls = parser_dispatcher.get_by_class_name(parser_cls_name)
-        parser = parser_cls(config=parser_config if parser_config else {})
-        print("Запуск единиченого парсинга")
+        # parser_dispatcher = WebParserDispatcher()
+        # parser_cls = parser_dispatcher.get_by_class_name(parser_cls_name)
+        # parser = parser_cls(config=parser_config if parser_config else {})
         task = test_single_url.delay(
             url=url,
-            parser=parser,
-            report=test_parser_report,
+            parser=test_parser,
+            # report=test_parser_report,
             webdriver_options=None,  # если не задать, то применятся дефолтные в классе
             clean_text=clean_text,
             clean_emoji=clean_emoji,

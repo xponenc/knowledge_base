@@ -1,18 +1,26 @@
+import logging
 from typing import Dict, Type
 
 from app_parsers.services.parsers.base import BaseWebParser
 
+logger = logging.getLogger(__name__)
+
 WEB_PARSER_REGISTRY: Dict[str, Type[BaseWebParser]] = {}
 
 
-def register_parser(parser_class: Type[BaseWebParser]):
+def register_parser(parser_cls: Type[BaseWebParser]) -> None:
+    """
+    Регистрирует класс парсера в реестре.
 
-    name = parser_class.__name__
-    module = parser_class.__module__
-    full_name = f"{module}.{name}"
-    if full_name in WEB_PARSER_REGISTRY:
-        raise ValueError(f"Парсер {full_name} уже зарегистрирован")
-    WEB_PARSER_REGISTRY[full_name] = parser_class
+    Args:
+        parser_cls: Класс парсера, наследник BaseWebParser.
+    """
+    parser_name = f"{parser_cls.__module__}.{parser_cls.__name__}"
+    if parser_name not in WEB_PARSER_REGISTRY:
+        WEB_PARSER_REGISTRY[parser_name] = parser_cls
+        logger.info(f"Парсер {parser_name} успешно зарегистрирован")
+    else:
+        logger.debug(f"Парсер {parser_name} уже зарегистрирован, пропускаем")
 
 
 def get_parser_class_by_name(parser_class_name: str) -> Type[BaseWebParser]:

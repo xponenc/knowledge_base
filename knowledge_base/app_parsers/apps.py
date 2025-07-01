@@ -1,3 +1,4 @@
+import logging
 import os
 
 from django.apps import AppConfig
@@ -8,13 +9,7 @@ class AppParsersConfig(AppConfig):
     name = 'app_parsers'
 
     def ready(self):
-        # Избежать двойной регистрации при автоперезапуске
-        if os.environ.get('RUN_MAIN') != 'true':
+        if os.environ.get("RUN_MAIN") != "true":
             return
-
-        from app_parsers.services.parsers.parser_classes.bo_parser import BOWebParser
-        from app_parsers.services.parsers.registry import register_parser, WEB_PARSER_REGISTRY
-
-        register_parser(BOWebParser)
-
-        print("Зарегистрированные парсеры:", list(WEB_PARSER_REGISTRY.keys()))
+        from app_parsers.services.parsers.init_registry import initialize_parser_registry
+        initialize_parser_registry()

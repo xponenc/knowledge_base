@@ -332,7 +332,7 @@ class BOWebParser(BaseWebParser):
             alt = img.get("alt", "")  # Получаем alt-текст изображения
             if src:
                 page_images.append((alt, src))  # Добавляем изображение как кортеж (alt, src)
-
+        page_images = list(set(page_images))
         return page_images
 
     @staticmethod
@@ -365,7 +365,7 @@ class BOWebParser(BaseWebParser):
                         img_ext in parsed_url for img_ext in {'.jpg', '.jpeg', '.png', '.gif', '.bmp'}):
                     link_text = anchor.get_text(strip=True) or absolute_url  # Текст ссылки или URL, если текста нет
                     document_links.append((link_text, absolute_url))
-
+        document_links = list(set(document_links))
         return document_links
 
     @staticmethod
@@ -638,12 +638,8 @@ class BOWebParser(BaseWebParser):
         BASE_URL = f"{parsed.scheme}://{parsed.netloc}"
 
         soup = BeautifulSoup(html, "html.parser")
-        print(f"{soup[:100]=}")
-
 
         page_title = self._find_title_tag(soup)
-        print(f"{page_title=}")
-
 
         # Извлечение категорий из breadcrumbs
         page_tags = self._extract_breadcrumb_categories(soup)
