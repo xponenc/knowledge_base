@@ -20,6 +20,8 @@
 }
 
 
+
+
 .tree__clean {
 }
 .tree__chunk {
@@ -35,6 +37,10 @@
     border: 1px solid var(--block-border-shadow-color);
     border-radius: var(--gap-half);
 
+}
+
+.cell-tree--accent {
+    border: 2px solid var(--accent-color);
 }
 .cell-tree__header {
     margin-bottom: var(--gap-third);

@@ -24,22 +24,21 @@
         {% comment %} хранилище {% endcomment %}
         <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
             <a href="{{ storage.get_absolute_url }}" itemprop="item">
-                <span itemprop="name">Хранилище {{ storage.name }}</span>
+                <span itemprop="name">{{ storage_type_ru }} {{ storage.name }}</span>
             </a>
             <meta itemprop="position" content="2" />
         </li>
         {% comment %} источник {% endcomment %}
         <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
-            <span itemprop="name">{{ cloudstorage.name }}</span>
             <a href="{{ document.get_absolute_url }}" itemprop="item">
-                <span itemprop="name">Источник {{ document.title|default:"" }}</span>
+                <span itemprop="name">{{ document_type_ru }}</span>
             </a>
             <meta itemprop="position" content="3" />
         </li>
         {% comment %} контент {% endcomment %}
         <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
             <a href="{{ content.get_absolute_url }}" itemprop="item">
-                <span itemprop="name">Исходный контент</span>
+                <span itemprop="name">{{ content_type_ru }}</span>
             </a>
             <meta itemprop="position" content="4" />
         </li>
@@ -53,12 +52,12 @@
 
 {% block content %}
 
-<div class="page page--content">
+<div class="page page--{{ storage_type_eng }}">
     <div class="page__top page__grid">
-        <div class="page__info info-page info-page--content _jc-fs">
-            <span class="info-page__banner info-page__banner--medium">исходный контент</span>
+        <div class="page__info info-page info-page--{{ storage_type_eng }} _jc-fs">
+            <span class="info-page__banner">веб-страница</span>
             <div class="info-page__header">
-                <h2 class="page__heading _ta-e">РАСПОЗНАВАНИЕ</h2>
+                <h2 class="page__heading _ta-e">ЧАНКИНГ</h2>
                 <h3 class="info-page__heading"></h3>
             </div>
             <div class="info-page__body">
@@ -105,7 +104,7 @@
                     </div>
                 </div>
                 <div class="tree__clean">
-                    <div class="tree__cell cell-tree">
+                    <div class="tree__cell cell-tree cell-tree--accent">
                         <div class="cell-tree__header">
                             <h4 class="cell-tree__heading">Чистый контент</h4>
                         </div>
@@ -147,8 +146,7 @@
                         </div>
                         <div class="cell-tree__footer">
                             <div class="btns _jc-fe">
-                                <a href="{% url 'sources:urlcontent_detail' content.id %}" class="btn btn--reset btn--simple" title="Посмотреть очищенный контент" aria-label="Посмотреть очищенный контент">
-                                    <span>Посмотреть</span>
+                                <a href="{% url 'sources:urlcontent_detail' content.id %}" class="btn btn--reset btn--round" title="Посмотреть очищенный контент" aria-label="Посмотреть очищенный контент">
                                     <svg class="btn__icon">
                                         <use xlink:href="{% static 'img/icons/sprite.svg' %}#details"></use>
                                     </svg>
@@ -160,15 +158,67 @@
                 <div class="tree__chunk">
                     <div class="tree__cell cell-tree">
                         <div class="cell-tree__header">
-                            {% if content.chunk_set.count > 0 %}
+                            {% if content.chunks_counter > 0 %}
                                 <div class="page__warning">
                                     <p class="text text--fat">ВНИМАНИЕ</p>
                                     <p class="text _ta-c">При чанковании будет создана задача на изменение чанков/векторов</p>
                                 </div>
                             {% endif %}
                             <h4 class="cell-tree__heading">Чанки</h4>
+                            <dl class="cell-tree__description description">
+                                <dt class="description__term">Общее количество чанков</dt>
+                                <dd class="description__defination">{{ content.chunks_counter }}</dd>
+                            </dl>
                         </div>
                         <div class="cell-tree__body">
+                            {% if content.chunks_counter > 0 %}
+                                <table class="elastic-table elastic-table_1-auto _mb">
+                                    <thead class="elastic-table__thead">
+                                        <tr class="elastic-table__tr">
+                                            <th class="elastic-table__th">Чанк</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="elastic-table__tbody">
+                                        {% for chunk in content.chunk_preview_set %}
+                                            <tr class="elastic-table__tr">
+                                                <td class="elastic-table__td">
+                                                    <a href="{% url 'chunks:chunk_detail' chunk.pk %}" class="link-marker">
+                                                        <div class="elastic-table__cell">
+                                                            <p>
+                                                                <span>Чанк [id {{ chunk.pk }}]</span>
+                                                                <span class="tag {% if chunk.status == "ready" %} tag--warning{% elif chunk.status == "active" %} tag--success{% elif chunk.status == "canceled" %} tag--disabled{% else %} tag--alarm{% endif %}">
+                                                                    {{ chunk.get_status_display  }}
+                                                                </span>
+                                                            </p>
+                                                            
+                                                            <span>Размер - {{ chunk.metadata.size_in_tokens }} токена(ов)</span>
+                                                        </div>
+                                                        <svg class="link-marker__marker">
+                                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#chunk"></use>
+                                                        </svg>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                        {% if content.chunks_counter > 5 %}
+                                            <tr class="elastic-table__tr">
+                                                <td class="elastic-table__td">
+                                                    ...
+                                                </td>
+                                            </tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            {% endif %}
+                        </div>
+                        <div class="cell-tree__footer">
+                            <div class="btns _jc-fe">
+                                <a href="{% url 'chunks:chunk_list'  %}?urlcontent={{ content.id }}" class="btn btn--reset btn--round" title="Посмотреть все чанки для контента" aria-label="Посмотреть все чанки для контента">
+                                    <svg class="btn__icon">
+                                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#details"></use>
+                                    </svg>
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -206,8 +206,7 @@
                             </div>
                             <div class="cell-tree__footer">
                                 <div class="btns _jc-fe">
-                                    <a href="{% url 'sources:urlcontent_detail' url_content.id %}" class="btn btn--reset btn--simple" title="Посмотреть очищенный контент" aria-label="Посмотреть очищенный контент">
-                                        <span>Посмотреть</span>
+                                    <a href="{% url 'sources:urlcontent_detail' url_content.id %}" class="btn btn--reset btn--round" title="Посмотреть очищенный контент" aria-label="Посмотреть очищенный контент">
                                         <svg class="btn__icon">
                                             <use xlink:href="{% static 'img/icons/sprite.svg' %}#details"></use>
                                         </svg>
@@ -230,11 +229,60 @@
                         <div class="tree__cell cell-tree">
                             <div class="cell-tree__header">
                                 <h4 class="cell-tree__heading">Чанки</h4>
+                                <dl class="cell-tree__description description">
+                                    <dt class="description__term">Общее количество чанков</dt>
+                                    <dd class="description__defination">{{ url_content.chunks_counter }}</dd>
+                                </dl>
                             </div>
                             <div class="cell-tree__body">
-                                {% for chunk in url_content.chunk_set.all %}
-                                    {{ chunk }}
-                                {% endfor %}
+                                {% if url_content.chunks_counter > 0 %}
+                                    <table class="elastic-table elastic-table_1-auto _mb">
+                                        <thead class="elastic-table__thead">
+                                            <tr class="elastic-table__tr">
+                                                <th class="elastic-table__th">Чанк</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="elastic-table__tbody">
+                                            {% for chunk in url_content.chunk_preview_set %}
+                                                <tr class="elastic-table__tr">
+                                                    <td class="elastic-table__td">
+                                                        <a href="{% url 'chunks:chunk_detail' chunk.pk %}" class="link-marker">
+                                                            <div class="elastic-table__cell">
+                                                                <p>
+                                                                    <span>Чанк [id {{ chunk.pk }}]</span>
+                                                                    <span class="tag {% if chunk.status == "ready" %} tag--warning{% elif chunk.status == "active" %} tag--success{% elif chunk.status == "canceled" %} tag--disabled{% else %} tag--alarm{% endif %}">
+                                                                        {{ chunk.get_status_display  }}
+                                                                    </span>
+                                                                </p>
+                                                                
+                                                                <span>Размер - {{ chunk.metadata.size_in_tokens }} токена(ов)</span>
+                                                            </div>
+                                                            <svg class="link-marker__marker">
+                                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#chunk"></use>
+                                                            </svg>
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                            {% if url_content.chunks_counter > 5 %}
+                                                <tr class="elastic-table__tr">
+                                                    <td class="elastic-table__td">
+                                                        ...
+                                                    </td>
+                                                </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+                                {% endif %}
+                            </div>
+                            <div class="cell-tree__footer">
+                                <div class="btns _jc-fe">
+                                    <a href="{% url 'chunks:chunk_list'  %}?urlcontent={{ url_content.id }}" class="btn btn--reset btn--round" title="Посмотреть все чанки для контента" aria-label="Посмотреть все чанки для контента">
+                                        <svg class="btn__icon">
+                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#details"></use>
+                                        </svg>
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>

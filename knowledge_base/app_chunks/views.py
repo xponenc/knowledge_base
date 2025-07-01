@@ -18,7 +18,7 @@ from django.db.models.functions import Length
 from django.http import StreamingHttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
-from django.views.generic import ListView
+from django.views.generic import ListView, DetailView
 
 from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
@@ -279,9 +279,20 @@ class ChunkListView(LoginRequiredMixin, ListView):
         url_content_pk = self.request.GET.get("urlcontent")
         if url_content_pk:
             url_content = URLContent.objects.get(pk=url_content_pk)
+            document = url_content.url
+            storage = document.site
+            kb = storage.kb
 
             queryset = queryset.filter(url_content=url_content)
             context = {
+                "content": url_content,
+                "content_type_ru": "Чистый контент",
+                "document": document,
+                "document_type_ru": "Веб-страница",
+                "storage": storage,
+                "storage_type_eng": "website",
+                "storage_type_ru": "Веб-сайт",
+                "kb": kb,
                 "object": url_content,
                 "chunk_list": queryset,
             }
@@ -289,19 +300,40 @@ class ChunkListView(LoginRequiredMixin, ListView):
         return render(request=self.request, template_name="app_chunks/chunk_list.html", context=context)
 
 
+class ChunkDetailView(LoginRequiredMixin, DetailView):
+    """Дательный просмотр Chunk"""
+    # TODO право просмотра владельца
+    model = Chunk
+
+
 class ChunkCreateFromURLContentView(LoginRequiredMixin, View):
     """Создание чанков из URLContent"""
 
     def get(self, request, url_content_pk, *args, **kwargs):
-        url_content = get_object_or_404(URLContent, pk=url_content_pk)
+        chunk_preview_set = Prefetch(
+            "chunk_set",
+            queryset=Chunk.objects.order_by("pk").only("id", "status", "metadata")[:5],
+            to_attr="chunk_preview_set"
+        )
+
+        urlcontent_qs = URLContent.objects.select_related("report", "author") \
+            .prefetch_related(chunk_preview_set) \
+            .annotate(chunks_counter=Count("chunk"))
+
+        url_content = get_object_or_404(urlcontent_qs, pk=url_content_pk)
         document = url_content.url
         storage = document.site
         kb = storage.kb
         context = {
-            "content": url_content,
-            "document": document,
-            "storage": storage,
             "kb": kb,
+            "storage": storage,
+            "storage_type_ru": "Веб-сайт",
+            "storage_type_eng": "website",
+            "document": document,
+            "document_type_ru": "Веб-страница",
+            "content": url_content,
+            "content_type_ru": "Чистый контент",
+            "object": url_content,
         }
         # форма выбора класса распознавателя
         dispatcher = SplitterDispatcher()

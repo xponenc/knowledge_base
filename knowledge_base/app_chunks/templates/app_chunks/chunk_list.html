@@ -30,21 +30,20 @@
         </li>
         {% comment %} источник {% endcomment %}
         <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
-            <span itemprop="name">{{ cloudstorage.name }}</span>
             <a href="{{ document.get_absolute_url }}" itemprop="item">
-                <span itemprop="name">{{ document_type_ru }} {{ document.title|default:"" }}</span>
+                <span itemprop="name">{{ document_type_ru }}</span>
             </a>
             <meta itemprop="position" content="3" />
         </li>
         {% comment %} контент {% endcomment %}
         <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
             <a href="{{ content.get_absolute_url }}" itemprop="item">
-                <span itemprop="name">Исходный контент</span>
+                <span itemprop="name">{{ content_type_ru }}</span>
             </a>
             <meta itemprop="position" content="4" />
         </li>
         <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
-            <span itemprop="name">Распознавание</span>
+            <span itemprop="name">Чанки</span>
             <meta itemprop="position" content="5" />
         </li>
     </ol>
@@ -56,37 +55,65 @@
 <div class="page page--content">
     <div class="page__top page__grid">
         <div class="page__info info-page info-page--content _jc-fs">
-            <span class="info-page__banner info-page__banner--medium">Чистый контент</span>
+            <span class="info-page__banner info-page__banner--medium">Чанки</span>
             <div class="info-page__header">
                 <h2 class="page__heading _ta-e"></h2>
                 <h3 class="info-page__heading"></h3>
             </div>
             <div class="info-page__body">
                 <h3 class="info-page__heading"></h3>
-                <h3 class="info-page__heading">Детали очищенного контента</h3>
                 <dl class="source__description--info description">
-                    <dt class="description__term">Наименование</dt>
-                    <dd class="description__defination">{{ object.title|default:object.url }}</dd>
-                    <dt class="description__term">Описание</dt>
-                    <dd class="description__defination">{{ object.description|default:"" }}</dd>
-                    <dt class="description__term">Статус</dt>
-                    <dd class="description__defination">
-                        <span class="tag{% if object.status == "ready" %} tag--warning{% elif object.status == "canceled" %} tag--deleted{% elif object.status == "active" %} tag--success{% else %} tag--alarm{% endif %}">
-                            {{ object.get_status_display }}
-                        </span>
-                    </dd>
-                    
-                    {% if object.error_message %}
-                        <dt class="description__term">Ошибка</dt>
-                        <dd class="description__defination"><span class="text text--fat text--alarm">{{ object.error_message }}</span></dd>
-                    {% endif %}
+                    <dt class="description__term"></dt>
+                    <dd class="description__defination"></dd>
                 </dl>
             </div>
             <div class="info-page__footer">
             </div>
         </div>
         <div class="page__info info-page info-page--{{ storage_type_eng }} _jc-fs">
+            <span class="info-page__banner">ИСТОЧНИК</span>
+            <div class="info-page__header">
+                <h2 class="page__heading _ta-e">
+                    {% firstof  document.title document.url document.path %}
+                </h2>
+                <h3 class="info-page__heading _ta-e">{{ document_type_ru }} </h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                <h3 class="info-page__heading">Детали источника</h3>
+                <dl class="source__description--info description">
+                    <dt class="description__term">Описание</dt>
+                    <dd class="description__defination">{{ document.description|default:"-" }}</dd>
+                    <dt class="description__term">Статус</dt>
+                    <dd class="description__defination">
+                        <span class="tag tag--fat{% if document.status == "ready" %} tag--success{% elif document.status == "de" %} tag--deleted{% elif document.status == "ex" %} tag--disabled {% elif document.status == "er" %} tag--alarm{% else %} tag--warning{% endif %}">
+                            {{ document.get_status_display  }}
+                        </span>
+                    </dd>
+                    <dt class="description__term">Теги</dt>
+                    <dd class="description__defination">
+                        <div class="tags">
+                            {% for tag in document.tags %}
+                                <span class="tag tag--simple">{{ tag }}</span>
+                            {% endfor %}
+                        </div>
+                    </dd>
+                    <dt class="description__term">Создан в рамках обновления</dt>
+                    <dd class="description__defination">
+                        <a href="{% url 'sources:websiteupdatereport_detail' content.report.pk %}" class="link-marker">
+                            <span>Отчет обновления [id{{ content.report.pk }}] от {{ content.report.created_at|date:"d.m.Y H:i" }}</span>
+                            <svg class="link-marker__marker">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#report"></use>
+                        </a>
+                        </svg>
+                    </dd>
+                </dl>
+            </div>
+            <div class="info-page__footer">
+            </div>
         </div>
+
+
             
     </div>
     <article class="page__content _mb">

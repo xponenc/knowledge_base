@@ -20,6 +20,7 @@ from retrying import retry
 from selenium.webdriver.support.wait import WebDriverWait
 
 from app_parsers.models import Parser, TestParser, MainParser
+from app_parsers.services.parsers.base import BaseWebParser
 from app_parsers.services.parsers.core_parcer_engine import SeleniumDriver
 from app_parsers.services.parsers.dispatcher import WebParserDispatcher
 
@@ -601,8 +602,8 @@ def parse_urls_task(self,
 @shared_task(bind=True)
 def test_single_url(self,
                     url: str,
-                    parser: TestParser,
-                    author_id: int,
+                    parser: BaseWebParser,
+                    report: WebSiteUpdateReport,
                     clean_text: bool = False,
                     clean_emoji: bool = False,
                     webdriver_options: list[str] = None) -> str:
@@ -612,13 +613,13 @@ def test_single_url(self,
     progress_recorder = ProgressRecorder(self)
     progress_recorder.set_progress(0, 100, description="Начало обработки URL")
 
-    parser_cls_name = parser.class_name
-    parser_config = parser.config
-    test_parse_report = parser.testparsereport
-
-    parser_dispatcher = WebParserDispatcher()
-    parser_cls = parser_dispatcher.get_by_class_name(parser_cls_name)
-    parser = parser_cls(config=parser_config if parser_config else {})
+    # parser_cls_name = parser.class_name
+    # parser_config = parser.config
+    # test_parse_report = parser.testparsereport
+    #
+    # parser_dispatcher = WebParserDispatcher()
+    # parser_cls = parser_dispatcher.get_by_class_name(parser_cls_name)
+    # parser = parser_cls(config=parser_config if parser_config else {})
 
     result = {
         "url": url,
@@ -638,11 +639,14 @@ def test_single_url(self,
             result["html"] = fetch_result["html"]
 
             if fetch_result["html"]:
+                print("Предстартровая подготовка парсинга")
                 progress_recorder.set_progress(75, 100, description="Парсинг данных")
                 try:
+                    print("Начало парсинга")
                     parser_result = parser.parse_html(url=url, html=fetch_result["html"])
                     result["parsed_data"] = parser_result
                 except Exception as e:
+                    print("Ошибка парсинга")
                     result["error"] = f"Parsing failed: {str(e)}"
                     logger.error(f"Parsing failed for {url}: {e}")
             else:
@@ -657,12 +661,12 @@ def test_single_url(self,
 
     # Сохранение результатов независимо от исключений
     try:
-        author = User.objects.get(pk=author_id)
-        test_parse_report.author = author
-        test_parse_report.status = result["status"]
-        test_parse_report.html = result["html"]
-        test_parse_report.parsed_data = result["parsed_data"]
-        test_parse_report.error = result["error"]
+        # author = User.objects.get(pk=author_id)
+        # test_parse_report.author = author
+        report.status = result["status"]
+        report.html = result["html"]
+        report.parsed_data = result["parsed_data"]
+        report.error = result["error"]
 
         # Обработка контента, если выбраны флаги
         if clean_text or clean_emoji:
@@ -672,9 +676,9 @@ def test_single_url(self,
             if clean_emoji:
                 content = remove_emoji(content)
             result["parsed_data"]["content"] = content
-            test_parse_report.parsed_data = result["parsed_data"]
+            report.parsed_data = result["parsed_data"]
 
-        test_parse_report.save()
+        report.save()
     except Exception as e:
         logger.error(f"Failed to save test parse report for {url}: {e}")
 

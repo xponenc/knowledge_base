@@ -130,12 +130,12 @@ class BoHybridMarkdownSplitter(BaseSplitter):
                 chunks = recursive_splitter.split_text(fragment.page_content)
                 for chunk in chunks:
                     new_document = Document(page_content=chunk, metadata=fragment.metadata)
-                    new_document.metadata["size in chunks"] = self._num_tokens_from_string(new_document.page_content,
+                    new_document.metadata["size_in_tokens"] = self._num_tokens_from_string(new_document.page_content,
                                                                                            encoding_name)
                     source_chunks.append(new_document)
 
             else:
-                fragment.metadata["size in chunks"] = fragment_len
+                fragment.metadata["size_in_tokens"] = fragment_len
                 source_chunks.append(fragment)
 
         return source_chunks

@@ -108,6 +108,7 @@ class BOWebParser(BaseWebParser):
             "metadata": dict # словарь с метаданными страницы
         }
         """
+        print(f"{len(html)=}")
         result = self._extract_article_data(url=url, html=html)
         return result
 
@@ -637,8 +638,12 @@ class BOWebParser(BaseWebParser):
         BASE_URL = f"{parsed.scheme}://{parsed.netloc}"
 
         soup = BeautifulSoup(html, "html.parser")
+        print(f"{soup[:100]=}")
+
 
         page_title = self._find_title_tag(soup)
+        print(f"{page_title=}")
+
 
         # Извлечение категорий из breadcrumbs
         page_tags = self._extract_breadcrumb_categories(soup)

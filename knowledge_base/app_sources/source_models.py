@@ -109,6 +109,9 @@ class URL(AbstractSource):
     def __str__(self):
         return f"[URL] {super().__str__()}"
 
+    def get_absolute_url(self):
+        return reverse_lazy("sources:url_detail", kwargs={"pk": self.pk, })
+
     class Meta:
         verbose_name = "URL"
         verbose_name_plural = "URLs"

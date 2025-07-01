@@ -33,6 +33,9 @@
         minmax(150px, 1fr) minmax(150px, 2fr) minmax(150px, 1fr);
 }
 
+.elastic-table_1-auto {
+    grid-template-columns: 1fr;
+}
 .elastic-table_2-auto {
     grid-template-columns: repeat(2, auto);
 }

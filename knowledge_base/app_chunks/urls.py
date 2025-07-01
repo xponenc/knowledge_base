@@ -1,12 +1,13 @@
 from django.urls import path
 
 from app_chunks.views import ChunkCreateFromURLContentView, ChunkCreateFromWebSiteView, TestAskFridaView, ClearChatView, \
-    CurrentTestChunksView, TestModelScoreView, TestModelScoreReportView, SplitterConfigView, ChunkListView
+    CurrentTestChunksView, TestModelScoreView, TestModelScoreReportView, SplitterConfigView, ChunkListView, ChunkDetailView
 
 app_name = "chunks"
 
 urlpatterns = [
     path("", ChunkListView.as_view(), name="chunk_list"),
+    path("<int:pk>", ChunkDetailView.as_view(), name="chunk_detail"),
 
     path("chunk-crete/url-content/<int:url_content_pk>", ChunkCreateFromURLContentView.as_view(),
          name="create_chunks_from_url_content"),

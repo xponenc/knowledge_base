@@ -22,6 +22,7 @@ from django.contrib import messages
 from django.views.generic import DetailView, ListView, CreateView, UpdateView, DeleteView
 from django.core.paginator import Paginator
 
+from app_chunks.models import Chunk
 from app_core.models import KnowledgeBase
 from app_parsers.forms import TestParseForm, BulkParseForm, ParserDynamicConfigForm
 from app_parsers.models import TestParser, TestParseReport, MainParser
@@ -971,10 +972,17 @@ class WebSiteTestParseView(LoginRequiredMixin, StoragePermissionMixin, View):
             test_parser_report.author = request.user
             test_parser_report.save()
 
+        parser_cls_name = test_parser.class_name
+        parser_config = test_parser.config
+
+        parser_dispatcher = WebParserDispatcher()
+        parser_cls = parser_dispatcher.get_by_class_name(parser_cls_name)
+        parser = parser_cls(config=parser_config if parser_config else {})
+        print("Запуск единиченого парсинга")
         task = test_single_url.delay(
             url=url,
-            parser=test_parser,
-            author_id=request.user.pk,
+            parser=parser,
+            report=test_parser_report,
             webdriver_options=None,  # если не задать, то применятся дефолтные в классе
             clean_text=clean_text,
             clean_emoji=clean_emoji,
@@ -1285,13 +1293,20 @@ class URLBatchDeleteView(LoginRequiredMixin, DeleteView):
 class URLDetailView(LoginRequiredMixin, DocumentPermissionMixin, DetailView):
     """Детальный просмотр объекта модели Модель страницы сайта URL (с проверкой прав доступа)"""
     model = URL
+    chunk_preview_set = Prefetch(
+        "chunk_set",
+        queryset=Chunk.objects.order_by("pk").only("id", "status", "metadata")[:5],
+        to_attr="chunk_preview_set"
+    )
     urlcontent_preview_set = Prefetch(
         "urlcontent_set",
         queryset=URLContent.objects
             .select_related("report", "author")
+            .prefetch_related(chunk_preview_set)
             .annotate(
                 body_length=Length("body"),
-                body_preview=Left("body", 200)
+                body_preview=Left("body", 200),
+                chunks_counter=Count("chunk"),
             ).defer("body"),
         to_attr="urlcontent_preview_set"
     )
