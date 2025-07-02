@@ -1,4 +1,5 @@
 import asyncio
+import os
 import platform
 import shutil
 from concurrent.futures import ThreadPoolExecutor
@@ -8,6 +9,8 @@ from typing import Dict, Any
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+
 
 ###
 #  Selenium WebDriver на Windows
@@ -54,8 +57,12 @@ class SeleniumDriver:
         for option in self.options:
             options.add_argument(option)
 
-        chromedriver_path = get_chromedriver_path()
-        service = Service(executable_path=chromedriver_path)
+        # chromedriver_path = get_chromedriver_path()
+        # service = Service(executable_path=chromedriver_path)
+        # ChromeDriverManager автоматически скачает и настроит chromedriver
+        # path = ChromeDriverManager().install()
+        service = Service(ChromeDriverManager().install())
+
         return webdriver.Chrome(service=service, options=options)
 
     @contextmanager

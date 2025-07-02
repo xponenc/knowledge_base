@@ -32,7 +32,6 @@ class WebParserDispatcher:
         Возвращает все классы-парсеры из регистра.
         """
         all_classes = set()
-        print(f"{WEB_PARSER_REGISTRY=}")
         for parser_cls in WEB_PARSER_REGISTRY.values():
             all_classes.add(parser_cls)
         return list(all_classes)

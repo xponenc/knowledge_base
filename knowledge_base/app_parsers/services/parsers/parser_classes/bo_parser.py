@@ -254,6 +254,43 @@ class BOWebParser(BaseWebParser):
         elements = soup.select(selector)
         return [el.get_text(strip=True) for el in elements if el.get_text(strip=True)]
 
+    # @staticmethod
+    # def _extract_and_remove_internal_links(soup: BeautifulSoup, url: str) -> Tuple[BeautifulSoup, Set[Tuple[str, str]]]:
+    #     """
+    #     Извлекает все внутренние HTML-ссылки со страницы, удаляет их из soup и возвращает set кортежей (текст ссылки, URL).
+    #
+    #     Args:
+    #         soup (BeautifulSoup): Объект BeautifulSoup с разобранным HTML.
+    #         url (str): Базовый URL страницы для определения внутренних ссылок.
+    #
+    #     Returns:
+    #         Tuple[BeautifulSoup, Set[Tuple[str, str]]]: Кортеж, содержащий обновлённый soup и множество кортежей (текст ссылки, URL).
+    #     """
+    #     internal_links = set()
+    #     base_domain = urlparse(url).netloc
+    #
+    #     # Расширения, которые считаем НЕ HTML-страницами
+    #     non_html_extensions = (
+    #         '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+    #         '.zip', '.rar', '.7z', '.tar', '.gz', '.mp4', '.mp3', '.exe',
+    #         '.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.ico',
+    #         '.csv', '.json', '.xml'
+    #     )
+    #
+    #     for anchor in soup.find_all('a', href=True):
+    #         href = anchor['href']
+    #         absolute_url = urljoin(url, href)
+    #         parsed_link = urlparse(absolute_url)
+    #         link_text = anchor.get_text(strip=True) or absolute_url
+    #
+    #         # Убираем якоря и параметры
+    #         path = parsed_link.path.lower()
+    #         if parsed_link.netloc == base_domain and not path.endswith(non_html_extensions):
+    #             internal_links.add((link_text, absolute_url))
+    #             anchor.decompose()
+    #
+    #     return soup, internal_links
+
     @staticmethod
     def _extract_and_remove_internal_links(soup: BeautifulSoup, url: str) -> Tuple[BeautifulSoup, Set[Tuple[str, str]]]:
         """
@@ -266,10 +303,10 @@ class BOWebParser(BaseWebParser):
         Returns:
             Tuple[BeautifulSoup, Set[Tuple[str, str]]]: Кортеж, содержащий обновлённый soup и множество кортежей (текст ссылки, URL).
         """
-        internal_links = set()
+        from collections import defaultdict
+        internal_links_map = {}
         base_domain = urlparse(url).netloc
 
-        # Расширения, которые считаем НЕ HTML-страницами
         non_html_extensions = (
             '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
             '.zip', '.rar', '.7z', '.tar', '.gz', '.mp4', '.mp3', '.exe',
@@ -283,13 +320,19 @@ class BOWebParser(BaseWebParser):
             parsed_link = urlparse(absolute_url)
             link_text = anchor.get_text(strip=True) or absolute_url
 
-            # Убираем якоря и параметры
             path = parsed_link.path.lower()
             if parsed_link.netloc == base_domain and not path.endswith(non_html_extensions):
-                internal_links.add((link_text, absolute_url))
+                # Сохраняем самую длинную версию link_text
+                existing = internal_links_map.get(absolute_url)
+                if not existing or len(link_text) > len(existing):
+                    internal_links_map[absolute_url] = link_text
                 anchor.decompose()
 
+        # Преобразуем в Set[Tuple[str, str]]
+        internal_links = {(text, url) for url, text in internal_links_map.items()}
+
         return soup, internal_links
+
 
     @staticmethod
     def _process_http_links(
