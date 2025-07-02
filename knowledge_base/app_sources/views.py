@@ -34,10 +34,11 @@ from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedCo
 from app_sources.models import HierarchicalContextMixin
 from app_sources.report_models import CloudStorageUpdateReport, WebSiteUpdateReport, ReportStatus
 from app_sources.services.google_sheets_manager import GoogleSheetsManager
+from app_sources.services.summary import summarize_with_sber
 from app_sources.source_models import NetworkDocument, URL, SourceStatus
 from app_sources.storage_models import CloudStorage, Storage, LocalStorage, WebSite, URLBatch
 from app_sources.storage_views import StoragePermissionMixin
-from app_sources.tasks import process_cloud_files
+from app_sources.tasks import process_cloud_files, process_raw_content_task
 from knowledge_base.settings import BASE_DIR
 from recognizers.dispatcher import ContentRecognizerDispatcher
 from utils.tasks import get_task_status
@@ -1341,9 +1342,9 @@ class RawContentRecognizeCreateView(LoginRequiredMixin, View):
         context["form"] = form
         return render(request, "app_sources/rawcontent_recognize.html", context)
 
-
     def post(self, request, pk):
         raw_content = get_object_or_404(RawContent, pk=pk)
+        document = raw_content.network_document
         dispatcher = ContentRecognizerDispatcher()
         file_extension = raw_content.file_extension()
         recognizers = dispatcher.get_recognizers_for_extension(file_extension)
@@ -1351,45 +1352,60 @@ class RawContentRecognizeCreateView(LoginRequiredMixin, View):
         form = ContentRecognizerForm(request.POST, recognizers=recognizers)
 
         if form.is_valid():
-            recognizer_class = form.cleaned_data['recognizer']
-            file_path = raw_content.file.path
-            # print(recognizer_name)
-            # recognizer = dispatcher.get_by_name(recognizer_name)
-            try:
-                recognizer = recognizer_class(file_path)
-                recognizer_report = recognizer.recognize()
-                recognized_text = recognizer_report.get("text", "")
-                recognition_method = recognizer_report.get("method", "")
-                recognition_quality_report = recognizer_report.get("quality_report", {})
-                if not recognized_text.strip():
-                    raise ValueError("Не удалось распознать текст.")
-                # Уничтожение существующего CleanedContent
-                CleanedContent.objects.filter(raw_content=raw_content).delete()
+            # recognizer_class = form.cleaned_data['recognizer']
+            # file_path = raw_content.file.path
+            # # print(recognizer_name)
+            # # recognizer = dispatcher.get_by_name(recognizer_name)
+            # try:
+            #     recognizer = recognizer_class(file_path)
+            #     recognizer_report = recognizer.recognize()
+            #     recognized_text = recognizer_report.get("text", "")
+            #     recognition_method = recognizer_report.get("method", "")
+            #     recognition_quality_report = recognizer_report.get("quality_report", {})
+            #     if not recognized_text.strip():
+            #         raise ValueError("Не удалось распознать текст.")
+            #     # Уничтожение существующего CleanedContent
+            #     CleanedContent.objects.filter(raw_content=raw_content).delete()
+            #
+            #     # Создаём CleanedContent без файла
+            #     cleaned_content = CleanedContent.objects.create(
+            #         raw_content=raw_content,
+            #         recognition_method=recognition_method,
+            #         recognition_quality=recognition_quality_report,
+            #         preview=recognized_text[:200] if recognized_text else None,
+            #         author=request.user,
+            #     )
+            #
+            #     summary = summarize_with_sber(recognized_text)
+            #     print(f"{summary=}")
+            #
+            #     raw_content_source = next(
+            #         ((attr, getattr(raw_content, attr)) for attr in ['url', 'network_document', 'local_document'] if
+            #          getattr(raw_content, attr, None)),
+            #         (None, None)
+            #     )
+            #     source_name, source_value = raw_content_source
+            #     setattr(cleaned_content, source_name, source_value)
+            #     cleaned_content.save()
+            #     cleaned_content.file.save("ignored.txt", ContentFile(recognized_text.encode('utf-8')))
+            #
+            #
+            #
+            #     messages.success(request, "Очищенный контент успешно создан.")
+            #     return redirect("sources:cleanedcontent_detail", pk=cleaned_content.pk)
+            # except Exception as e:
+            #     messages.error(request, f"Ошибка при обработке файла: {e}")
+            task = process_raw_content_task.delay(raw_content.id, request.user.id)
+            return render(request, "celery_task_progress.html", {
+                "task_id": task.id,
+                # "task_name": f"Распознование {url}",
+                # "task_object_url": reverse_lazy("sources:website_detail", kwargs={"pk": website.pk}),
+                # "task_object_name": website.name,
+                "next_step_url": reverse_lazy("sources:networkdocument_detail", kwargs={"pk": document.pk}),
+            })
 
-                # Создаём CleanedContent без файла
-                cleaned_content = CleanedContent.objects.create(
-                    raw_content=raw_content,
-                    recognition_method=recognition_method,
-                    recognition_quality=recognition_quality_report,
-                    preview=recognized_text[:200] if recognized_text else None,
-                    author=request.user,
-                )
-                raw_content_source = next(
-                    ((attr, getattr(raw_content, attr)) for attr in ['url', 'network_document', 'local_document'] if
-                     getattr(raw_content, attr, None)),
-                    (None, None)
-                )
-                source_name, source_value = raw_content_source
-                setattr(cleaned_content, source_name, source_value)
-                cleaned_content.save()
-                cleaned_content.file.save("ignored.txt", ContentFile(recognized_text.encode('utf-8')))
-
-                messages.success(request, "Очищенный контент успешно создан.")
-                return redirect("sources:cleanedcontent_detail", pk=cleaned_content.pk)
-            except Exception as e:
-                messages.error(request, f"Ошибка при обработке файла: {e}")
         print(form.errors)
-        document = raw_content.network_document
+        # document = raw_content.network_document
         storage = document.storage
         kb = storage.kb
         context = {

@@ -235,7 +235,7 @@ LOGGING = {
         },
         'celery': {
             'handlers': ['file'] if PRODUCTION else ['console', 'file'],
-            'level': 'INFO',
+            'level': 'INFO' if PRODUCTION else 'DEBUG',
             'propagate': False,
         },
         'urllib3': {

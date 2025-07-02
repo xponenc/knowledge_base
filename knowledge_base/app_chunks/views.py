@@ -32,6 +32,9 @@ from app_embeddings.services.retrieval_engine import answer_index
 from app_sources.content_models import URLContent
 from app_sources.source_models import URL, SourceStatus
 from app_sources.storage_models import WebSite
+from utils.setup_logger import setup_logger
+
+logger = setup_logger(__name__, log_dir="logs/chunking", log_file="chunking.log")
 
 
 class SplitterConfigView(LoginRequiredMixin, View):
@@ -338,6 +341,7 @@ class ChunkCreateFromURLContentView(LoginRequiredMixin, View):
         # форма выбора класса распознавателя
         dispatcher = SplitterDispatcher()
         splitters = dispatcher.list_all()
+        logger.error(splitters)
         splitter_select_form = SplitterSelectForm(splitters=splitters)
         config_form = SplitterDynamicConfigForm()
         context["form"] = splitter_select_form

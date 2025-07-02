@@ -9,6 +9,7 @@ credentials.json
 local_models
 # логи
 logs/
+nltk_data/
 
 # Игнорировать все миграции всех приложений
 **/migrations/*.py

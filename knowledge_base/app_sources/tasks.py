@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
 from math import ceil
@@ -12,16 +13,19 @@ from typing import List, Tuple
 from celery import shared_task
 from celery_progress.backend import ProgressRecorder
 from django.core.files import File
+from django.core.files.base import ContentFile
 from django.db.models import Subquery, OuterRef, Prefetch
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from dateutil.parser import parse
 
-from app_sources.content_models import ContentStatus, RawContent
+from app_sources.content_models import ContentStatus, RawContent, CleanedContent
 from app_sources.report_models import CloudStorageUpdateReport, ReportStatus
+from app_sources.services.summary import summarize_with_sber, summarize_text
 from app_sources.source_models import NetworkDocument, SourceStatus
 from app_sources.storage_models import CloudStorage
 from app_tasks.models import TaskForSource, ContentComparison
+from recognizers.dispatcher import ContentRecognizerDispatcher
 from utils.process_files import compute_sha512
 from django.contrib.auth import get_user_model
 
@@ -544,3 +548,70 @@ def download_and_create_raw_content_parallel(self,
 #     failed = [pk for pk, status in results if status == "fail"]
 #
 #     logger.info(f"Обработка завершена. Успешно: {len(success)}, Ошибки: {len(failed)}")
+
+
+@shared_task(bind=True)
+def process_raw_content_task(self, raw_content_id, user_id=None):
+    """Распознование контента и запись саммари"""
+    progress_recorder = ProgressRecorder(self)
+
+    progress_description = f'Распознается объект'
+    progress_recorder.set_progress(20, 100, description=progress_description)
+    try:
+        raw_content = RawContent.objects.get(pk=raw_content_id)
+        dispatcher = ContentRecognizerDispatcher()
+
+        file_extension = raw_content.file_extension()
+        recognizers = dispatcher.get_recognizers_for_extension(file_extension)
+
+        if not recognizers:
+            raise Exception("Нет распознавателей для этого формата")
+
+        recognizer_class = recognizers[0]
+        recognizer = recognizer_class(raw_content.file.path)
+        recognizer_report = recognizer.recognize()
+
+        recognized_text = recognizer_report.get("text", "")
+        recognition_method = recognizer_report.get("method", "")
+        recognition_quality_report = recognizer_report.get("quality_report", {})
+
+        # if not recognized_text.strip():
+        #     raise ValueError("Не удалось распознать текст.")
+        # recognized_text = recognizer_report.get("text", "")
+        if not recognized_text or not recognized_text.strip():
+            raise ValueError("Не удалось распознать текст.")
+        progress_description = f'Объект распознан'
+        progress_recorder.set_progress(40, 100, description=progress_description)
+
+        # Удаляем старое
+        CleanedContent.objects.filter(raw_content=raw_content).delete()
+
+        # Создаем новый CleanedContent
+        cleaned_content = CleanedContent.objects.create(
+            network_document=raw_content.network_document,
+            raw_content=raw_content,
+            recognition_method=recognition_method,
+            recognition_quality=recognition_quality_report,
+            preview=recognized_text[:200],
+            author_id=user_id
+        )
+        # Сохраняем summary как файл (если нужно)
+        cleaned_content.file.save("cleaned.txt", ContentFile(recognized_text.encode("utf-8")))
+        cleaned_content.save()
+        progress_description = f'Выполняем саммаризацию'
+        progress_recorder.set_progress(60, 100, description=progress_description)
+
+        # Суммаризация
+        # summary = summarize_with_sber(recognized_text)
+        summary = summarize_text(recognized_text, mode='summary big')
+        if summary is not None:
+            document = raw_content.network_document
+            document.description = summary
+            document.save(update_fields=["description", ])
+        progress_description = f'Выполняем саммаризацию'
+        progress_recorder.set_progress(100, 100, description=progress_description)
+        return "Операция завершена"
+
+    except Exception as e:
+        # return {"status": "error", "message": str(e), "trace": traceback.format_exc()}
+        return f"Ошибка {traceback.format_exc()}"
