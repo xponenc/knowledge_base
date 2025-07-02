@@ -23,9 +23,3 @@ def register_splitter(splitter_class: Type[BaseSplitter]):
     if full_name in CHUNK_SPLITTER_REGISTRY:
         raise ValueError(f"Сплиттер {full_name} уже зарегистрирован")
     CHUNK_SPLITTER_REGISTRY[full_name] = splitter_class
-
-#
-# def get_parser_class_by_name(parser_class_name: str) -> Type[BaseWebParser]:
-#     if parser_class_name not in WEB_PARSER_REGISTRY:
-#         raise ValueError(f"Парсер с именем {parser_class_name} не найден в реестре")
-#     return WEB_PARSER_REGISTRY[parser_class_name]

@@ -3,7 +3,12 @@
 
 
 temp/
+# api google таблиц
 credentials.json
+# локально сохраненные модели
+local_models
+# логи
+logs/
 
 # Игнорировать все миграции всех приложений
 **/migrations/*.py

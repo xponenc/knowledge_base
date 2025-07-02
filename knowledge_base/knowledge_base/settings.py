@@ -155,43 +155,102 @@ CELERY_ACCEPT_CONTENT = ['pickle', 'json']
 CELERY_TIMEZONE = "Europe/Samara"
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
+#
+# LOGGING = {
+#     'version': 1,
+#     'disable_existing_loggers': False,
+#     'formatters': {
+#         'verbose': {
+#             'format': '{asctime} [{levelname}] {name}: {message}',
+#             'style': '{',
+#         },
+#     },
+#     'handlers': {
+#         'file': {
+#             'level': 'INFO',
+#             'class': 'logging.FileHandler',
+#             'filename': os.path.join(BASE_DIR, 'logs/general.log'),
+#             'formatter': 'verbose',
+#         },
+#
+#         'console': {
+#             'level': 'DEBUG',
+#             'class': 'logging.StreamHandler',
+#             'formatter': 'verbose',
+#         },
+#     },
+#     'loggers': {
+#         'app_sources.views': {
+#             'handlers': ['file', 'console'],
+#             'level': 'INFO',
+#             'propagate': False,
+#         },
+#         # 'storages_external.webdav_storage.webdav_client': {
+#         #     'handlers': ['storage_file', 'console'],
+#         #     'level': 'INFO',
+#         #     'propagate': False,
+#         # },
+#     },
+# }
+
+# Определяем, продакшен или разработка
+PRODUCTION = os.getenv('DJANGO_ENV') == 'production'
 
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
-        'verbose': {
-            'format': '{asctime} [{levelname}] {name}: {message}',
+        'prod': {
+            'format': '{asctime} [{name}:{module}:{lineno}] [{levelname}] {message}',
+            'style': '{',
+        },
+        'dev': {
+            # 'format': '{levelname} {asctime} {module} {name} line:{lineno} {process:d} {thread:d} - {message}',
+            'format': '{asctime} [{name}:{module}:{lineno}] [{levelname}] {message}',
             'style': '{',
         },
     },
     'handlers': {
         'file': {
             'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs/general.log'),
-            'formatter': 'verbose',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'general.log'),
+            'formatter': 'prod',
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': 14,
+            'encoding': 'utf-8',
+            'delay': True,
         },
-
         'console': {
-            'level': 'DEBUG',
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+            'formatter': 'dev',
         },
     },
     'loggers': {
-        'app_sources.views': {
-            'handlers': ['file', 'console'],
+        'django': {
+            'handlers': ['file'] if PRODUCTION else ['console', 'file'],
             'level': 'INFO',
             'propagate': False,
         },
-        # 'storages_external.webdav_storage.webdav_client': {
-        #     'handlers': ['storage_file', 'console'],
-        #     'level': 'INFO',
-        #     'propagate': False,
-        # },
+        'celery': {
+            'handlers': ['file'] if PRODUCTION else ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'urllib3': {
+            'handlers': ['console'] if not PRODUCTION else ['file'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['file'] if PRODUCTION else ['console', 'file'],
+        'level': 'INFO',
     },
 }
+
+
 
 try:
     from .local_settings import *

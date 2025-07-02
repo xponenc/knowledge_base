@@ -18,9 +18,9 @@ def register_parser(parser_cls: Type[BaseWebParser]) -> None:
     parser_name = f"{parser_cls.__module__}.{parser_cls.__name__}"
     if parser_name not in WEB_PARSER_REGISTRY:
         WEB_PARSER_REGISTRY[parser_name] = parser_cls
-        logger.info(f"Парсер {parser_name} успешно зарегистрирован")
+        logger.debug(f"Parser {parser_name} successfully registered")
     else:
-        logger.debug(f"Парсер {parser_name} уже зарегистрирован, пропускаем")
+        logger.debug(f"Parser {parser_name} is already registered, skipping")
 
 
 def get_parser_class_by_name(parser_class_name: str) -> Type[BaseWebParser]:

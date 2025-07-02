@@ -19,5 +19,4 @@ class AppChunksConfig(AppConfig):
         import logging
         logger = logging.getLogger(__name__)
         logger.info(f"Registered splitters: {list(CHUNK_SPLITTER_REGISTRY.keys())}")
-        print(f"Registered splitters: {list(CHUNK_SPLITTER_REGISTRY.keys())}")
 

@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 def initialize_parser_registry():
-    logger.info("Начало инициализации реестра парсеров")
     parser_package = "app_parsers.services.parsers.parser_classes"
     package = importlib.import_module(parser_package)
 
@@ -17,9 +16,9 @@ def initialize_parser_registry():
         full_module_name = f"{parser_package}.{module_name}"
         try:
             module = importlib.import_module(full_module_name)
-            logger.debug("Импортирован модуль парсера: %s", full_module_name)
+            logger.debug("Successfully imported parser module: %s", full_module_name)
         except Exception as e:
-            logger.exception("Не удалось импортировать модуль %s: %s", full_module_name, str(e))
+            logger.exception("Could not import module %s: %s", full_module_name, str(e))
             continue
 
         for attr in dir(module):
@@ -31,5 +30,4 @@ def initialize_parser_registry():
             ):
                 register_parser(obj)
 
-    logger.info(f"Registered parsers: {WEB_PARSER_REGISTRY}")
-    print(f"Registered parsers: {WEB_PARSER_REGISTRY}")
+    logger.info(f"Registered parsers: {list(WEB_PARSER_REGISTRY)}")
