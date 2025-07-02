@@ -234,19 +234,19 @@ LOGGING = {
             'propagate': False,
         },
         'celery': {
-            'handlers': ['file'] if PRODUCTION else ['console'],
+            'handlers': ['file'] if PRODUCTION else ['console', 'file'],
             'level': 'INFO',
             'propagate': False,
         },
         'urllib3': {
-            'handlers': ['console'] if not PRODUCTION else ['file'],
+            'handlers': ['file'] if PRODUCTION else ['console', 'file'],
             'level': 'WARNING',
             'propagate': False,
         },
     },
     'root': {
         'handlers': ['file'] if PRODUCTION else ['console', 'file'],
-        'level': 'DEBUG',
+        'level': 'INFO',
     },
 }
 

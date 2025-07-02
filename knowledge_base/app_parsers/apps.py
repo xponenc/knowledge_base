@@ -12,7 +12,7 @@ class AppParsersConfig(AppConfig):
 
     def ready(self):
         # Избежать двойной регистрации при автоперезапуске в режиме runserver
-        if PRODUCTION:
+        if not PRODUCTION and os.environ.get('RUN_MAIN') != 'true':
             return
         from app_parsers.services.parsers.init_registry import initialize_parser_registry
         initialize_parser_registry()

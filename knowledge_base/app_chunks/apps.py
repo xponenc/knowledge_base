@@ -13,7 +13,7 @@ class AppChunksConfig(AppConfig):
 
     def ready(self):
         # Избежать двойной регистрации при автоперезапуске в режиме runserver
-        if PRODUCTION:
+        if not PRODUCTION and os.environ.get('RUN_MAIN') != 'true':
             return
 
         register_splitter(BoHybridMarkdownSplitter)
