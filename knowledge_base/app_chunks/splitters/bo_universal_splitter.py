@@ -35,6 +35,15 @@ class BoHybridMarkdownSplitter(BaseSplitter):
             "label": "Уровни заголовков Markdown",
             "help_text": "Уровни Markdown-заголовков, по которым нужно разбивать (например: 1, 2, 3)",
         },
+        "min_tail": {
+            "type": int,
+            "label": "Минимальный размер последнего чанка (в процентах)",
+             "help_text": (
+                "Если размер последнего чанка составляет менее указанного процента от 'Максимальной длины чанка', "
+                "то он будет присоединён к предыдущему чанку.\n"
+                "Например, при значении 15 и размере чанка 1000 токенов — хвост короче 150 токенов объединяется с предыдущим."
+            ),
+        },
     }
     name = "Маркдаун + рекурсив"
     help_text = ("Разделяет текст по маркдаун разметке, после чего анализируется размер чанка и если он превышает "
@@ -113,7 +122,6 @@ class BoHybridMarkdownSplitter(BaseSplitter):
             raise ValueError("Не указано имя кодировки (`encoding_name`) в конфигурации сплиттера.")
 
         try:
-
             recursive_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=chunk_size,
                 chunk_overlap=chunk_overlap,
@@ -133,10 +141,43 @@ class BoHybridMarkdownSplitter(BaseSplitter):
                     new_document.metadata["size_in_tokens"] = self._num_tokens_from_string(new_document.page_content,
                                                                                            encoding_name)
                     source_chunks.append(new_document)
-
             else:
                 fragment.metadata["size_in_tokens"] = fragment_len
                 source_chunks.append(fragment)
+
+        # --- Вспомогательная функция для поиска максимального перекрытия ---
+        def find_overlap(a: str, b: str, min_overlap: int = 10) -> int:
+            max_len = min(len(a), len(b))
+            for length in range(max_len, min_overlap - 1, -1):
+                if a[-length:] == b[:length]:
+                    return length
+            return 0
+
+        # --- Обработка min_tail (слияние последнего короткого чанка с предыдущим с учётом перекрытия) ---
+        min_tail_percent = self.config.get("min_tail", 0)
+        if min_tail_percent and len(source_chunks) >= 2:
+            last_chunk = source_chunks[-1]
+            penultimate_chunk = source_chunks[-2]
+
+            threshold_tokens = int(chunk_size * min_tail_percent / 100)
+            last_chunk_tokens = last_chunk.metadata.get("size_in_tokens", 0)
+
+            if last_chunk_tokens < threshold_tokens:
+                penultimate_text = penultimate_chunk.page_content
+                last_text = last_chunk.page_content
+
+                # Ищем длину перекрытия между концом предпоследнего и началом последнего чанков
+                overlap_len = find_overlap(penultimate_text, last_text, min_overlap=chunk_overlap)
+
+                # Склеиваем с учётом перекрытия (без дублирования)
+                combined_content = penultimate_text + last_text[overlap_len:]
+
+                combined_metadata = penultimate_chunk.metadata.copy()
+                combined_metadata["size_in_tokens"] = self._num_tokens_from_string(combined_content, encoding_name)
+
+                combined_document = Document(page_content=combined_content, metadata=combined_metadata)
+
+                source_chunks = source_chunks[:-2] + [combined_document]
 
         return source_chunks
 
@@ -167,11 +208,23 @@ class BoHybridMarkdownSplitter(BaseSplitter):
         return obj if obj not in (None, "", [], {}) else None
 
     @classmethod
+    def _process_internal_links(cls, metadata, prefix='internal_links'):
+        internal_links = metadata.get('internal_links', [])
+        metadata.pop('internal_links')
+        if isinstance(internal_links, list):
+            for i, item in enumerate(internal_links):
+                if isinstance(item, list) and len(item) == 2:
+                    name, url = item
+                    metadata[f"{prefix}__{i}"] = f"{name} {url}"
+        return metadata
+
+    @classmethod
     def _process_document(cls, doc: Document) -> Document:
         # Извлекаем page_content и metadata из документа
         page_content = doc.page_content
         metadata = doc.metadata.copy()  # Создаём копию metadata
         files = metadata.get('files', {})
+
 
         # Рекурсивная функция для обработки вложенных словарей и списков в files
         def process_files(data, page_content, prefix='files', parent_name=None):
@@ -204,8 +257,11 @@ class BoHybridMarkdownSplitter(BaseSplitter):
                         page_content = page_content.replace(data, name)
             return page_content
 
+
         # Обрабатываем все элементы в files, обновляя page_content
         page_content = process_files(files, page_content)
+        # Обработка metadata.internal_links
+        metadata = cls._process_internal_links(metadata)
 
         # Удаляет Markdown-заголовки (###, ##, #) в любом месте строки
         page_content = re.sub(r'\s*#{1,6}\s*', ' ', page_content)
