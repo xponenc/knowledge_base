@@ -4,6 +4,7 @@ from django.apps import AppConfig
 
 from app_chunks.splitters.bo_universal_splitter import BoHybridMarkdownSplitter
 from app_chunks.splitters.registry import register_splitter, CHUNK_SPLITTER_REGISTRY
+from knowledge_base.settings import PRODUCTION
 
 
 class AppChunksConfig(AppConfig):
@@ -11,8 +12,8 @@ class AppChunksConfig(AppConfig):
     name = 'app_chunks'
 
     def ready(self):
-        # Избежать двойной регистрации при автоперезапуске
-        if os.environ.get('RUN_MAIN') != 'true':
+        # Избежать двойной регистрации при автоперезапуске в режиме runserver
+        if PRODUCTION:
             return
 
         register_splitter(BoHybridMarkdownSplitter)

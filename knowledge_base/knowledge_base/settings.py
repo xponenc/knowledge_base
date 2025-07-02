@@ -246,7 +246,7 @@ LOGGING = {
     },
     'root': {
         'handlers': ['file'] if PRODUCTION else ['console', 'file'],
-        'level': 'INFO',
+        'level': 'DEBUG',
     },
 }
 
