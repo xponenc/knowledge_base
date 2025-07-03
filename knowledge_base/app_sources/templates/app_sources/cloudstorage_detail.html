@@ -56,12 +56,9 @@
             </div>
             <div class="info-page__footer">
                 <div class="btns _jc-fe">
-                    <form action="{% url 'sources:cloudstorage_sync' cloudstorage.pk %}" method="POST">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn--reset btn--simple">
-                            🔄 Полное сканирование облака
-                        </button>
-                    </form>
+                    <a href="{% url 'sources:cloudstorage_sync' cloudstorage.pk %}" class="btn btn--reset btn--simple">
+                        🔄 Полное сканирование облака
+                    </a>
                     <form id="export-form" action="{% url 'sources:export_to_google_sheet' cloudstorage.pk %}" method="POST">
                         {% csrf_token %}
                         <button type="submit" class="btn btn--reset btn--simple">

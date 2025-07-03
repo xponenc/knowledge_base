@@ -23,7 +23,7 @@ class ImageRecognizer(ContentRecognizer):
             text = pytesseract.image_to_string(self.file_path, lang=OCR_LANGUAGES)
             logger.info(f"Текст распознан OCR из изображения: {self.file_path}")
             return {
-                "text": text,
+                "text": text.strip(),
                 "method": f"{self.__class__.__name__}:success",
                 "quality_report": evaluate_text_quality(text=text)
             }

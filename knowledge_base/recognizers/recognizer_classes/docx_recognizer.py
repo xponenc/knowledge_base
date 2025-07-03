@@ -34,7 +34,7 @@ class DOCXRecognizer(ContentRecognizer):
 
             logger.info(f"Текст извлечён из DOCX: {self.file_path}")
             return {
-                "text": result,
+                "text": result.strip(),
                 "method": f"{self.__class__.__name__}:success",
                 "quality_report": evaluate_text_quality(text=result)
             }

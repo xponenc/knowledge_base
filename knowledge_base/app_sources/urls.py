@@ -2,7 +2,7 @@ from django.urls import path
 
 from app_sources.views import *
 
-from app_sources.storage_views import StorageTagsView
+from app_sources.storage_views import *
 
 app_name = 'sources'
 

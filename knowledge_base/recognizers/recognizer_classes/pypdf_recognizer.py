@@ -34,11 +34,9 @@ class PyPDFRecognizer(ContentRecognizer):
             Exception: Если при обработке PDF-файла возникает ошибка, логируется ошибка,
                        и возвращается словарь с пустым текстом и статусом неудачи.
         """
-        print("start")
         try:
             # Открываем PDF-файл
             with open(self.file_path, "rb") as file:
-                print("file")
                 reader = pypdf.PdfReader(file)
                 # Извлекаем текст со всех страниц
                 text = ""
@@ -47,7 +45,6 @@ class PyPDFRecognizer(ContentRecognizer):
                     text += page_text + "\n"
                 # Удаляем лишние пробелы и переносы строк
                 text = text.strip()
-                print(text)
                 logger.info(f"Текст извлечён из PDF: {self.file_path}")
                 return {
                     "text": text,

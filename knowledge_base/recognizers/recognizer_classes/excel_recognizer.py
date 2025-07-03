@@ -16,7 +16,7 @@ class ExcelRecognizer(ContentRecognizer):
             text = df.to_string(index=False)
             logger.info(f"Текст извлечён из Excel: {self.file_path}")
             return {
-                "text": text,
+                "text": text.strip(),
                 "method": f"{self.__class__.__name__}:success",
                 "quality_report": evaluate_text_quality(text=text)
             }

@@ -1,0 +1,84 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+{% load humanize %}
+{% load custom_filters %}
+{% load status_tags %}
+
+{% block extra_css %}
+    <link href="{% static 'css/storage.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a href="{{ storage.kb.get_absolute_url }}" itemprop="item">
+            <span itemprop="name">База знаний {{ storage.kb.name }}</span>
+        </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a href="{{ storage.get_absolute_url }}" itemprop="item">
+            <span itemprop="name">База знаний {{ storage.name }}</span>
+        </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+        <span itemprop="name">Синхронизация</span>
+        <meta itemprop="position" content="2" />
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block title %}{{ storage.name }}{% endblock %}
+
+{% block content %}
+<div class="page page--{{ storage_type_eng }}">
+    <div class="page__top page__grid">
+        <div class="page__info info-page">
+            <span class="info-page__banner">{{ storage_type_ru }}</span>
+            <div class="info-page__header">
+                <h2 class="page__heading _ta-e">{{ storage.name }}</h2>
+                <h3 class="info-page__heading  _ta-e">{{ storage.base_url }}</h3>
+            </div>
+            <div class="info-page__body">
+                
+            </div>
+            <div class="info-page__footer">
+                
+            </div>
+        </div>
+    </div>
+    <div class="page__content">
+        <div class="page__info info-page">
+            <div class="info-page__header">
+                <h2 class="page__heading">Синхронизация объекта {{ storage_type_ru }}</h2>
+                <h3 class="info-page__heading"></h3>
+                <p class="text text--muted">Будет выполнена синхронизация файлов Облачного хранилища....расписать подробнее
+                </p>
+            </div>
+            <div class="info-page__body">
+                <form method="POST" class="form">
+                    {% csrf_token %}
+                    {% include "widgets/_form_content-widget.html" %}
+                    <div class="form__btn-block">
+                        <button class="btn btn--reset btn--simple" type="submit">
+                            запустить
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="info-page__footer">
+                <div class="btns _jc-fe">
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block script %}
+    
+{% endblock script%}

@@ -61,6 +61,7 @@ class Content(models.Model):
                                blank=True, null=True)
 
     hash_content = models.CharField(max_length=128, null=True, blank=True)
+    description = models.CharField(verbose_name="описание", max_length=1500, blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -46,7 +46,7 @@ class PDFRecognizer(ContentRecognizer):
                 if all_text.strip():
                     logger.info(f"Текст извлечён pdfplumber: {self.file_path}")
                     return {
-                        "text": all_text,
+                        "text": all_text.strip(),
                         "method": f"{self.__class__.__name__}(pdfplumber):failed",
                         "quality_report": evaluate_text_quality(text=all_text)
                     }
@@ -58,7 +58,7 @@ class PDFRecognizer(ContentRecognizer):
             ocr_text = "\n".join(pytesseract.image_to_string(img, lang=OCR_LANGUAGES) for img in images)
             logger.info(f"Текст извлечён OCR: {self.file_path}")
             return {
-                "text": ocr_text,
+                "text": ocr_text.strip(),
                 "method": f"{self.__class__.__name__}(pytesseract):success",
                 "quality_report": evaluate_text_quality(text=ocr_text)
             }

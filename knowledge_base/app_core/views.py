@@ -6,7 +6,6 @@ from django.urls import reverse_lazy
 from django.shortcuts import redirect, get_object_or_404, render
 
 from app_sources.storage_models import CloudStorage, WebSite, LocalStorage, URLBatch
-from app_sources.views import CloudStorageDetailView
 from .models import KnowledgeBase
 from django.utils import timezone
 

@@ -3,6 +3,35 @@ from django import forms
 from app_sources.storage_models import Storage
 
 
+class StorageScanParamForm(forms.Form):
+    """Форма настройки сканирования Хранилища"""
+    recognize_content= forms.BooleanField(
+        label="Распознавать контент",
+        help_text="Автоматически выполнять распознавание файлов",
+        required=True,
+        initial=True
+    )
+
+    do_summarization = forms.BooleanField(
+        label="Выполнить саммаризацию",
+        required=False,
+        initial=True,
+        help_text=(
+            "При включенном распознавании контента будет выполнена его саммаризация и результат сохранен в описание"
+        )
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["recognize_content"].widget.attrs.update({
+            "class": "switch",
+        })
+        self.fields["do_summarization"].widget.attrs.update({
+            "class": "switch",
+        })
+
+
 class StorageTagsForm(forms.ModelForm):
     """Форма управления тегами Хранилищ(Storage)"""
     tags = forms.MultipleChoiceField(

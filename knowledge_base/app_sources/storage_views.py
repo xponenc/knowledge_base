@@ -1,12 +1,30 @@
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.db.models import Func, IntegerField, F
-from django.db.models.functions import Cast
-from django.shortcuts import get_object_or_404, render, redirect
-from django.views import View
+import logging
+import os
 
-from app_sources.source_models import URL, NetworkDocument, LocalDocument
-from app_sources.storage_forms import StorageTagsForm, StorageScanTagsForm
+from django import forms
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.core.paginator import Paginator
+from django.db.models import Func, IntegerField, F, Q, Prefetch, Count
+from django.db.models.functions import Cast
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, render, redirect
+from django.template.loader import render_to_string
+from django.urls import reverse_lazy
+from django.views import View
+from django.views.generic import DetailView, ListView, CreateView, UpdateView, DeleteView
+
+from app_core.models import KnowledgeBase
+from app_sources.content_models import RawContent, ContentStatus
+from app_sources.forms import CloudStorageForm
+from app_sources.report_models import CloudStorageUpdateReport
+from app_sources.services.google_sheets_manager import GoogleSheetsManager
+from app_sources.source_models import URL, NetworkDocument, LocalDocument, SourceStatus
+from app_sources.storage_forms import StorageTagsForm, StorageScanTagsForm, StorageScanParamForm
 from app_sources.storage_models import CloudStorage, LocalStorage, URLBatch, WebSite
+from knowledge_base.settings import BASE_DIR
+from app_sources.tasks import process_cloud_files, process_raw_content_task
+
+logger = logging.getLogger(__name__)
 
 
 class StoragePermissionMixin(UserPassesTestMixin):
@@ -185,3 +203,313 @@ class StorageTagsView(LoginRequiredMixin, StoragePermissionMixin, View):
             template_name="app_sources/storage_tags.html",
             context=context,
         )
+
+
+
+class CloudStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
+    """Детальный просмотр объекта модели Облачное хранилище"""
+    model = CloudStorage
+    #
+    # def update_document_descriptions_from_csv(self, csv_path):
+    #     csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), csv_path )
+    #     with open(csv_path, newline='', encoding='utf-8') as csvfile:
+    #         reader = csv.DictReader(csvfile, delimiter=',')
+    #         updated = 0
+    #         not_found = []
+    #
+    #         for row in reader:
+    #             title = row.get("Название файла", "").strip()
+    #             description = row.get("Название документа", "").strip()
+    #
+    #             if not title:
+    #                 continue  # пропускаем строки без названия файла
+    #
+    #             try:
+    #                 doc = NetworkDocument.objects.get(title=title)
+    #                 doc.description = description
+    #                 doc.save()
+    #                 updated += 1
+    #             except NetworkDocument.DoesNotExist:
+    #                 not_found.append(title)
+    #
+    #     print(f"Обновлено документов: {updated}")
+    #     if not_found:
+    #         print("Не найдены документы с названиями файлов:")
+    #         for title in not_found:
+    #             print(f" - {title}")
+
+    def get(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        context = self.get_context_data()
+        # self.update_document_descriptions_from_csv("DocScanner_Summary - Лист1.csv")
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            html = render_to_string(
+                "app_sources/include/network_documents_page.html",
+                context,
+                request=request
+            )
+            return JsonResponse({"html": html})
+
+        return self.render_to_response(context)
+
+    def get_context_data(self, **kwargs):
+        network_storage = self.object
+        context = super().get_context_data()
+
+        # отчеты по обновлениям
+        update_report_count = CloudStorageUpdateReport.objects.filter(storage=network_storage).count()
+        context["update_report_count"] = update_report_count
+        # Передаём три последних отчёта
+        update_reports_last = (CloudStorageUpdateReport.objects
+                               .select_related("author")
+                               .filter(storage=network_storage)
+                               .defer("storage", "content", "running_background_tasks")
+                               .order_by("-created_at")[:3])
+        context["update_reports_last"] = update_reports_last
+
+        source_statuses = [
+            (status.value, status.display_name) for status in SourceStatus
+        ]
+
+        filters = {
+            "status": source_statuses
+        }
+
+        sorting_list = [
+            ("-created_at", "дата создания по возрастанию"),
+            ("created_at", "дата создания по убыванию"),
+            ("-title", "имя по возрастанию"),
+            ("title", "имя по убыванию"),
+            ("-url", "url по возрастанию"),
+            ("url", "url по убыванию"),
+        ]
+
+        # Получаем параметры поиска и фильтрации из запроса
+        search_query = self.request.GET.get("search", "").strip()
+        status_filter = self.request.GET.getlist("status", None)
+        sorting = self.request.GET.get("sorting", None)
+
+        network_documents = network_storage.network_documents.order_by("title")
+
+        if search_query:
+            network_documents = network_documents.filter(
+                Q(title__icontains=search_query) |
+                Q(url__icontains=search_query) |
+                Q(description__icontains=search_query)
+            )
+
+        if status_filter:
+            valid_statuses = [status.value for status in SourceStatus]
+            # Оставляем только корректные значения
+            status_filter = [s for s in status_filter if s in valid_statuses]
+            if status_filter:
+                network_documents = network_documents.filter(status__in=status_filter)
+
+        if sorting:
+            valid_sorting = [value for value, name in sorting_list]
+            if sorting in valid_sorting:
+                network_documents = network_documents.order_by(sorting)
+
+        rawcontent_qs = RawContent.objects.filter(
+            status=ContentStatus.READY.value
+        ).select_related(
+            'cleanedcontent'
+        ).order_by("-created_at")[:1]
+
+        # Prefetch rawcontent_set → в each networkdocument.related_rawcontents будет список из 0 или 1
+        network_documents = network_documents.select_related(
+            "report__storage", "storage"
+        ).prefetch_related(
+            Prefetch('rawcontent_set', queryset=rawcontent_qs, to_attr='related_rawcontents')
+        ).annotate(
+            rawcontent_total_count=Count('rawcontent')
+        )
+
+        paginator = Paginator(network_documents, 3)
+        page_number = self.request.GET.get("page")
+        page_obj = paginator.get_page(page_number)
+
+        # Назначаем явно (0 или 1 элемент)
+        for doc in page_obj.object_list:
+            doc.active_rawcontent = doc.related_rawcontents[0] if doc.related_rawcontents else None
+
+        # Формируем query string без page
+        query_params = self.request.GET.copy()
+        query_params.pop('page', None)
+        paginator_query = query_params.urlencode()
+        if paginator_query:
+            paginator_query += '&'
+
+        context["page_obj"] = page_obj
+        context["paginator_query"] = paginator_query
+        context["paginator"] = paginator
+        context["network_documents"] = page_obj.object_list
+        context["is_paginated"] = page_obj.has_other_pages()
+        context["search_query"] = search_query
+        context["status_filter"] = status_filter
+        context["source_statuses"] = source_statuses
+        context["filters"] = filters
+        context["sorting_list"] = sorting_list
+        return context
+
+
+class CloudStorageListView(LoginRequiredMixin, ListView):
+    """Списковый просмотр объектов модели Облачное хранилище"""
+    model = CloudStorage
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.request.user.is_superuser:
+            return queryset
+        queryset = queryset.filter(soft_deleted_at__isnull=True).filter(owners=self.request.user)
+        return queryset
+
+
+class CloudStorageCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateView):
+    """Создание объекта модели Облачное хранилище"""
+    model = CloudStorage
+    form_class = CloudStorageForm
+
+    def get_initial(self):
+        """Предзаполненные значения для удобства при тестировании"""
+        return {
+            "name": "Облако Академии ДПО",
+            "api_type": "webdav",
+            "url": "https://cloud.academydpo.org/public.php/webdav/",
+            "root_path": "documents/",
+            "auth_type": "token",
+            "token": "rqJWt7LzPGKcyNw"
+        }
+
+    def dispatch(self, request, *args, **kwargs):
+        """Сохраняем knowledge_base для дальнейшего использования"""
+        self.knowledge_base = get_object_or_404(KnowledgeBase, pk=kwargs['kb_pk'])
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        """Установка связи с базой знаний перед валидацией"""
+        kb_pk = self.kwargs.get("kb_pk")
+        if not kb_pk:
+            form.add_error(None, "Не передан ID базы знаний")
+            return self.form_invalid(form)
+
+        form.instance.kb = self.knowledge_base
+        form.instance.author = self.request.user
+        return super().form_valid(form)
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        kb_pk = self.kwargs.get("kb_pk")
+        if kb_pk:
+            form.instance.kb_id = kb_pk
+        form.instance.author = self.request.user
+        return form
+
+    # def get_context_data(self, **kwargs):
+    #     """Добавить ID базы знаний в контекст (если нужно для шаблона)"""
+    #     context = super().get_context_data(**kwargs)
+    #     context['kb_pk'] = self.kwargs.get('kb_pk')
+    #     return context
+
+
+class CloudStorageUpdateView(LoginRequiredMixin, UpdateView):
+    model = CloudStorage
+    fields = ("name", "description")
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields["name"].widget.attrs["class"] = "form-control"
+        form.fields["description"].widget = forms.Textarea(attrs={"rows": 4, "class": "form-control"})
+        return form
+
+
+class CloudStorageDeleteView(LoginRequiredMixin, DeleteView):
+    model = CloudStorage
+    success_url = reverse_lazy("sources:cloudstorage_list")
+
+
+class CloudStorageSyncView(LoginRequiredMixin, StoragePermissionMixin, View):
+    """
+    Синхронизация облачного хранилища: получение списка файлов, создание отчёта, запуск фоновой задачи.
+    """
+
+    def get(self, request, pk):
+        cloud_storage = CloudStorage.objects.get(pk=pk)
+        scan_params_form = StorageScanParamForm()
+        context = {
+            "form": scan_params_form,
+            "storage": cloud_storage,
+            "storage_type_eng": "cloud",
+            "storage_type_ru": "Облако",
+        }
+        return render(request=request,
+                      template_name="app_sources/storage_sync.html",
+                      context=context
+                      )
+
+
+    def post(self, request, pk):
+
+        cloud_storage = get_object_or_404(CloudStorage, pk=pk)
+        scan_params_form = StorageScanParamForm(request.POST)
+        if scan_params_form.is_valid():
+            print(f"{scan_params_form.cleaned_data}")
+            recognize_content = scan_params_form.cleaned_data.get("recognize_content", False)
+            do_summarization =  scan_params_form.cleaned_data.get("do_summarization", False)
+        else:
+            recognize_content = False
+            do_summarization = False
+
+        synced_documents = request.POST.getlist("synced_documents")
+        logger.info(f"Начало синхронизации хранилища: {cloud_storage.name}, запущена {request.user}")
+        storage_update_report = CloudStorageUpdateReport.objects.create(storage=cloud_storage, author=self.request.user)
+
+        try:
+            task = process_cloud_files.delay(
+                files=synced_documents,
+                update_report_pk=storage_update_report.pk,
+                recognize_content=recognize_content,
+                do_summarization=do_summarization,
+            )
+
+            storage_update_report.running_background_tasks[task.id] = "Синхронизация файлов"
+            storage_update_report.save(update_fields=["running_background_tasks", ])
+
+            return render(request, 'app_sources/cloudstorage_progress_report.html', {
+                'task_id': task.task_id,
+                'cloudstorage': cloud_storage,
+                "next_step_url": storage_update_report.get_absolute_url()
+            })
+
+        except Exception as e:
+            logger.exception(f"Ошибка синхронизации хранилища: {cloud_storage.name}, запущена {request.user},"
+                             f" отчет [CloudStorageUpdateReport id {storage_update_report.pk}]")
+            storage_update_report.content.setdefault("errors", []).append(str(e))
+            storage_update_report.save()
+            return render(request, 'app_sources/sync_result.html', {
+                'result': {'error': f"Ошибка получения файлов: {e}"},
+                'cloud_storage': cloud_storage
+            })
+
+
+class CloudStorageExportGoogleSheetView(LoginRequiredMixin, StoragePermissionMixin, View):
+    """Экспорт данных облачного хранилища в GoogleSheets"""
+
+    def get(self, request, pk, *args, **kwargs):
+        pass
+
+    def post(self, request, pk, *args, **kwargs):
+        cloud_storage = get_object_or_404(CloudStorage, pk=pk)
+        cloud_storage_name = cloud_storage.name
+        network_documents = cloud_storage.network_documents.all()
+        credentials_file = os.path.join(BASE_DIR, "product_config", "credentials.json")
+
+        google_sheets_manager = GoogleSheetsManager(
+            credentials_file=credentials_file,
+            short_sheet_name=f"{cloud_storage_name}_DocScanner_Summary",
+            full_sheet_name=f"{cloud_storage_name}_DocScanner_FullSummary"
+        )
+
+        google_sheets_manager.export_short_summary(request=request, export_data=network_documents)
+
+        return HttpResponse(google_sheets_manager.short_shared_link)
