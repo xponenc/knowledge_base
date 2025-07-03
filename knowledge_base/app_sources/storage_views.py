@@ -22,7 +22,7 @@ from app_sources.source_models import URL, NetworkDocument, LocalDocument, Sourc
 from app_sources.storage_forms import StorageTagsForm, StorageScanTagsForm, StorageScanParamForm
 from app_sources.storage_models import CloudStorage, LocalStorage, URLBatch, WebSite
 from knowledge_base.settings import BASE_DIR
-from app_sources.tasks import process_cloud_files, process_raw_content_task
+from app_sources.tasks import process_cloud_files
 
 logger = logging.getLogger(__name__)
 
@@ -463,7 +463,6 @@ class CloudStorageSyncView(LoginRequiredMixin, StoragePermissionMixin, View):
         synced_documents = request.POST.getlist("synced_documents")
         logger.info(f"Начало синхронизации хранилища: {cloud_storage.name}, запущена {request.user}")
         storage_update_report = CloudStorageUpdateReport.objects.create(storage=cloud_storage, author=self.request.user)
-
         try:
             task = process_cloud_files.delay(
                 files=synced_documents,

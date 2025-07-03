@@ -33,14 +33,10 @@ from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedCo
     NetworkDocumentStatusUpdateForm
 from app_sources.models import HierarchicalContextMixin
 from app_sources.report_models import CloudStorageUpdateReport, WebSiteUpdateReport, ReportStatus
-from app_sources.services.google_sheets_manager import GoogleSheetsManager
-from app_sources.services.summary import summarize_with_sber
 from app_sources.source_models import NetworkDocument, URL, SourceStatus
-from app_sources.storage_forms import StorageScanParamForm
 from app_sources.storage_models import CloudStorage, Storage, LocalStorage, WebSite, URLBatch
 from app_sources.storage_views import StoragePermissionMixin
-from app_sources.tasks import process_cloud_files, process_raw_content_task
-from knowledge_base.settings import BASE_DIR
+from app_sources.tasks import process_raw_content_task
 from recognizers.dispatcher import ContentRecognizerDispatcher
 from utils.tasks import get_task_status
 

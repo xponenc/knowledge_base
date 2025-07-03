@@ -61,7 +61,8 @@
                     progressBarMessageElement.textContent = this.messages.started;
                 }
             } else {
-                progressBarMessageElement.textContent = ' Обработано ' + progress.current + '% ' + description;
+                progressBarMessageElement.textContent =
+                    `Обработано ${progress.current} из ${progress.total} (${progress.percent}%) ${description}`;
             }
         }
         function onSuccessMy(progressBarElement, progressBarMessageElement, result) {

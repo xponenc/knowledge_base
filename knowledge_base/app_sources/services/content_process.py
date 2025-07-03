@@ -38,7 +38,7 @@ def recognize_raw_content(raw_content: RawContent) -> dict:
 
 def summarize_and_save_to_document(text: str, document, mode: str = "summary big"):
     """Самаризация текста"""
-    summary = summarize_text(text, mode=mode)
+    summary = summarize_text(text[:2000], mode=mode)
     if summary and summary.strip():
         document.description = summary
         document.save(update_fields=["description"])
@@ -69,7 +69,8 @@ def recognize_and_summarize_content(raw_content: RawContent, user_id=None, do_su
         method = result["method"]
         quality = result["quality_report"]
 
-        logger.info(f"[RawContent {raw_id} / Document {doc_id}] Текст успешно распознан методом {method}")
+        if method and "success" in method:
+            logger.info(f"[RawContent {raw_id} / Document {doc_id}] Текст успешно распознан методом {method}")
 
         # Удаляем старое CleanedContent
         CleanedContent.objects.filter(raw_content=raw_content).delete()
