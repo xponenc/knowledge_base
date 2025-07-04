@@ -430,7 +430,7 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
             chunk_counter=Count("url__urlcontent__chunk", distinct=True)
         )
         storage = get_object_or_404(storage_qs, pk=pk)
-        current_splitter = storage.configs.get("current_splitter")
+
         kb = storage.kb
         context = {
             "kb": kb,
@@ -438,16 +438,48 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
             "storage_type_ru": "Веб-сайт",
             "storage_type_eng": "website",
         }
-        # форма выбора класса распознавателя
+
         dispatcher = SplitterDispatcher()
         splitters = dispatcher.list_all()
-        splitter_select_form = SplitterSelectForm(splitters=splitters)
-        config_form = SplitterDynamicConfigForm()
+
+        current_splitter = storage.configs.get("current_splitter")
+
+        if current_splitter and isinstance(current_splitter, dict):
+            # Получаем имя класса и конфигурацию
+            splitter_class_name = current_splitter.get("cls")
+            initial_config = current_splitter.get("config", {})
+
+            try:
+                # Пробуем получить класс и экземпляр сплиттера
+                splitter_cls = dispatcher.get_by_name(splitter_class_name)
+                splitter_instance = splitter_cls(initial_config)  # Проверка валидности
+                schema = splitter_cls.config_schema
+
+                full_class_name = f"{splitter_cls.__module__}.{splitter_cls.__name__}"
+                splitter_select_form = SplitterSelectForm(
+                    splitters=splitters,
+                    initial={"splitters": full_class_name}
+                )
+
+                config_form = SplitterDynamicConfigForm(
+                    schema=schema,
+                    initial_config=initial_config
+                )
+
+            except Exception as e:
+                logger.warning(f"Ошибка инициализации текущего сплиттера {splitter_class_name}: {e}")
+                # fallback на пустую форму без initial
+                splitter_select_form = SplitterSelectForm(splitters=splitters)
+                config_form = SplitterDynamicConfigForm()
+
+        else:
+            # Если сплиттер не задан — пустая форма выбора
+            splitter_select_form = SplitterSelectForm(splitters=splitters)
+            config_form = SplitterDynamicConfigForm()
+
         context["form"] = splitter_select_form
         context["config_form"] = config_form
         return render(request, "app_chunks/storage_chunking.html", context)
-
-
 
     def post(self, request, pk):
         export_only_flag = request.POST.get("export_only_flag")
@@ -486,12 +518,10 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
 
             url_contents = URLContent.objects.select_related("url").filter(url__site=storage)
 
-
-
             report_content = {
                 "initial_data": {
                     "splitter": {
-                        "cls": splitter.__class__.__name__,
+                        "cls": f"{splitter.__module__}.{splitter.__class__.__name__}",
                         "config": splitter.config,
                     },
                     "objects": {
@@ -518,7 +548,7 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
             chunking_report.save(update_fields=["running_background_tasks", ])
 
             site_splitter_config = {
-                "cls": splitter.__class__.__name__,
+                "cls": f"{splitter.__module__}.{splitter.__class__.__name__}",
                 "config": splitter.config,
             }
 

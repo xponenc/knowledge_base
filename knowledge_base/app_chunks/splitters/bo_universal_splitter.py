@@ -38,7 +38,7 @@ class BoHybridMarkdownSplitter(BaseSplitter):
         "min_tail": {
             "type": int,
             "label": "Минимальный размер последнего чанка (в процентах)",
-             "help_text": (
+            "help_text": (
                 "Если размер последнего чанка составляет менее указанного процента от 'Максимальной длины чанка', "
                 "то он будет присоединён к предыдущему чанку.\n"
                 "Например, при значении 15 и размере чанка 1000 токенов — хвост короче 150 токенов объединяется с предыдущим."
@@ -53,13 +53,12 @@ class BoHybridMarkdownSplitter(BaseSplitter):
         super().__init__(config)
 
     def split(self, metadata: dict, text_to_split: str) -> List[Document]:
-        print(f"{self.config=}")
         total_header = self._generate_total_header_from_metadata(metadata=metadata)
 
         source_chunks = self._split_text(text_to_split,
-                                                    chunk_size=self.config.get("chunk_size"),
-                                                    chunk_overlap=self.config.get("chunk_overlap")
-                                                    )
+                                         chunk_size=self.config.get("chunk_size"),
+                                         chunk_overlap=self.config.get("chunk_overlap")
+                                         )
         for chunk in source_chunks:
             chunk.metadata.update(metadata)
 
@@ -225,7 +224,6 @@ class BoHybridMarkdownSplitter(BaseSplitter):
         metadata = doc.metadata.copy()  # Создаём копию metadata
         files = metadata.get('files', {})
 
-
         # Рекурсивная функция для обработки вложенных словарей и списков в files
         def process_files(data, page_content, prefix='files', parent_name=None):
             if isinstance(data, dict):
@@ -256,7 +254,6 @@ class BoHybridMarkdownSplitter(BaseSplitter):
                     else:
                         page_content = page_content.replace(data, name)
             return page_content
-
 
         # Обрабатываем все элементы в files, обновляя page_content
         page_content = process_files(files, page_content)
@@ -295,4 +292,3 @@ class BoHybridMarkdownSplitter(BaseSplitter):
         else:
             items.append((parent_key, d))
         return dict(items)
-
