@@ -1,0 +1,159 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+
+
+{% block extra_css %}
+    <link href="{% static 'libs/choices/choices.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/source.css' %}" rel="stylesheet">
+    <link href="{% static 'css/custom_choices.css' %}" rel="stylesheet">
+{% endblock %}
+
+
+{% block title %}Разбиение на чанки{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        {% comment %} база знаний {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ kb.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">База знаний {{ kb.name }}</span>
+            </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        {% comment %} хранилище {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <a href="{{ storage.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">{{ storage_type_ru }} {{ storage.name }}</span>
+            </a>
+            <meta itemprop="position" content="2" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">Разбиение на чанки</span>
+            <meta itemprop="position" content="5" />
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+
+<div class="page page--{{ storage_type_eng }}">
+    <div class="page__top page__grid">
+        <div class="page__info info-page info-page--{{ storage_type_eng }} _jc-fs">
+            <span class="info-page__banner">{{ storage_type_ru }}</span>
+            <div class="info-page__header">
+                <h2 class="page__heading _ta-e">ЧАНКИНГ</h2>
+                <h3 class="info-page__heading"></h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                <h3 class="info-page__heading">Детали источника</h3>
+                <dl class="source__description--info description">
+                    <dt class="description__term">Наименование</dt>
+                    <dd class="description__defination">{{ storage.name }}</dd>
+                    <dt class="description__term">Описание</dt>
+                    <dd class="description__defination">{{ storage.description|default:"" }}</dd>
+                </dl>
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+    </div>
+    <article class="page__content _mb">
+        <h3 class="page__subheading">Информирование</h3>
+        <dl class="description">
+            <dt class="description__term">Страниц</dt>
+            <dd class="description__defination">
+                {{ storage.source_counter }}
+            </dd>
+            <dt class="description__term">Чанков</dt>
+            <dd class="description__defination">
+                {{ storage.chunk_counter }}
+            </dd>
+            {% if storage.configs.current_splitter %}
+                <dt class="description__term">Действующий сплиттер</dt>
+                <dd class="description__defination">
+                    {{ storage.configs.current_splitter.cls }}
+                </dd>
+                <dt class="description__term">Действующая конфигурация сплиттер</dt>
+                <dd class="description__defination">
+                    {{ storage.configs.current_splitter.config }}
+                </dd>
+            {% endif %}
+        </dl>
+        
+    </article>
+    <article class="page__content _mb">
+        <h3 class="page__subheading">Разбиение на чанки источников {{ storage_type_ru }}</h3>
+        <form action="" method="POST" class="form" id="start-recognize">
+            {% csrf_token %}
+            {% include "widgets/_form_content-widget.html" %}
+            <!-- Контейнер для динамических полей конфигурации -->
+            <div id="config-form-container" class="mb-3">
+                {% if config_form %}
+                    {% include "widgets/_form_content-widget.html" with form=config_form %}
+                {% endif %}
+            </div>
+            <div class="form__btn-block">
+                <a href="{{ document.get_absolute_url }}" class="btn btn--reset btn--simple">ОТМЕНИТЬ</a>
+                <button type="submit" class="btn btn--reset btn--simple btn--accent" id="submit-btn">
+                    Запустить
+                </button>
+            </div>
+        </form>
+        </div>
+    </article>
+</div>
+{% endblock %}
+
+
+{% block script %}
+    <script src="{% static 'libs/choices/choices.min.js' %}"></script>
+    <script>
+        // Инициализация choice.js для #id_recognizer
+        let statusSelect = new Choices("#id_splitters", {
+            allowHTML: true,
+            classNames: {
+                containerOuter: 'choices custom-choices custom-choices_transparent',
+            },
+            position: 'down',
+            itemSelectText: 'splitter',
+            searchEnabled: false,
+            searchPlaceholderValue: 'поиск',
+            maxItemText: 'Выбрано максимально допустимое количество',
+            //removeItems: true,
+            //removeItemButton: true,
+            noResultsText: 'Ничего не найдено',
+        })
+        document.addEventListener('DOMContentLoaded', () => {
+            const splitterSelect = document.querySelector('#id_splitters');
+            const configContainer = document.getElementById('config-form-container');
+        
+            splitterSelect.addEventListener('change', () => {
+                const splitter = splitterSelect.value;
+                console.log(splitter)
+                if (!splitter) {
+                    configContainer.innerHTML = '';
+                    return;
+                }
+                fetch(`{% url 'chunks:splitter_config' %}?splitter_class_name=${encodeURIComponent(splitter)}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Ошибка загрузки конфигурации');
+                    return response.text();
+                })
+                .then(html => {
+                    configContainer.innerHTML = html;
+                })
+                .catch(err => {
+                    configContainer.innerHTML = '<div class="text--danger">Не удалось загрузить конфигурацию сплиттера</div>';
+                    console.error(err);
+                });
+            });
+        });
+    </script>
+{% endblock script%}

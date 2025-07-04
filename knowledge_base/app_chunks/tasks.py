@@ -1,16 +1,20 @@
 import json
+from typing import List
 
 from celery import shared_task
 from celery_progress.backend import ProgressRecorder
 from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch
 from openai import OpenAI
 
+from app_chunks.models import Chunk, ChunkStatus
+from app_chunks.splitters.base import BaseSplitter
 from app_embeddings.services.embedding_config import system_instruction
 from app_embeddings.services.retrieval_engine import answer_index
 from app_sources.content_models import URLContent
 from app_sources.source_models import URL
+from utils.setup_logger import setup_logger
 
-
+chunk_logger =  setup_logger(name="chunk_logger", log_dir = "logs", log_file = "chunking_debug.log")
 
 def create_test_data(content:str, ai_prompt:str):
     system_prompt = """
@@ -173,3 +177,83 @@ def test_model_answer(self,
         json.dump(results, f, ensure_ascii=False, indent=4)
 
     return "Обработка завершена"
+
+
+@shared_task(bind=True)
+def bulk_chunks_create(
+    self,
+    content_list: List,
+    report_pk: int,
+    splitter,
+    author_pk: int,
+) -> str:
+    """
+    Разбивает веб-страницы на чанки с использованием заданного сплиттера и сохраняет их в базу данных.
+
+    :param self: Celery-задача (для отображения прогресса).
+    :param content_list: список объектов URLContent для обработки.
+    :param report_pk: первичный ключ отчёта обновления.
+    :param splitter: инициализированный объект класса-наследника BaseSplitter.
+    :param author_id: идентификатор пользователя, создавшего чанки.
+    :return: строка с информацией о завершении задачи.
+    """
+    progress_recorder = ProgressRecorder(self)
+    total = len(content_list)
+    progress_description_base = f"Создание чанков для {total} веб-страниц"
+    progress_step = max(1, total // 100)
+
+    progress_recorder.set_progress(0, total, description=progress_description_base)
+    chunk_logger.info(f"[START] Разбиение {total} элементов. Отчёт ID={report_pk}")
+
+    bulk_container = []
+    batch_size = 900
+
+    for i, content in enumerate(content_list):
+        try:
+            body = content.body
+            metadata = content.metadata or {}
+            url = content.url.url
+
+            metadata["url"] = url
+
+            documents = splitter.split(metadata=metadata, text_to_split=body)
+
+            for doc_num, document in enumerate(documents):
+                chunk = Chunk(
+                    url_content=content,
+                    status=ChunkStatus.READY.value,
+                    report_id=report_pk,
+                    metadata=document.metadata,
+                    page_content=document.page_content,
+                    splitter_cls=splitter.__class__.__name__,
+                    splitter_config=splitter.config,
+                    author_id=author_pk,
+                )
+                bulk_container.append(chunk)
+                chunk_logger.debug(
+                    f"[CHUNK CREATED] URLContent ID={content.id}, URL='{url}', Чанк #{doc_num + 1} из {len(documents)}"
+                )
+
+        except Exception as e:
+            chunk_logger.exception(
+                f"[ERROR] Не удалось создать чанки для URLContent ID={getattr(content, 'id', '?')}, "
+                f"URL='{getattr(content.url, 'url', '?')}', index={i}. Ошибка: {e}"
+            )
+            continue
+
+        if (i + 1) % progress_step == 0 or i + 1 == total:
+            progress_recorder.set_progress(i + 1, total, description=progress_description_base)
+
+        if len(bulk_container) >= batch_size:
+            Chunk.objects.bulk_create(bulk_container)
+            chunk_logger.info(f"[BULK SAVE] Сохранено {len(bulk_container)} чанков на итерации {i}")
+            bulk_container.clear()
+
+    if bulk_container:
+        Chunk.objects.bulk_create(bulk_container)
+        chunk_logger.info(f"[FINAL BULK SAVE] Сохранено {len(bulk_container)} чанков в финальной партии.")
+
+    chunk_logger.info(f"[COMPLETE] Обработка завершена. Всего обработано: {total}")
+    progress_recorder.set_progress(total, total, description="Генерация чанков завершена")
+
+    return f"Успешно создано чанков для {total} URLContent."

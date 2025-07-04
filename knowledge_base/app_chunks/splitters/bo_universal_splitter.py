@@ -28,7 +28,7 @@ class BoHybridMarkdownSplitter(BaseSplitter):
         "chunk_overlap": {
             "type": int,  # или другой ожидаемый тип
             "label": "Размер перекрытия",  # отображаемое имя
-            "help_text": "Размер перекрытия чанков при рекрурсивном разбиении (в чанках)",  # пояснение
+            "help_text": "Размер перекрытия чанков при рекурсивном разбиении (в токенах)",  # пояснение
         },
         "header_levels": {
             "type": list[int],
@@ -208,9 +208,9 @@ class BoHybridMarkdownSplitter(BaseSplitter):
         return obj if obj not in (None, "", [], {}) else None
 
     @classmethod
-    def _process_internal_links(cls, metadata, prefix='internal_links'):
-        internal_links = metadata.get('internal_links', [])
-        metadata.pop('internal_links')
+    def _process_links(cls, metadata, prefix='internal_links'):
+        internal_links = metadata.get(prefix, [])
+        metadata.pop(prefix)
         if isinstance(internal_links, list):
             for i, item in enumerate(internal_links):
                 if isinstance(item, list) and len(item) == 2:
@@ -261,7 +261,9 @@ class BoHybridMarkdownSplitter(BaseSplitter):
         # Обрабатываем все элементы в files, обновляя page_content
         page_content = process_files(files, page_content)
         # Обработка metadata.internal_links
-        metadata = cls._process_internal_links(metadata)
+        metadata = cls._process_links(metadata, prefix='internal_links')
+        # Обработка metadata.external_links
+        metadata = cls._process_links(metadata, prefix="external_links")
 
         # Удаляет Markdown-заголовки (###, ##, #) в любом месте строки
         page_content = re.sub(r'\s*#{1,6}\s*', ' ', page_content)

@@ -26,10 +26,11 @@ from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharac
 from app_chunks.forms import ModelScoreTestForm, SplitterSelectForm, SplitterDynamicConfigForm
 from app_chunks.models import Chunk, ChunkStatus
 from app_chunks.splitters.dispatcher import SplitterDispatcher
-from app_chunks.tasks import test_model_answer
+from app_chunks.tasks import test_model_answer, bulk_chunks_create
 from app_embeddings.services.embedding_config import system_instruction
 from app_embeddings.services.retrieval_engine import answer_index
 from app_sources.content_models import URLContent
+from app_sources.report_models import ChunkingReport
 from app_sources.source_models import URL, SourceStatus
 from app_sources.storage_models import WebSite
 from utils.setup_logger import setup_logger
@@ -341,7 +342,6 @@ class ChunkCreateFromURLContentView(LoginRequiredMixin, View):
         # форма выбора класса распознавателя
         dispatcher = SplitterDispatcher()
         splitters = dispatcher.list_all()
-        logger.error(splitters)
         splitter_select_form = SplitterSelectForm(splitters=splitters)
         config_form = SplitterDynamicConfigForm()
         context["form"] = splitter_select_form
@@ -423,7 +423,120 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
         except (ValueError, TypeError):
             return None
 
+    def get(self,request, pk):
+        export_only_flag = request.GET.get("export_only_flag")
+        storage_qs = WebSite.objects.annotate(
+            source_counter=Count("url", distinct=True),
+            chunk_counter=Count("url__urlcontent__chunk", distinct=True)
+        )
+        storage = get_object_or_404(storage_qs, pk=pk)
+        current_splitter = storage.configs.get("current_splitter")
+        kb = storage.kb
+        context = {
+            "kb": kb,
+            "storage": storage,
+            "storage_type_ru": "Веб-сайт",
+            "storage_type_eng": "website",
+        }
+        # форма выбора класса распознавателя
+        dispatcher = SplitterDispatcher()
+        splitters = dispatcher.list_all()
+        splitter_select_form = SplitterSelectForm(splitters=splitters)
+        config_form = SplitterDynamicConfigForm()
+        context["form"] = splitter_select_form
+        context["config_form"] = config_form
+        return render(request, "app_chunks/storage_chunking.html", context)
+
+
+
     def post(self, request, pk):
+        export_only_flag = request.POST.get("export_only_flag")
+        if not export_only_flag:
+            storage_qs = WebSite.objects.annotate(
+                source_counter=Count("url"),
+                chunk_counter=Count("url__urlcontent__chunk")
+            )
+            storage = get_object_or_404(storage_qs, pk=pk)
+            kb = storage.kb
+            context = {
+                "kb": kb,
+                "storage": storage,
+                "storage_type_ru": "Веб-сайт",
+                "storage_type_eng": "website",
+            }
+
+            dispatcher = SplitterDispatcher()
+            splitters = dispatcher.list_all()
+            splitter_select_form = SplitterSelectForm(request.POST, splitters=splitters)
+
+            if not splitter_select_form.is_valid():
+                context["form"] = splitter_select_form
+                context["config_form"] = None
+                return render(request, "app_chunks/storage_chunking.html", context)
+            splitter_cls = splitter_select_form.cleaned_data.get("splitters")
+            splitter_config_schema = getattr(splitter_cls, "config_schema", {})
+            config_form = SplitterDynamicConfigForm(request.POST, schema=splitter_config_schema)
+            if not config_form.is_valid():
+                context["form"] = splitter_select_form
+                context["config_form"] = config_form
+                return render(request, "app_chunks/storage_chunking.html", context)
+
+            splitter_config = config_form.cleaned_data
+            splitter = splitter_cls(splitter_config)
+
+            url_contents = URLContent.objects.select_related("url").filter(url__site=storage)
+
+
+
+            report_content = {
+                "initial_data": {
+                    "splitter": {
+                        "cls": splitter.__class__.__name__,
+                        "config": splitter.config,
+                    },
+                    "objects": {
+                        "type": "urlcontent",
+                        "ids": [url_content.pk for url_content in url_contents],
+                    },
+                }
+            }
+
+            chunking_report = ChunkingReport.objects.create(
+                site=storage,
+                author=request.user,
+                content=report_content,
+            )
+
+            task = bulk_chunks_create.delay(
+                content_list=url_contents,
+                report_pk=chunking_report.pk,
+                splitter=splitter,
+                author_pk=request.user.pk
+            )
+
+            chunking_report.running_background_tasks[task.id] = "Создание чанков"
+            chunking_report.save(update_fields=["running_background_tasks", ])
+
+            site_splitter_config = {
+                "cls": splitter.__class__.__name__,
+                "config": splitter.config,
+            }
+
+            storage.configs["current_splitter"] = site_splitter_config
+            storage.save(update_fields=["configs", ])
+
+            context = {
+                "task_id": task.id,
+                "task_name": f"Чанкинг веб-страниц сайта {storage.name}",
+                "task_object_url": reverse_lazy("chunks:test_model_report"),
+                "task_object_name": "Отчет о чанкинге",
+                "next_step_url": reverse_lazy("sources:website_detail", kwargs={"pk": storage.pk}),
+            }
+            return render(request=request,
+                          template_name="celery_task_progress.html",
+                          context=context
+                          )
+        # вариант для выгрузки чанков в файл из фильтрации urlcontent
         website = WebSite.objects.get(pk=pk)
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
@@ -451,9 +564,6 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
         search_query = request.POST.get("search", "").strip()
         status_filter = request.POST.getlist("status", None)
         tags_filter = request.POST.getlist("tags", None)
-        print(search_query)
-        print(status_filter)
-        print(tags_filter)
 
         urls = website.url_set.all()
 
@@ -547,8 +657,6 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
             if url.related_urlcontents:
                 url_contents.append(url.related_urlcontents[0])
 
-        print(url_contents)
-        print("Длина сета", len(url_contents))
         documents = []
         for url_content in url_contents:
             url = url_content.url.url

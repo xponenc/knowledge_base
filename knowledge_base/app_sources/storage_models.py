@@ -23,6 +23,7 @@ class Storage(TrackableModel, SoftDeleteModel):
                             blank=True,
                             help_text="Категории в формате JSON, например ['news', 'tech', ]")
     description = models.CharField(verbose_name="описание", max_length=1000, null=True, blank=True)
+    configs = models.JSONField(verbose_name="конфигурации", default=dict, blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -5,6 +5,7 @@ from django.db import models
 from django.urls import reverse_lazy
 
 from app_sources.content_models import URLContent
+from app_sources.report_models import ChunkingReport
 
 User = get_user_model()
 
@@ -55,6 +56,8 @@ class Chunk(models.Model):
     page_content = models.TextField(help_text="контент чанка")
     splitter_cls = models.CharField(max_length=500, verbose_name="имя класса сплиттера")
     splitter_config = models.JSONField(verbose_name="конфигурация сплиттера", default=dict)
+
+    report = models.ForeignKey(ChunkingReport, verbose_name="отчет", on_delete=models.CASCADE, blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     author = models.ForeignKey(User, verbose_name="автор", on_delete=models.CASCADE)

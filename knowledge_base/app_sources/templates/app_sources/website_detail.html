@@ -75,6 +75,14 @@
                             <use xlink:href="{% static 'img/icons/sprite.svg' %}#tags"></use>
                         </svg>
                     </a>
+                    {% if urls|length > 0  %}
+                        <a href="{% url 'chunks:create_chunks_from_website' website.id %}" class="btn btn--reset btn--simple btn--primary" id="submit-btn" title="Будет открыта форма для создания чанков в базае данных" aria-label="Будет открыта форма для создания чанков в базае данных">
+                            <span>Создать чанки</span>
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#chunk"></use>
+                            </svg>
+                        </a>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -182,6 +190,7 @@
                             </button>
                         </form>
                     {% endif %}
+                    
                 </div>
             </div>
         </div>
@@ -264,6 +273,7 @@
                         </button>
                     </div>
                 </form>
+               
             
             </div>
             <div class="info-page__footer">
