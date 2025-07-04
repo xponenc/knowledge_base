@@ -655,6 +655,7 @@ fieldset {
 
 .tag--disabled {
   background-color: var(--disabled-bg-color);
+  color: var(--text-inverse-color);
 }
 
 .tag--deleted {
