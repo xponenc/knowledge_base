@@ -9,6 +9,7 @@ from utils.setup_logger import setup_logger
 
 chunk_logger = setup_logger(name="chunk_logger", log_dir="logs", log_file="chunking_debug.log")
 
+
 @shared_task(bind=True)
 def bulk_chunks_create(
         self,

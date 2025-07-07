@@ -8,7 +8,7 @@
 {% endblock %}
 
 
-{% block title %}{{ object.title }}{% endblock %}
+{% block title %}Вебстраница {% firstof object.name object.url %} {% endblock %}
 
 
 {% block breadcrumbs %}
@@ -50,7 +50,7 @@
                     <dd class="description__defination">{{ object.description|default:"" }}</dd>
                     <dt class="description__term">Статус</dt>
                     <dd class="description__defination">
-                        <span class="tag tag--fat{% if object.status == "ready" %} tag--success{% elif object.status == "de" %} tag--deleted{% elif object.status == "ex" %} tag--disabled {% elif object.status == "er" %} tag--alarm{% else %} tag--warning{% endif %}">
+                        <span class="tag tag--fat{% if object.status == "active" %} tag--success{% elif object.status == "de" %} tag--deleted{% elif object.status == "ex" %} tag--disabled {% elif object.status == "er" %} tag--alarm{% else %} tag--warning{% endif %}">
                             {{ object.get_status_display  }}
                         </span>
                     </dd>
@@ -227,19 +227,29 @@
                     </div>
                     <div class="tree__chunk">
                         <div class="tree__cell cell-tree">
-                            <div class="cell-tree__header">
-                                <h4 class="cell-tree__heading">Чанки</h4>
-                                <dl class="cell-tree__description description">
-                                    <dt class="description__term">Общее количество чанков</dt>
-                                    <dd class="description__defination">{{ url_content.chunks_counter }}</dd>
-                                </dl>
+                            <div class="cell-tree__wrapper">
+                                <div class="cell-tree__header">
+                                    <h4 class="cell-tree__heading">Чанки</h4>
+                                    <dl class="cell-tree__description description">
+                                        <dt class="description__term">Общее количество чанков</dt>
+                                        <dd class="description__defination">{{ url_content.chunks_counter }}</dd>
+                                    </dl>
+                                </div>
+                                <div class="cell-tree__header">
+                                    <h4 class="cell-tree__heading">Вектора</h4>
+                                    <dl class="cell-tree__description description">
+                                        <dt class="description__term">Общее количество векторов</dt>
+                                        <dd class="description__defination">{{ url_content.embeddings_counter }}</dd>
+                                    </dl>
+                                </div>
                             </div>
                             <div class="cell-tree__body">
                                 {% if url_content.chunks_counter > 0 %}
-                                    <table class="elastic-table elastic-table_1-auto _mb">
+                                    <table class="elastic-table elastic-table_2-auto _mb">
                                         <thead class="elastic-table__thead">
                                             <tr class="elastic-table__tr">
                                                 <th class="elastic-table__th">Чанк</th>
+                                                <th class="elastic-table__th">Вектор</th>
                                             </tr>
                                         </thead>
                                         <tbody class="elastic-table__tbody">
@@ -262,10 +272,20 @@
                                                             </svg>
                                                         </a>
                                                     </td>
+                                                    <td class="elastic-table__td">
+                                                        {% if chunk.embedding %}
+                                                            — вектор ID: {{ chunk.embedding.vector_id }}
+                                                        {% else %}
+                                                            — <em>нет вектора</em>
+                                                        {% endif %}
+                                                    </td>
                                                 </tr>
                                             {% endfor %}
                                             {% if url_content.chunks_counter > 5 %}
                                                 <tr class="elastic-table__tr">
+                                                    <td class="elastic-table__td">
+                                                        ...
+                                                    </td>
                                                     <td class="elastic-table__td">
                                                         ...
                                                     </td>
@@ -283,15 +303,6 @@
                                         </svg>
                                     </a>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="tree__embedding">
-                        <div class="tree__cell cell-tree">
-                            <div class="cell-tree__header">
-                                <h4 class="cell-tree__heading">Вектора</h4>
-                            </div>
-                            <div class="cell-tree__body">
                             </div>
                         </div>
                     </div>

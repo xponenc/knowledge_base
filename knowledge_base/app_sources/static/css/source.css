@@ -25,6 +25,7 @@
 .tree__clean {
 }
 .tree__chunk {
+    grid-column: span 2;
 }
 .tree__embedding {
 }
@@ -42,6 +43,14 @@
 .cell-tree--accent {
     border: 2px solid var(--accent-color);
 }
+
+.cell-tree__wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--gap)
+}
+
 .cell-tree__header {
     margin-bottom: var(--gap-third);
 }

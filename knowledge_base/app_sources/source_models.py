@@ -20,6 +20,7 @@ class SourceStatus(Enum):
     EXCLUDED = "ex"
     ERROR = "er"
     WAIT = "wait"
+    ACTIVE = "active"
 
     @property
     def display_name(self):
@@ -31,6 +32,7 @@ class SourceStatus(Enum):
             "ex": "Исключен из базы знаний",
             "er": "Ошибка",
             "wait": "ожидает решения задачи",
+            "active": "используется в базе знаний",
         }
         return display_names.get(self.value, self.value)
 

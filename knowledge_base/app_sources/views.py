@@ -1026,7 +1026,7 @@ class URLDetailView(LoginRequiredMixin, DocumentPermissionMixin, DetailView):
     model = URL
     chunk_preview_set = Prefetch(
         "chunks",
-        queryset=Chunk.objects.order_by("pk").only("id", "status", "metadata")[:5],
+        queryset=Chunk.objects.order_by("pk").only("id", "status", "metadata").prefetch_related("embedding")[:5],
         to_attr="chunk_preview_set"
     )
     urlcontent_preview_set = Prefetch(
@@ -1037,7 +1037,8 @@ class URLDetailView(LoginRequiredMixin, DocumentPermissionMixin, DetailView):
             .annotate(
                 body_length=Length("body"),
                 body_preview=Left("body", 200),
-                chunks_counter=Count("chunks"),
+                chunks_counter=Count("chunks", distinct=True),
+                embeddings_counter=Count("chunks__embedding", distinct=True)
             ).defer("body"),
         to_attr="urlcontent_preview_set"
     )

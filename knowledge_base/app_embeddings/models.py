@@ -16,7 +16,7 @@ class Embedding(models.Model):
     """
     Хранит связь чанков с эмбеддингами в FAISS.
     """
-    chunk = models.ForeignKey(Chunk, on_delete=models.CASCADE, related_name="embedding", help_text="Связанный чанк")
+    chunk = models.OneToOneField(Chunk, on_delete=models.CASCADE, related_name="embedding", help_text="Связанный чанк")
     embedding_engine = models.ForeignKey('EmbeddingEngine', on_delete=models.SET_NULL, null=True,
                                          help_text="Движок эмбеддинга")
     vector_id = models.CharField(max_length=200, verbose_name="ID вектора в FAISS", unique=True)

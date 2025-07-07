@@ -277,7 +277,8 @@ class ChunkListView(LoginRequiredMixin, ListView):
     """Списковый просмотр чанков"""
     # TODO право просмотра владельца
     model = Chunk
-    queryset = Chunk.objects.select_related("author").annotate()
+    queryset = (Chunk.objects.select_related("author")
+                .prefetch_related("embedding__report", "embedding__embedding_engine"))
 
     def get(self, *args, **kwargs):
         queryset = super().get_queryset()
@@ -968,5 +969,3 @@ class ChunkCreateFromStorageView(LoginRequiredMixin, View):
                       template_name="celery_task_progress.html",
                       context=context
                       )
-
-

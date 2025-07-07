@@ -123,7 +123,11 @@
                 <div class="source__wrapper">
                     <div class="source__header">
                         <h3 class="source__heading">
-                            Чанк [id {{ chunk.id }}]  
+                            Чанк [id {{ chunk.id }}] {% if chunk.embedding %} 
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#embedding"></use>
+                            </svg>
+                            вектор ID: {{ chunk.embedding.vector_id }} {% endif %}
                         </h3>
                         <div class="tags">
                             <span class="tag {% if chunk.status == "ready" %} tag--warning{% elif chunk.status == "active" %} tag--success{% elif chunk.status == "canceled" %} tag--disabled{% else %} tag--alarm{% endif %}">
@@ -160,6 +164,26 @@
                             </div>
                         </div>
                     </div>
+                    {% if chunk.embedding %}
+                        <div class="source__footer">
+                            <div class="source__wrapper">
+                                <p>
+                                    <h4 class="source__subheading">
+                                        Чанк векторизирован
+                                    </h4>
+                                    <dl class="source__description--info description">
+                                        <dt class="description__term">id вектора</dt>
+                                        <dd class="description__defination">{{ chunk.embedding.vector_id }}</dd>
+                                        <dt class="description__term">модель эмбеддинга</dt>
+                                        <dd class="description__defination">{{ chunk.embedding.embedding_engine.name }} ({{ chunk.embedding.embedding_engine.model_name }})</dd>
+                                        <dt class="description__term">создан в рамках векторизации</dt>
+                                        <dd class="description__defination"><a href="{{ chunk.embedding.report.get_absolute_url }}"> отчет о векторизации {{ chunk.embedding.report.created_at|date:"d.m.Y H:i" }}</a></dd>
+                                    </dl>
+                                </p>
+                            
+                        </div>  
+                        </div>
+                    {% endif %}
                 </div>
             {% endfor %}
         </div>

@@ -13,8 +13,8 @@ from sentence_transformers import SentenceTransformer
 from openai import OpenAI
 
 from app_chunks.models import Chunk, ChunkStatus
-from app_sources.content_models import URLContent
-from app_sources.source_models import URL
+from app_sources.content_models import URLContent, ContentStatus
+from app_sources.source_models import URL, SourceStatus
 from app_sources.storage_models import WebSite
 from knowledge_base.settings import BASE_DIR
 from .models import Embedding
@@ -59,7 +59,7 @@ def create_vectors_task(self, website_id, author_pk, report_pk):
     if not chunks.exists():
         raise ValueError("Чанки для обработки не найдены")
 
-    batch_size = 900
+    batch_size = 10
     total_chunks = chunks.count()
     processed_chunks = 0
     new_embeddings = []
@@ -127,12 +127,30 @@ def create_vectors_task(self, website_id, author_pk, report_pk):
             description=f"Обработано {processed_chunks}/{total_chunks} чанков"
         )
 
-        # Сохраняем записи в базе данных
-    Embedding.objects.bulk_create(new_embeddings)
+    # Сохраняем записи в базе данных
+    new_embedding_ids = Embedding.objects.bulk_create(new_embeddings)
 
     # Сохраняем FAISS индекс
     db_index.save_local(folder_path=faiss_dir,  # путь к папке (path)
                         index_name="index")  # имя для индексной базы (index_name)
+
+    Chunk.objects.filter(embedding_id__in=new_embedding_ids).update(status=ChunkStatus.ACTIVE.value)
+
+    url_content_ids = (
+        Chunk.objects
+        .filter(embedding_id__in=new_embedding_ids)
+        .values_list("url_content_id", flat=True)
+        .distinct()
+    )
+    URLContent.objects.filter(id__in=url_content_ids).update(status=ContentStatus.ACTIVE.value)
+
+    url_ids = (
+        URLContent.objects
+        .filter(id__in=url_content_ids)
+        .values_list("url_id", flat=True)
+        .distinct()
+    )
+    URL.objects.filter(id__in=url_ids).update(status=SourceStatus.ACTIVE.value)
 
     return f"Обработано {len(new_embeddings)} чанков, создано {len(vector_ids)} эмбеддингов"
 

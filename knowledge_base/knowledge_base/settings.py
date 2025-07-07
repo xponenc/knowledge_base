@@ -211,10 +211,21 @@ LOGGING = {
         },
     },
     'handlers': {
-        'file': {
+        'general_file': {
             'level': 'INFO',
             'class': 'logging.handlers.TimedRotatingFileHandler',
             'filename': os.path.join(BASE_DIR, 'logs', 'general.log'),
+            'formatter': 'prod',
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': 14,
+            'encoding': 'utf-8',
+            'delay': True,
+        },
+        'celery_file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'celery.log'),
             'formatter': 'prod',
             'when': 'midnight',
             'interval': 1,
@@ -229,23 +240,23 @@ LOGGING = {
     },
     'loggers': {
         'django': {
-            'handlers': ['file'] if PRODUCTION else ['console', 'file'],
+            'handlers': ['general_file'] if PRODUCTION else ['console', 'general_file'],
             'level': 'INFO',
             'propagate': False,
         },
         'celery': {
-            'handlers': ['file'] if PRODUCTION else ['console', 'file'],
+            'handlers': ['celery_file'] if PRODUCTION else ['console', 'celery_file'],
             'level': 'INFO' if PRODUCTION else 'DEBUG',
             'propagate': False,
         },
         'urllib3': {
-            'handlers': ['file'] if PRODUCTION else ['console', 'file'],
+            'handlers': ['general_file'] if PRODUCTION else ['console', 'general_file'],
             'level': 'WARNING',
             'propagate': False,
         },
     },
     'root': {
-        'handlers': ['file'] if PRODUCTION else ['console', 'file'],
+        'handlers': ['general_file'] if PRODUCTION else ['console', 'general_file'],
         'level': 'INFO',
     },
 }
