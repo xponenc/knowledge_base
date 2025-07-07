@@ -74,8 +74,8 @@
     {% block script %}{% endblock %}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const toggle = document.getElementById('navbarToggle');
-            const menu = document.getElementById('navbarMenu');
+            const toggle = document.querySelector('#navbar-toggle');
+            const menu = document.querySelector('navbar__menu');
             toggle.addEventListener('click', () => {
             menu.classList.toggle('open');
             });

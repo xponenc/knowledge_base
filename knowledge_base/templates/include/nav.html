@@ -15,7 +15,7 @@
         </label>
 
         <ul class="navbar__menu">
-            <li class="navbar__item navbar__item--active">
+            <li class="navbar__item">
                 <a href="{% url 'embeddings:engine_list' %}" class="navbar__link">
                     <svg class="navbar__icon">
                         <use xlink:href="{% static 'img/icons/sprite.svg' %}#engine"></use>
@@ -23,7 +23,7 @@
                     Engine
                 </a>
             </li>
-            <li class="navbar__item navbar__item--active">
+            <li class="navbar__item">
                 <a href="{% url 'core:knowledgebase_list' %}" class="navbar__link">
                     <svg class="navbar__icon">
                         <use xlink:href="{% static 'img/icons/sprite.svg' %}#root"></use>
@@ -31,7 +31,7 @@
                     Базы знаний
                 </a>
             </li>
-            <li class="navbar__item navbar__item--active">
+            <li class="navbar__item">
                 <a href="{{ kb.get_absolute_url }}#cloud" class="navbar__link">
                     <svg class="navbar__icon">
                         <use xlink:href="{% static 'img/icons/sprite.svg' %}#cloud"></use>

@@ -1,5 +1,6 @@
 import glob
 import os
+from functools import lru_cache
 from pathlib import Path
 
 from app_embeddings.services.embedding_config import MODELS, RERANKER_MODEL
@@ -21,7 +22,7 @@ _selected_model = "frida"
 #         encode_kwargs={"normalize_embeddings": True, "batch_size": 8}
 #     )
 
-
+# @lru_cache(maxsize=3)  # кэшируем до 3 разных моделей
 def load_embedding(model_name: str):
     if model_name == "openai":
         return OpenAIEmbeddings()
@@ -85,4 +86,4 @@ def get_local_model_path(repo_id: str):
 #
 #
 # VECTORSTORE = get_vectorstore()
-# RERANKER = get_reranker()
+RERANKER = get_reranker()

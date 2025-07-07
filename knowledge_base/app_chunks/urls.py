@@ -1,8 +1,7 @@
 from django.urls import path
 
-from app_chunks.views import ChunkCreateFromURLContentView, ChunkCreateFromWebSiteView, TestAskFridaView, ClearChatView, \
-    CurrentTestChunksView, TestModelScoreView, TestModelScoreReportView, SplitterConfigView, ChunkListView, \
-    ChunkDetailView, ChunkCreateFromStorageView
+from app_chunks.views import ChunkCreateFromURLContentView, ChunkCreateFromWebSiteView, \
+    SplitterConfigView, ChunkListView, ChunkDetailView, ChunkCreateFromStorageView
 
 app_name = "chunks"
 
@@ -17,11 +16,7 @@ urlpatterns = [
     path("chunk-crete/<str:storage_type>/<int:storage_pk>", ChunkCreateFromStorageView.as_view(),
          name="create_chunks_from_storage"),
 
-    path("ask/frida", TestAskFridaView.as_view(), name="ask_frida"),
-    path("test-model", TestModelScoreView.as_view(), name="test_model_score"),
-    path("test-model-report", TestModelScoreReportView.as_view(), name="test_model_report"),
-    path('clear/frida/', ClearChatView.as_view(), name='clear_frida'),
-    path('chunks/show-current/', CurrentTestChunksView.as_view(), name='current_chuncks'),
+
 
     path("config/", SplitterConfigView.as_view(), name="splitter_config"),
 ]

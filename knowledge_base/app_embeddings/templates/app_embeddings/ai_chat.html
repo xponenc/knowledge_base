@@ -1,0 +1,161 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+
+
+{% block extra_css %}
+    <link href="{% static 'css/chat.css' %}" rel="stylesheet">
+{% endblock %}
+
+
+{% block nav %}
+    {% include "include/nav.html" %}
+{% endblock nav %}
+
+
+{% block title %}Чат с AI{% endblock %}
+
+
+{% block content %}
+<div class="page page--kb">
+    <div class="page__top">
+        <!-- Правая колонка: Чат -->
+        <div class="chat">
+            <div class="chat__header">
+                <h3 class="chat__heading">🧠 Ask {{ kb.engine.name }}</h3>
+                <span class="text text--muted">Embedded by: <span class="text text--fat text--muted">{{ kb.engine.model_name }}</span></span>
+                <span class="text text--muted _mb">Answer by: <span class="text text--fat text--muted">OpenAI/gpt-4o-mini</span></span>
+            </div>
+
+            <div class="chat__history" id="chat-history">
+                {% for message in chat_history %}
+                    <div class="message message--user">{{ message.user|safe }}</div>
+                    <div class="message message--ai">{{ message.ai|safe }}</div>
+                {% endfor %}
+            </div>
+            <div class="chat__footer">
+                <form action="{% url 'embeddings:clear_chat' %}" method="post" class="clear-button">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn--reset btn--simple">Очистить чат</button>
+                </form>
+                <form id="chat-form" method="post" class="chat__form form" >
+                    {% csrf_token %}
+                    <label class="switch">
+                        <span class="switch__label">использовать metadata</span>
+                        <div class="switch__wrapper">
+                            <input class="switch__input visually-hidden" type="checkbox" name="use_metadata" data-validate-field="use_metadata" id="id_use_metadata" checked="">
+                            <svg class="switch__icon switch__icon_off" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M16 8C16 12.4183 12.4183 16 8 16C3.58172 16 0 12.4183 0 8C0 3.58172 3.58172 0 8 0C12.4183 0 16 3.58172 16 8ZM2 8C2 11.3137 4.68629 14 8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8Z"></path>
+                            </svg>
+                            <div class="switch__body">
+                                <div class="switch__slider"></div>
+                            </div>
+                            <svg class="switch__icon switch__icon_on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 1 1 16 0zM2 8a6 6 0 1 0 12 0A6 6 0 1 0 2 8zm10 0a4 4 0 1 1-8 0 4 4 0 1 1 8 0z"></path>
+                            </svg>
+                        </div>
+                    </label>
+                    <div class="chat__input">
+                        <input type="text" name="message" id="message-input" class="form-control" placeholder="Введите ваше сообщение..." required>
+                        <button type="submit" class="btn btn--reset btn--simple btn--primary" id="submit-btn">
+                            Отправить
+                            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="loader"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="page__content">
+        <div class="d-flex gap-2 mt-2 mb-2">
+            {% comment %} <a href="{% url 'chunks:current_chuncks' %}" class="btn btn-outline-secondary btn-sm">Действующие чанки</a> {% endcomment %}
+            {% comment %} <a href="{% url 'chunks:test_model_score' %}" class="btn btn-outline-secondary btn-sm">Тестировать модель</a> {% endcomment %}
+        </div>
+        <div class="col-md-6" id="docs-column">
+            <h4>🔍 Найденные документы</h4>
+            <div id="current-docs" class="bg-light border rounded p-3">
+                <p class="text-muted">Нет данных</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+
+{% block script %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const chatForm = document.querySelector("#chat-form");
+        const chatHistory = document.getElementById("chat-history");
+        const docsContainer = document.getElementById("current-docs");
+        const messageInput = document.getElementById("message-input");
+        const submitBtn = document.getElementById("submit-btn");
+        const loader = document.getElementById("loader");
+
+        if (chatHistory) {
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        chatForm.addEventListener("submit", function (e) {
+            e.preventDefault();
+
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            const useMetadata = document.getElementById("id_use_metadata").checked;
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'Обработка... <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+            loader.classList.remove("d-none");
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            fetch("", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-CSRFToken": csrfToken,
+            "X-Requested-With": "XMLHttpRequest"
+        },
+        body: new URLSearchParams({
+            message,
+            use_metadata: useMetadata ? "on" : ""
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const { user_message, ai_response, current_docs } = data;
+
+        chatHistory.innerHTML += `
+            <div class="message message--user">${user_message}</div>
+            <div class="message message--ai">${ai_response}</div>
+        `;
+        
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+
+        if (Array.isArray(current_docs) && current_docs.length > 0) {
+            docsContainer.innerHTML = current_docs.map((doc, i) => `
+                <div class="mb-3 p-2 border rounded bg-white">
+                    <strong>Документ ${i + 1}</strong><br/>
+                    <pre class="mb-0 text-break" style="white-space:pre-wrap;">${JSON.stringify(doc, null, 2)}</pre>
+                </div>
+            `).join('');
+        } else {
+            docsContainer.innerHTML = "<p class='text-muted'>Нет релевантных документов.</p>";
+        }
+
+        messageInput.value = "";
+    })
+    .catch(error => {
+        console.error("Ошибка:", error);
+        alert("Ошибка при отправке запроса.");
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Отправить';
+        loader.classList.add("d-none");
+    });
+        });
+    });
+</script>
+{% endblock script %}
+

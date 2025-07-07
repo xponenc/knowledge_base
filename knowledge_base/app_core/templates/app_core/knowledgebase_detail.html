@@ -3,6 +3,7 @@
 
 
 {% block extra_css %}
+
 {% endblock %}
 
 
@@ -30,7 +31,7 @@
             <div class="info-page__body">
                 <h3 class="info-page__heading"></h3>
                 <dl class="description">
-                    <dt class="description__term">Владельцы</dt>
+                    <dt class="description__term">владельцы</dt>
                     <dd class="description__defination tags">
                         {% for user in object.owners.all %}
                             <span class="tag tag--simple">
@@ -38,11 +39,25 @@
                             </span>
                         {% endfor %}
                     </dd>
-                    <dt class="description__term">Описание</dt>
+                    <dt class="description__term">описание</dt>
                     <dd class="description__defination">
                         {{ object.description|default:"—" }}
                     </dd>
-                    <dt class="description__term">Дата создания</dt>
+                    {% if object.engine %}
+                        <dt class="description__term">модель эмбеддинга</dt>
+                        <dd class="description__defination">
+                            {{ object.engine.name }} ({{ object.engine.model_name }})
+                        </dd>
+                        <dt class="description__term">параметры fine-tuning</dt>
+                        <dd class="description__defination">
+                            {{ object.fine_tuning_params }}
+                        </dd>
+                    {% endif %}
+                    {% comment %} <dt class="description__term">автор</dt>
+                    <dd class="description__defination">
+                        <pre class="text">{{ object.author.get_full_name|default:object.author.username }}</pre> 
+                    </dd> {% endcomment %}
+                    <dt class="description__term">дата создания</dt>
                     <dd class="description__defination">
                         <pre class="text">{{ object.created_at|date:"d.m.Y H:i" }}</pre> 
                     </dd>
@@ -55,9 +70,15 @@
                             <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
                         </svg>
                     </a>
-                    <a href="{% url 'chunks:ask_frida' %}" class="btn btn--reset btn--simple">
-                        📦 Поговорить
-                    </a>
+                    {% if object.engine %}
+                        <a href="{% url 'embeddings:chat' object.pk %}" class="btn btn--reset btn--simple btn--primary">
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                            </svg>
+                            чат
+                        </a>
+                    
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -230,7 +251,7 @@
                                         <a href="{% url 'sources:website_detail' site.id %}" class="link-marker">
                                             <div class="elastic-table__cell">
                                                 <span>{{ site.name }}</span>
-                                                <span>{{ site.main_url }}</span>
+                                                <span>{{ site.base_url }}</span>
                                                 <span>{{ site.created_at|date:"d.m.Y H:i" }}</span>
                                                 <span>{{ site.author.get_full_name|default:site.author }}</span>
                                             </div>
