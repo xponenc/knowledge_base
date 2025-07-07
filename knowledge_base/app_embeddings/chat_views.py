@@ -137,7 +137,7 @@ class ChatView(LoginRequiredMixin, View):
             chat_history = chat_history[-5:]
 
             # Сохраняем обновленную историю в сессии
-            request.session['chat_history'][str(kb_pk)] = chat_history
+            request.session.setdefault('chat_history', {})[str(kb_pk)] = chat_history
             request.session.modified = True
 
             # Возвращаем JSON-ответ для AJAX
