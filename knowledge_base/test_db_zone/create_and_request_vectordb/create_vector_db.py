@@ -65,7 +65,7 @@ if __name__ == "__main__":
     # )
     embedding = HuggingFaceEmbeddings(
         model_name="ai-forever/FRIDA",
-        encode_kwargs={"normalize_embeddings": True, "batch_size": 8}  # Меньший батч
+        encode_kwargs={"normalize_embeddings": True, "batch_size": 8}
     )
 
     create_vector_db(

@@ -2,17 +2,25 @@
 {% load static %}
 
 
-
 {% block extra_css %}
 {% endblock %}
 
 
 {% block title %}База знаний{{ object.name }}{% endblock %}
 
+{% block nav %}
+    {% include "include/nav.html" %}
+{% endblock nav %}
+
 
 {% block content %}
 <div class="page page--kb">
-    <div class="page__top">
+    <div class="page__top page__grid">
+        <div class="page__info info-page info-page--logo">
+            {% if  object.logo.url %}
+                <img src="{{ object.logo.url }}" alt="Логотип базы знаний {{ object.name }}" class="info-page__logo">
+            {% endif %}
+        </div>
         <div class="page__info info-page">
             <span class="info-page__banner">База знаний</span>
             <div class="info-page__header">
@@ -54,277 +62,280 @@
             </div>
         </div>
     </div>
-    <div class="page__info info-page info-page--cloud _mb">
-        <span class="info-page__banner info-page__banner--medium">облака</span>
-        <div class="info-page__header">
-            <h3 class="info-page__heading _ta-e">Список облачных хранилищ</h3>
-            <div class="btns">
-                <a href="{% url 'sources:cloudstorage_create' knowledgebase.pk %}" class="btn btn--reset btn--simple" title="Добавить облачное хранилище" aria-label="Добавить облачное хранилище">
-                    <svg class="btn__icon">
-                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#cloud"></use>
-                    </svg>
-                    создать
-                </a>
+    <div class="page__content">
+        
+        <div class="page__info info-page info-page--cloud _mb" id="cloud">
+            <span class="info-page__banner info-page__banner--medium">облака</span>
+            <div class="info-page__header">
+                <h3 class="info-page__heading _ta-e">Список облачных хранилищ</h3>
+                <div class="btns">
+                    <a href="{% url 'sources:cloudstorage_create' knowledgebase.pk %}" class="btn btn--reset btn--simple" title="Добавить облачное хранилище" aria-label="Добавить облачное хранилище">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#cloud"></use>
+                        </svg>
+                        создать
+                    </a>
+                </div>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                {% if knowledgebase.cloud_storages|length > 0 %}
+                    <table class="elastic-table elastic-table_3-auto">
+                        <thead class="elastic-table__thead">
+                            <tr class="elastic-table__tr">
+                                <th class="elastic-table__th">Название</th>
+                                <th class="elastic-table__th">Кол-во источников</th>
+                                <th class="elastic-table__th"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="elastic-table__tbody">
+                            {% for storage in knowledgebase.cloud_storages %}
+                                <tr class="elastic-table__tr">
+                                    <td class="elastic-table__td">
+                                        <a href="{% url 'sources:cloudstorage_detail' storage.id %}" class="link-marker">
+                                            <div class="elastic-table__cell">
+                                                <span>{{ storage.name }}</span>
+                                                <span>{{ storage.credentials.url }}{{ storage.credentials.root_path }}</span>
+                                                <span>{{ storage.created_at|date:"d.m.Y H:i" }}</span>
+                                                <span>{{ storage.author.get_full_name|default:storage.author }}</span>
+                                            </div>
+                                            <svg class="link-marker__marker">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#cloud"></use>
+                                            </svg>
+                                        </a>
+                                    </td>
+                                    <td class="elastic-table__td">
+                                        {{ storage.networkdocuments_counter }}
+                                    </td>
+                                    <td class="elastic-table__td _ai-fe">
+                                        <div class="btns">
+                                            <a href="{% url 'sources:cloudstorage_update' storage.id %}" class="btn btn--reset btn--round" title="Редактировать информацию о хранилище" aria-label="Редактировать информацию о хранилище">
+                                                <svg class="btn__icon">
+                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                                                </svg>
+                                            </a>
+                                            <a href="{% url 'sources:cloudstorage_delete' storage.id %}" class="btn btn--reset btn--round btn--danger"  title="Удалить хранилище" aria-label="Удалить хранилище">
+                                                <svg class="btn__icon">
+                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#trash-fat"></use>
+                                                </svg>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="text text--muted _ta-c">Нет созданных облачных хранилищ</p>
+                {% endif %}
+            </div>
+            <div class="info-page__footer">
             </div>
         </div>
-        <div class="info-page__body">
-            <h3 class="info-page__heading"></h3>
-            {% if knowledgebase.cloud_storages|length > 0 %}
-                <table class="elastic-table elastic-table_3-auto">
-                    <thead class="elastic-table__thead">
-                        <tr class="elastic-table__tr">
-                            <th class="elastic-table__th">Название</th>
-                            <th class="elastic-table__th">Кол-во источников</th>
-                            <th class="elastic-table__th"></th>
-                        </tr>
-                    </thead>
-                    <tbody class="elastic-table__tbody">
-                        {% for storage in knowledgebase.cloud_storages %}
+        <div class="page__info info-page info-page--local _mb" id="local">
+            <span class="info-page__banner info-page__banner--medium">локальные диски</span>
+            <div class="info-page__header">
+                <h3 class="info-page__heading _ta-e">Список локальных хранилищ</h3>
+                <div class="btns">
+                    <a href="{% url 'sources:localstorage_create' knowledgebase.pk %}" class="btn btn--reset btn--simple" title="Добавить локальное хранилище" aria-label="Добавить локальное хранилище">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#storage"></use>
+                        </svg>
+                        создать
+                    </a>
+                </div>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                {% if knowledgebase.local_storages|length > 0 %}
+                    <table class="elastic-table elastic-table_3-auto">
+                        <thead class="elastic-table__thead">
                             <tr class="elastic-table__tr">
-                                <td class="elastic-table__td">
-                                    <a href="{% url 'sources:cloudstorage_detail' storage.id %}" class="link-marker">
-                                        <div class="elastic-table__cell">
-                                            <span>{{ storage.name }}</span>
-                                            <span>{{ storage.credentials.url }}{{ storage.credentials.root_path }}</span>
-                                            <span>{{ storage.created_at|date:"d.m.Y H:i" }}</span>
-                                            <span>{{ storage.author.get_full_name|default:storage.author }}</span>
-                                        </div>
-                                        <svg class="link-marker__marker">
-                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#cloud"></use>
-                                        </svg>
-                                    </a>
-                                </td>
-                                <td class="elastic-table__td">
-                                    {{ storage.networkdocuments_counter }}
-                                </td>
-                                <td class="elastic-table__td _ai-fe">
-                                    <div class="btns">
-                                        <a href="{% url 'sources:cloudstorage_update' storage.id %}" class="btn btn--reset btn--round" title="Редактировать информацию о хранилище" aria-label="Редактировать информацию о хранилище">
-                                            <svg class="btn__icon">
-                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
-                                            </svg>
-                                        </a>
-                                        <a href="{% url 'sources:cloudstorage_delete' storage.id %}" class="btn btn--reset btn--round btn--danger"  title="Удалить хранилище" aria-label="Удалить хранилище">
-                                            <svg class="btn__icon">
-                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#trash-fat"></use>
-                                            </svg>
-                                        </a>
-                                    </div>
-                                </td>
+                                <th class="elastic-table__th">Название</th>
+                                <th class="elastic-table__th">Кол-во источников</th>
+                                <th class="elastic-table__th"></th>
                             </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p class="text text--muted _ta-c">Нет созданных облачных хранилищ</p>
-            {% endif %}
-        </div>
-        <div class="info-page__footer">
-        </div>
-    </div>
-    <div class="page__info info-page info-page--local _mb">
-        <span class="info-page__banner info-page__banner--medium">локальные диски</span>
-        <div class="info-page__header">
-            <h3 class="info-page__heading _ta-e">Список локальных хранилищ</h3>
-            <div class="btns">
-                <a href="{% url 'sources:localstorage_create' knowledgebase.pk %}" class="btn btn--reset btn--simple" title="Добавить локальное хранилище" aria-label="Добавить локальное хранилище">
-                    <svg class="btn__icon">
-                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#storage"></use>
-                    </svg>
-                    создать
-                </a>
+                        </thead>
+                        <tbody class="elastic-table__tbody">
+                            {% for storage in knowledgebase.local_storages %}
+                                <tr class="elastic-table__tr">
+                                    <td class="elastic-table__td">
+                                        <a href="{% url 'sources:localstorage_detail' storage.id %}" class="link-marker">
+                                            <div class="elastic-table__cell">
+                                                <span>{{ storage.name }}</span>
+                                                <span>{{ storage.created_at|date:"d.m.Y H:i" }}</span>
+                                                <span>{{ storage.author.get_full_name|default:storage.author }}</span>
+                                            </div>
+                                            <svg class="link-marker__marker">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#storage"></use>
+                                            </svg>
+                                        </a>
+                                    </td>
+                                    <td class="elastic-table__td">
+                                        {{ storage.localdocuments_counter }}
+                                    </td>
+                                    <td class="elastic-table__td _ai-fe">
+                                        <div class="btns">
+                                            <a href="{% url 'sources:localstorage_update' storage.id %}" class="btn btn--reset btn--round" title="Редактировать информацию о хранилище" aria-label="Редактировать информацию о хранилище">
+                                                <svg class="btn__icon">
+                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                                                </svg>
+                                            </a>
+                                            <a href="{% url 'sources:localstorage_delete' storage.id %}" class="btn btn--reset btn--round btn--danger"  title="Удалить хранилище" aria-label="Удалить хранилище">
+                                                <svg class="btn__icon">
+                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#trash-fat"></use>
+                                                </svg>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="text text--muted _ta-c">Нет созданных локальных хранилищ</p>
+                {% endif %}
+            </div>
+            <div class="info-page__footer">
             </div>
         </div>
-        <div class="info-page__body">
-            <h3 class="info-page__heading"></h3>
-            {% if knowledgebase.local_storages|length > 0 %}
-                <table class="elastic-table elastic-table_3-auto">
-                    <thead class="elastic-table__thead">
-                        <tr class="elastic-table__tr">
-                            <th class="elastic-table__th">Название</th>
-                            <th class="elastic-table__th">Кол-во источников</th>
-                            <th class="elastic-table__th"></th>
-                        </tr>
-                    </thead>
-                    <tbody class="elastic-table__tbody">
-                        {% for storage in knowledgebase.local_storages %}
+        <div class="page__info info-page info-page--website _mb" id="website">
+            <span class="info-page__banner info-page__banner--medium">вебсайты</span>
+            <div class="info-page__header">
+                <h3 class="info-page__heading _ta-e">Список веб-сайтов</h3>
+                <div class="btns">
+                    <a href="{% url 'sources:website_create' knowledgebase.pk %}" class="btn btn--reset btn--simple" title="Добавить веб-сайт" aria-label="Добавить веб-сайт">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#website"></use>
+                        </svg>
+                        создать
+                    </a>
+                </div>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                {% if knowledgebase.websites|length > 0 %}
+                    <table class="elastic-table elastic-table_3-auto">
+                        <thead class="elastic-table__thead">
                             <tr class="elastic-table__tr">
-                                <td class="elastic-table__td">
-                                    <a href="{% url 'sources:localstorage_detail' storage.id %}" class="link-marker">
-                                        <div class="elastic-table__cell">
-                                            <span>{{ storage.name }}</span>
-                                            <span>{{ storage.created_at|date:"d.m.Y H:i" }}</span>
-                                            <span>{{ storage.author.get_full_name|default:storage.author }}</span>
-                                        </div>
-                                        <svg class="link-marker__marker">
-                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#storage"></use>
-                                        </svg>
-                                    </a>
-                                </td>
-                                <td class="elastic-table__td">
-                                    {{ storage.localdocuments_counter }}
-                                </td>
-                                <td class="elastic-table__td _ai-fe">
-                                    <div class="btns">
-                                        <a href="{% url 'sources:localstorage_update' storage.id %}" class="btn btn--reset btn--round" title="Редактировать информацию о хранилище" aria-label="Редактировать информацию о хранилище">
-                                            <svg class="btn__icon">
-                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
-                                            </svg>
-                                        </a>
-                                        <a href="{% url 'sources:localstorage_delete' storage.id %}" class="btn btn--reset btn--round btn--danger"  title="Удалить хранилище" aria-label="Удалить хранилище">
-                                            <svg class="btn__icon">
-                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#trash-fat"></use>
-                                            </svg>
-                                        </a>
-                                    </div>
-                                </td>
+                                <th class="elastic-table__th">Название</th>
+                                <th class="elastic-table__th">Кол-во источников</th>
+                                <th class="elastic-table__th"></th>
                             </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p class="text text--muted _ta-c">Нет созданных локальных хранилищ</p>
-            {% endif %}
-        </div>
-        <div class="info-page__footer">
-        </div>
-    </div>
-    <div class="page__info info-page info-page--website _mb">
-        <span class="info-page__banner info-page__banner--medium">вебсайты</span>
-        <div class="info-page__header">
-            <h3 class="info-page__heading _ta-e">Список веб-сайтов</h3>
-            <div class="btns">
-                <a href="{% url 'sources:website_create' knowledgebase.pk %}" class="btn btn--reset btn--simple" title="Добавить веб-сайт" aria-label="Добавить веб-сайт">
-                    <svg class="btn__icon">
-                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#website"></use>
-                    </svg>
-                    создать
-                </a>
+                        </thead>
+                        <tbody class="elastic-table__tbody">
+                            {% for site in knowledgebase.websites %}
+                                <tr class="elastic-table__tr">
+                                    <td class="elastic-table__td">
+                                        <a href="{% url 'sources:website_detail' site.id %}" class="link-marker">
+                                            <div class="elastic-table__cell">
+                                                <span>{{ site.name }}</span>
+                                                <span>{{ site.main_url }}</span>
+                                                <span>{{ site.created_at|date:"d.m.Y H:i" }}</span>
+                                                <span>{{ site.author.get_full_name|default:site.author }}</span>
+                                            </div>
+                                            <svg class="link-marker__marker">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#cloud"></use>
+                                            </svg>
+                                        </a>
+                                    </td>
+                                    <td class="elastic-table__td">
+                                        {{ site.urls_counter }}
+                                    </td>
+                                    <td class="elastic-table__td _ai-fe">
+                                        <div class="btns">
+                                            <a href="{% url 'sources:website_update' site.id %}" class="btn btn--reset btn--round" title="Редактировать информацию о веб-сайте" aria-label="Редактировать информацию о веб-сайте">
+                                                <svg class="btn__icon">
+                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                                                </svg>
+                                            </a>
+                                            <a href="{% url 'sources:website_delete' site.id %}" class="btn btn--reset btn--round btn--danger"  title="Удалить вебсайт" aria-label="Удалить вебсайт">
+                                                <svg class="btn__icon">
+                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#trash-fat"></use>
+                                                </svg>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="text text--muted _ta-c">Нет созданных вебсайтов</p>
+                {% endif %}
+            </div>
+            <div class="info-page__footer">
+                
             </div>
         </div>
-        <div class="info-page__body">
-            <h3 class="info-page__heading"></h3>
-            {% if knowledgebase.websites|length > 0 %}
-                <table class="elastic-table elastic-table_3-auto">
-                    <thead class="elastic-table__thead">
-                        <tr class="elastic-table__tr">
-                            <th class="elastic-table__th">Название</th>
-                            <th class="elastic-table__th">Кол-во источников</th>
-                            <th class="elastic-table__th"></th>
-                        </tr>
-                    </thead>
-                    <tbody class="elastic-table__tbody">
-                        {% for site in knowledgebase.websites %}
+        <div class="page__info info-page info-page--urlbatch _mb" id="urlbatch">
+            <span class="info-page__banner info-page__banner--medium">веб-коллекции</span>
+            <div class="info-page__header">
+                <h3 class="info-page__heading _ta-e">Список веб-коллекций</h3>
+                <div class="btns">
+                    <a href="{% url 'sources:urlbatch_create' knowledgebase.pk %}" class="btn btn--reset btn--simple" title="Добавить веб-коллекцию" aria-label="Добавить веб-коллекцию">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#batch"></use>
+                        </svg>
+                        создать
+                    </a>
+                </div>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                {% if knowledgebase.urlbatches|length > 0 %}
+                    <table class="elastic-table elastic-table_3-auto">
+                        <thead class="elastic-table__thead">
                             <tr class="elastic-table__tr">
-                                <td class="elastic-table__td">
-                                    <a href="{% url 'sources:website_detail' site.id %}" class="link-marker">
-                                        <div class="elastic-table__cell">
-                                            <span>{{ site.name }}</span>
-                                            <span>{{ site.main_url }}</span>
-                                            <span>{{ site.created_at|date:"d.m.Y H:i" }}</span>
-                                            <span>{{ site.author.get_full_name|default:site.author }}</span>
-                                        </div>
-                                        <svg class="link-marker__marker">
-                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#cloud"></use>
-                                        </svg>
-                                    </a>
-                                </td>
-                                <td class="elastic-table__td">
-                                    {{ site.urls_counter }}
-                                </td>
-                                <td class="elastic-table__td _ai-fe">
-                                    <div class="btns">
-                                        <a href="{% url 'sources:website_update' site.id %}" class="btn btn--reset btn--round" title="Редактировать информацию о веб-сайте" aria-label="Редактировать информацию о веб-сайте">
-                                            <svg class="btn__icon">
-                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
-                                            </svg>
-                                        </a>
-                                        <a href="{% url 'sources:website_delete' site.id %}" class="btn btn--reset btn--round btn--danger"  title="Удалить вебсайт" aria-label="Удалить вебсайт">
-                                            <svg class="btn__icon">
-                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#trash-fat"></use>
-                                            </svg>
-                                        </a>
-                                    </div>
-                                </td>
+                                <th class="elastic-table__th">Название</th>
+                                <th class="elastic-table__th">Кол-во источников</th>
+                                <th class="elastic-table__th"></th>
                             </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p class="text text--muted _ta-c">Нет созданных вебсайтов</p>
-            {% endif %}
-        </div>
-        <div class="info-page__footer">
-            
-        </div>
-    </div>
-    <div class="page__info info-page info-page--urlbatch _mb">
-        <span class="info-page__banner info-page__banner--medium">веб-коллекции</span>
-        <div class="info-page__header">
-            <h3 class="info-page__heading _ta-e">Список веб-коллекций</h3>
-            <div class="btns">
-                <a href="{% url 'sources:urlbatch_create' knowledgebase.pk %}" class="btn btn--reset btn--simple" title="Добавить веб-коллекцию" aria-label="Добавить веб-коллекцию">
-                    <svg class="btn__icon">
-                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#batch"></use>
-                    </svg>
-                    создать
-                </a>
+                        </thead>
+                        <tbody class="elastic-table__tbody">
+                            {% for urlbatch in knowledgebase.urlbatches %}
+                                <tr class="elastic-table__tr">
+                                    <td class="elastic-table__td">
+                                        <a href="{% url 'sources:urlbatch_detail' urlbatch.id %}" class="link-marker">
+                                            <div class="elastic-table__cell">
+                                                <span>{{ urlbatch.name }}</span>
+                                                <span>{{ urlbatch.created_at|date:"d.m.Y H:i" }}</span>
+                                                <span>{{ urlbatch.author.get_full_name|default:urlbatch.author }}</span>
+                                            </div>
+                                            <svg class="link-marker__marker">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#batch"></use>
+                                            </svg>
+                                        </a>
+                                    </td>
+                                    <td class="elastic-table__td">
+                                        {{ urlbatch.urls_counter }}
+                                    </td>
+                                    <td class="elastic-table__td _ai-fe">
+                                        <div class="btns">
+                                            <a href="{% url 'sources:urlbatch_update' urlbatch.id %}" class="btn btn--reset btn--round" title="Редактировать информацию о веб-коллекции" aria-label="Редактировать информацию о веб-коллекции">
+                                                <svg class="btn__icon">
+                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                                                </svg>
+                                            </a>
+                                            <a href="{% url 'sources:urlbatch_delete' urlbatch.id %}" class="btn btn--reset btn--round"  title="Удалить веб-коллекцию" aria-label="Удалить веб-коллекцию">
+                                                <svg class="btn__icon">
+                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#trash-fat"></use>
+                                                </svg>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="text text--muted _ta-c">Нет созданных веб-коллекций</p>
+                {% endif %}
+            </div>
+            <div class="info-page__footer">
             </div>
         </div>
-        <div class="info-page__body">
-            <h3 class="info-page__heading"></h3>
-            {% if knowledgebase.urlbatches|length > 0 %}
-                <table class="elastic-table elastic-table_3-auto">
-                    <thead class="elastic-table__thead">
-                        <tr class="elastic-table__tr">
-                            <th class="elastic-table__th">Название</th>
-                            <th class="elastic-table__th">Кол-во источников</th>
-                            <th class="elastic-table__th"></th>
-                        </tr>
-                    </thead>
-                    <tbody class="elastic-table__tbody">
-                        {% for urlbatch in knowledgebase.urlbatches %}
-                            <tr class="elastic-table__tr">
-                                <td class="elastic-table__td">
-                                    <a href="{% url 'sources:urlbatch_detail' urlbatch.id %}" class="link-marker">
-                                        <div class="elastic-table__cell">
-                                            <span>{{ urlbatch.name }}</span>
-                                            <span>{{ urlbatch.created_at|date:"d.m.Y H:i" }}</span>
-                                            <span>{{ urlbatch.author.get_full_name|default:urlbatch.author }}</span>
-                                        </div>
-                                        <svg class="link-marker__marker">
-                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#batch"></use>
-                                        </svg>
-                                    </a>
-                                </td>
-                                <td class="elastic-table__td">
-                                    {{ urlbatch.urls_counter }}
-                                </td>
-                                <td class="elastic-table__td _ai-fe">
-                                    <div class="btns">
-                                        <a href="{% url 'sources:urlbatch_update' urlbatch.id %}" class="btn btn--reset btn--round" title="Редактировать информацию о веб-коллекции" aria-label="Редактировать информацию о веб-коллекции">
-                                            <svg class="btn__icon">
-                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
-                                            </svg>
-                                        </a>
-                                        <a href="{% url 'sources:urlbatch_delete' urlbatch.id %}" class="btn btn--reset btn--round"  title="Удалить веб-коллекцию" aria-label="Удалить веб-коллекцию">
-                                            <svg class="btn__icon">
-                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#trash-fat"></use>
-                                            </svg>
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                <p class="text text--muted _ta-c">Нет созданных веб-коллекций</p>
-            {% endif %}
-        </div>
-        <div class="info-page__footer">
-        </div>
+        {% include "include/object_history.html" %}
     </div>
-    {% include "include/object_history.html" %}
 </div>
 {% endblock %}

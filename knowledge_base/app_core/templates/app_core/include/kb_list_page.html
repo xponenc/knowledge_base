@@ -1,0 +1,69 @@
+{% load static %}
+
+{% if search_query %}
+    <div class="page__subheading _ta-c">
+        Результаты поиска по <strong>"{{ search_query }}"</strong>
+        {% if request.GET.status or request.GET.response_status or request.GET.min_body_length or request.GET.max_body_length or request.GET.ordering %}
+            с применёнными фильтрами и сортировкой
+        {% endif %}
+    </div>
+{% endif %}
+{% include "include/pagination.html" %}
+<div class="sources">
+    {% for kb in object_list %}
+        <div class="source {% if kb.status == "de" %} source--deleted{% endif %}">
+            <div class="source__header">
+                <h3 class="source__heading">
+                    <a href="{% url 'core:knowledgebase_detail' kb.pk %}" class="source__link link-marker">
+                        {{ kb.name }}
+                        <svg class="link-marker__marker">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#root"></use>
+                        </svg>
+                    </a>
+                </h3>
+            </div>
+            <div class="source__body">
+                <div class="source__wrapper source__wrapper--logo">
+                    {% if kb.logo %}
+                        <img src="{{ kb.logo.url }}" alt="Логотип базы знаний" class="source__logo">
+                    {% endif %}
+                </div>
+                <div class="source__wrapper">
+                    <h4 class="source__subheading">наполнение</h4>
+                    <dl class="source__description--info description _mb">
+                        <dt class="description__term">облачных хранилищ</dt>
+                        <dd class="description__defination">{{ kb.cloudstorage_counter }}</dd>
+                        <dt class="description__term">локальных хранилищ</dt>
+                        <dd class="description__defination">{{ kb.localstorage_counter }}</dd>
+                        <dt class="description__term">вебсайтов</dt>
+                        <dd class="description__defination">{{ kb.website_counter }}</dd>
+                        <dt class="description__term">веб-коллекций</dt>
+                        <dd class="description__defination">{{ kb.urlbatch_counter }}</dd>
+                    </dl>
+                </div>
+                
+                <div class="source__wrapper">
+                    <h4 class="source__subheading">детали</h4>
+                    <dl class="source__description--info description _mb">
+                        <dt class="description__term">описание</dt>
+                        <dd class="description__defination">{{ kb.description }}</dd>
+                        <dt class="description__term">дата создания</dt>
+                        <dd class="description__defination">{{ kb.created_at|date:"d.m.Y H:i" }}</dd>
+                        <dt class="description__term">владельцы</dt>
+                        <dd class="description__defination">
+                            <div class="tags">
+                                {% for user in kb.owners.all %}
+                                    <span class="tag tag--simple">
+                                        {{ user.get_full_name|default:user.username }}
+                                    </span>
+                                {% endfor %}
+                            </div>
+                        </dd>
+                    </dl>
+                </div>
+                
+            </div>
+            <div class="source__footer"></div>
+        </div>
+    {% endfor %}
+</div>

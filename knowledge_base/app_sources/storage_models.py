@@ -17,7 +17,7 @@ class Storage(TrackableModel, SoftDeleteModel):
 
     kb = models.ForeignKey(KnowledgeBase, verbose_name="база знаний", on_delete=models.CASCADE)
 
-    name = models.CharField(max_length=200, help_text="название")
+    name = models.CharField(max_length=200, verbose_name="Название")
     tags = models.JSONField(verbose_name="список тегов",
                             default=list,
                             blank=True,
@@ -140,9 +140,8 @@ class CloudStorage(Storage):
     credentials = models.JSONField(null=True, blank=True, help_text="Учетные данные")
 
     class Meta:
-        verbose_name = "Cloud Storage"
-        verbose_name_plural = "Cloud Storages"
-        # Раскомментировать для PostgreSQL
+        verbose_name = "облако"
+        verbose_name_plural = "облачные хранилища"
         constraints = [
             UniqueConstraint(
                 fields=['kb', 'name'],

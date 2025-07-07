@@ -120,9 +120,9 @@
                     <dt class="description__term">Метаданные</dt>
                     <dd class="description__defination">{{ object.metadata }}</dd>
                     <dt class="description__term">Дата создания</dt>
-                    <dd class="description__defination">{{ object.created_at }}</dd>
+                    <dd class="description__defination">{{ object.created_at|date:"d.m.Y H:i" }}</dd>
                     <dt class="description__term">Дата обновления</dt>
-                    <dd class="description__defination">{{ object.updated_at }}</dd>
+                    <dd class="description__defination">{{ object.updated_at|date:"d.m.Y H:i" }}</dd>
                     <dt class="description__term">Дата мягкого удаления</dt>
                     <dd class="description__defination">{{ object.soft_deleted_at }}</dd>
                     <dt class="description__term">Создан в рамках обновления</dt>
@@ -210,44 +210,48 @@
                                     <dt class="description__term">Создан</dt>
                                     <dd class="description__defination">{{ raw_content.created_at|date:"d.m.Y H:i" }}</dd>
                                 <dl>
-                                <div class="cell-tree__preview">
-                                    {% if raw_content.is_image %}
-                                        <img src="{{ raw_content.file.url }}" class="cell-tree__img" alt="preview">
-                                    {% else %}
-                                        <i class="cell-tree__icon bi {{ raw_content.get_icon_class }}"></i>
-                                    {% endif %}
-                                </div>
-                                <dl class="cell-tree__description description--column">
-                                    <dt class="description__term">Размер</dt>
-                                    <dd class="description__defination">{{ raw_content.file.size|filesizeformat }}</dd>
-                                    <dt class="description__term">Хеш контента</dt>
-                                    <dd class="description__defination">{{ raw_content.hash_content }}</dd>
-                                    <dt class="description__term">Автор</dt>
-                                    <dd class="description__defination">{{ raw_content.author.get_full_name|default:raw_content.author.username }}</dd>
-                                    <dt class="description__term">Создан в рамках обновления</dt>
-                                    <dd class="description__defination">
-                                        <a href="{% url 'sources:cloudstorageupdatereport_detail' raw_content.report.pk %}" class="link-marker">
-                                            <span>Отчет обновления от {{ raw_content.report.created_at|date:"d.m.Y H:i" }}</span>
-                                            <svg class="link-marker__marker">
-                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#report"></use>
-                                        </a>
-                                        </svg>
-                                    </dd>
-                                <dl>
+                                {% if raw_content.file %}
+                                    <div class="cell-tree__preview">
+                                        {% if raw_content.is_image %}
+                                            <img src="{{ raw_content.file.url }}" class="cell-tree__img" alt="preview">
+                                        {% else %}
+                                            <i class="cell-tree__icon bi {{ raw_content.get_icon_class }}"></i>
+                                        {% endif %}
+                                    </div>
+                                    <dl class="cell-tree__description description--column">
+                                        <dt class="description__term">Размер</dt>
+                                        <dd class="description__defination">{{ raw_content.file.size|filesizeformat }}</dd>
+                                        <dt class="description__term">Хеш контента</dt>
+                                        <dd class="description__defination">{{ raw_content.hash_content }}</dd>
+                                        <dt class="description__term">Автор</dt>
+                                        <dd class="description__defination">{{ raw_content.author.get_full_name|default:raw_content.author.username }}</dd>
+                                        <dt class="description__term">Создан в рамках обновления</dt>
+                                        <dd class="description__defination">
+                                            <a href="{% url 'sources:cloudstorageupdatereport_detail' raw_content.report.pk %}" class="link-marker">
+                                                <span>Отчет обновления от {{ raw_content.report.created_at|date:"d.m.Y H:i" }}</span>
+                                                <svg class="link-marker__marker">
+                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#report"></use>
+                                            </a>
+                                            </svg>
+                                        </dd>
+                                    <dl>
+                                {% endif %}
                             </div>
                             <div class="cell-tree__footer">
-                                <div class="btns _jc-fe">
-                                    <a href="{{ raw_content.file.url }}" target="_blank" class="btn btn--reset btn--round" title="Сохранить файл" aria-label="Сохранить файл">
-                                        <svg class="btn__icon">
-                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#download"></use>
-                                        </svg>
-                                    </a>
-                                    <a href="{% url 'sources:process_raw_content' raw_content.id %}" class="btn btn--reset btn--round" title="Распознать и создать очищенный контент" aria-label="Распознать и создать очищенный контент">
-                                        <svg class="btn__icon">
-                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#scan"></use>
-                                        </svg>
-                                    </a>
-                                </div>
+                                {% if raw_content.file %}
+                                    <div class="btns _jc-fe">
+                                        <a href="{{ raw_content.file.url }}" target="_blank" class="btn btn--reset btn--round" title="Сохранить файл" aria-label="Сохранить файл">
+                                            <svg class="btn__icon">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#download"></use>
+                                            </svg>
+                                        </a>
+                                        <a href="{% url 'sources:process_raw_content' raw_content.id %}" class="btn btn--reset btn--round" title="Распознать и создать очищенный контент" aria-label="Распознать и создать очищенный контент">
+                                            <svg class="btn__icon">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#scan"></use>
+                                            </svg>
+                                        </a>
+                                    </div>
+                                {% endif %}
                             </div>
                         </div>
                         
@@ -309,8 +313,107 @@
                         <div class="tree__cell cell-tree">
                             <div class="cell-tree__header">
                                 <h4 class="cell-tree__heading">Чанки</h4>
+                                <dl class="cell-tree__description description">
+                                    <dt class="description__term">Общее количество чанков</dt>
+                                    <dd class="description__defination">{{ url_content.chunks_counter }}</dd>
+                                </dl>
                             </div>
                             <div class="cell-tree__body">
+                                {% if object.output_format == "t" %}
+                                    {% if raw_content.cleanedcontent.chunks_counter > 0 %}
+                                        <table class="elastic-table elastic-table_1-auto _mb">
+                                            <thead class="elastic-table__thead">
+                                                <tr class="elastic-table__tr">
+                                                    <th class="elastic-table__th">Чанк</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="elastic-table__tbody">
+                                                {% for chunk in raw_content.cleanedcontent.chunk_preview_set %}
+                                                    <tr class="elastic-table__tr">
+                                                        <td class="elastic-table__td">
+                                                            <a href="{% url 'chunks:chunk_detail' chunk.pk %}" class="link-marker">
+                                                                <div class="elastic-table__cell">
+                                                                    <p>
+                                                                        <span>Чанк [id {{ chunk.pk }}]</span>
+                                                                        <span class="tag {% if chunk.status == "ready" %} tag--warning{% elif chunk.status == "active" %} tag--success{% elif chunk.status == "canceled" %} tag--disabled{% else %} tag--alarm{% endif %}">
+                                                                            {{ chunk.get_status_display  }}
+                                                                        </span>
+                                                                    </p>
+                                                                    
+                                                                    <span>Размер - {{ chunk.metadata.size_in_tokens }} токена(ов)</span>
+                                                                </div>
+                                                                <svg class="link-marker__marker">
+                                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#chunk"></use>
+                                                                </svg>
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                {% endfor %}
+                                                {% if url_content.chunks_counter > 5 %}
+                                                    <tr class="elastic-table__tr">
+                                                        <td class="elastic-table__td">
+                                                            ...
+                                                        </td>
+                                                    </tr>
+                                                {% endif %}
+                                            </tbody>
+                                        </table>
+                                    {% endif %}
+                                {% elif object.output_format == "f" %}
+                                {{raw_content.chunk_preview_set }}
+                                    {% if raw_content.chunks_counter > 0 %}
+                                        <table class="elastic-table elastic-table_1-auto _mb">
+                                            <thead class="elastic-table__thead">
+                                                <tr class="elastic-table__tr">
+                                                    <th class="elastic-table__th">Чанк</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="elastic-table__tbody">
+                                                {% for chunk in raw_content.chunk_preview_set %}
+                                                    <tr class="elastic-table__tr">
+                                                        <td class="elastic-table__td">
+                                                            <a href="{% url 'chunks:chunk_detail' chunk.pk %}" class="link-marker">
+                                                                <div class="elastic-table__cell">
+                                                                    <p>
+                                                                        <span>Чанк [id {{ chunk.pk }}]</span>
+                                                                        <span class="tag {% if chunk.status == "ready" %} tag--warning{% elif chunk.status == "active" %} tag--success{% elif chunk.status == "canceled" %} tag--disabled{% else %} tag--alarm{% endif %}">
+                                                                            {{ chunk.get_status_display  }}
+                                                                        </span>
+                                                                    </p>
+                                                                    
+                                                                    <span>Размер - {{ chunk.metadata.size_in_tokens }} токена(ов)</span>
+                                                                </div>
+                                                                <svg class="link-marker__marker">
+                                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#chunk"></use>
+                                                                </svg>
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                {% endfor %}
+                                                {% if url_content.chunks_counter > 5 %}
+                                                    <tr class="elastic-table__tr">
+                                                        <td class="elastic-table__td">
+                                                            ...
+                                                        </td>
+                                                    </tr>
+                                                {% endif %}
+                                            </tbody>
+                                        </table>
+                                    {% endif %}
+                                {% else %}
+                                    <p class="text text--alarm">Ошибка формата вывода источника в Базу знаний</p>
+
+                                {% endif %}
+                                
+                            </div>
+                            <div class="cell-tree__footer">
+                                <div class="btns _jc-fe">
+                                    <a href="{% url 'chunks:chunk_list'  %}?{% if object.output_format == "t" %}cleanedcontent={{ raw_content.cleanedcontent.id }}{% else %}rawcontent={{ raw_content.id }}{% endif %} " class="btn btn--reset btn--round" title="Посмотреть все чанки для контента" aria-label="Посмотреть все чанки для контента">
+                                        <svg class="btn__icon">
+                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#details"></use>
+                                        </svg>
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>

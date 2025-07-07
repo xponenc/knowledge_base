@@ -83,12 +83,20 @@
                             </svg>
                         </a>
                     {% endif %}
+                    {% if urls|length > 0 and kb.engine %}
+                        <a href="{% url 'embeddings:website_vectorize' website.id %}" class="btn btn--reset btn--simple btn--primary" id="submit-btn" title="Будет открыта форма для создания векторов" aria-label="Будет открыта форма для создания чанков в базае данных">
+                            <span>Создать вектора</span>
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#embedding"></use>
+                            </svg>
+                        </a>
+                    {% endif %}
                 </div>
             </div>
         </div>
         <div class="page__reports reports">
-            <div class="reports__header">
-                <h3 class="reports__heading">Отчеты по синхронизации</h3>
+            <div class="reports__header _mb">
+                <h3 class="reports__heading _ta-e">Отчеты по синхронизации</h3>
             </div>
             <div class="reports__body">
                 <table class="elastic-table elastic-table_2-auto">
@@ -137,7 +145,7 @@
             </div>
             <div class="reports__footer"></div>
         </div>
-        <div class="page__info info-page">
+        <div class="page__info info-page info-page--border">
             <div class="info-page__header">
                 <h2 class="page__heading">Основной парсер</h2>
                 <h3 class="info-page__heading"></h3>
@@ -194,7 +202,7 @@
                 </div>
             </div>
         </div>
-        <div class="page__info info-page">
+        <div class="page__info info-page info-page--border">
             <div class="info-page__header">
                 <h2 class="page__heading">Тестовые парсеры</h2>
                 <h3 class="info-page__heading"></h3>
@@ -246,7 +254,7 @@
     </div>
 
     <article class="page__content">
-        <div class="page__info info-page _mb">
+        <div class="page__info info-page info-page--border _mb">
             <div class="info-page__header">
                 <h2 class="page__heading"></h2>
                 <h3 class="info-page__heading">pickle chunks</h3>
@@ -273,8 +281,6 @@
                         </button>
                     </div>
                 </form>
-               
-            
             </div>
             <div class="info-page__footer">
             </div>

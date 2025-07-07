@@ -40,15 +40,21 @@
             <div class="info-page__body">
                 <h3 class="info-page__heading"></h3>
                 <dl class="description">
-                    <dt class="description__term">🔌API</dt>
+                    {% if cloudstorage.description %}
+                        <dt class="description__term">описание</dt>
+                        <dd class="description__defination">
+                            {{ cloudstorage.description }}
+                        </dd>
+                    {% endif %}
+                    <dt class="description__term">API</dt>
                     <dd class="description__defination">
                         {{ cloudstorage.api_type }}
                     </dd>
-                    <dt class="description__term">🔐 Учетные данные (токен хеширован)</dt>
+                    <dt class="description__term">Учетные данные (токен хеширован)</dt>
                     <dd class="description__defination">
                         {{ cloudstorage.credentials|default:"—" }}
                     </dd>
-                    <dt class="description__term">🆔 ID</dt>
+                    <dt class="description__term">ID</dt>
                     <dd class="description__defination">
                         <pre class="text">{{ cloudstorage.pk }}</pre> 
                     </dd>
@@ -57,8 +63,20 @@
             <div class="info-page__footer">
                 <div class="btns _jc-fe">
                     <a href="{% url 'sources:cloudstorage_sync' cloudstorage.pk %}" class="btn btn--reset btn--simple">
-                        🔄 Полное сканирование облака
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#scan"></use>
+                        </svg>
+                        сканирование облака
                     </a>
+                    {% if documents|length > 0  %}
+                        <a href="{% url 'chunks:create_chunks_from_storage' 'cloud' cloudstorage.id %}" class="btn btn--reset btn--simple btn--primary" id="submit-btn" title="Будет открыта форма для создания чанков в базае данных" aria-label="Будет открыта форма для создания чанков в базае данных">
+                            <span>Создать чанки</span>
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#chunk"></use>
+                            </svg>
+                        </a>
+                    {% endif %}
+                  
                     <form id="export-form" action="{% url 'sources:export_to_google_sheet' cloudstorage.pk %}" method="POST">
                         {% csrf_token %}
                         <button type="submit" class="btn btn--reset btn--simple">
@@ -68,12 +86,22 @@
                             </svg>
                         </button>
                     </form>
+                    <a href="{% url 'sources:cloudstorage_update' cloudstorage.id %}" class="btn btn--reset btn--round" title="Редактировать информацию о хранилище" aria-label="Редактировать информацию о хранилище">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                        </svg>
+                    </a>
+                    <a href="{% url 'sources:cloudstorage_delete' cloudstorage.id %}" class="btn btn--reset btn--round btn--danger"  title="Удалить хранилище" aria-label="Удалить хранилище">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#trash-fat"></use>
+                        </svg>
+                    </a>
                 </div>
                 <div id="export-result" class="text"></div>
             </div>
         </div>
         <div class="page__reports reports">
-            <div class="reports__header">
+            <div class="reports__header _mb">
                 <h3 class="reports__heading _ta-e">Отчеты по синхронизации</h3>
             </div>
             <div class="reports__body">

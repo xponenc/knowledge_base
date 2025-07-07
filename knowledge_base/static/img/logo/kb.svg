@@ -1,0 +1,51 @@
+<svg width="450" height="300" viewBox="0 0 450 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Внутренняя рамка -->
+  <rect x="6" y="6" width="438" height="288" rx="15" ry="15" fill="none" stroke="#333333" stroke-width="3"></rect>
+
+  <!-- Центральный круг -->
+  <defs>
+    <linearGradient id="metalShine" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.2"></stop>
+      <stop offset="100%" stop-color="transparent" stop-opacity="0"></stop>
+    </linearGradient>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="4" dy="4" stdDeviation="2" flood-color="#333333" flood-opacity="0.3"></feDropShadow>
+    </filter>
+  </defs>
+
+  <circle cx="225" cy="150" r="105" fill="none" stroke="#BE5000" stroke-width="1.5"></circle>
+
+  <!-- Орбиты -->
+  <line x1="225" y1="150" x2="235" y2="150" stroke="#DCDCDC" stroke-opacity="0.2" stroke-width="1"></line>
+  <line x1="225" y1="150" x2="217" y2="158.66" stroke="#DCDCDC" stroke-opacity="0.2" stroke-width="1"></line>
+  <line x1="225" y1="150" x2="217" y2="141.34" stroke="#DCDCDC" stroke-opacity="0.2" stroke-width="1"></line>
+
+  <!-- "kb" -->
+  <text x="190" y="210" font-family="Eurostile, sans-serif" font-weight="bold" font-size="90" fill="#333333" text-anchor="start">
+    kb
+  </text>
+
+  <!-- "AI" -->
+  <g filter="url(#shadow)">
+    <text x="195" y="135" font-family="Proxima Nova, sans-serif" font-weight="bold" font-size="150" fill="#BE5000" text-anchor="start">
+      AI
+    </text>
+    <text x="195" y="135" font-family="Proxima Nova, sans-serif" font-weight="bold" font-size="150" fill="url(#metalShine)">
+      AI
+    </text>
+  </g>
+
+  <!-- Стилизованные элементы таблицы Менделеева -->
+  <text x="15" y="30" font-family="Eurostile, sans-serif" font-size="30" fill="#666666">
+    0047
+  </text>
+
+  <text x="390" y="30" font-family="Eurostile, sans-serif" font-weight="bold" font-size="45" fill="#333333">
+    Ai
+  </text>
+
+  <!-- Подпись -->
+  <text x="225" y="276" font-family="Courier New, monospace" font-size="19.2" fill="#666666" text-anchor="middle">
+    Knowledge Base AI
+  </text>
+</svg>

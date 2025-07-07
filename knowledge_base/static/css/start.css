@@ -4,7 +4,7 @@
   --gap: var(--index);
   --gap-half: calc(var(--gap) / 2);
   --gap-third: calc(var(--gap) / 3);
-  --bg-color: #eee;
+  --bg-color: #f4f1ee;
 
   --major-fsz: 14px;
   --h1fsz: calc(var(--major-fsz) * 2.986);
@@ -17,13 +17,23 @@
   --mini-fsz: calc(var(--major-fsz) * 0.694);
 
   /* Навигация */
-  --navbar-height: 48px;
-  --navbar-bg-color: #fbfbfb;
+  /* --navbar-height: 48px;
+  --navbar-bg-color: #f4f1ee;
   --navbar-text-color: #333;
   --navbar-link-color: #333;
   --navbar-link-hover-color: #1693cf;
   --navbar-link-active-color: var(--accent-color);
   --navbar-shadow-color: rgba(0, 0, 0, 0.2);
+  --navbar-font-size: 14px;
+  --navbar-toggle-size: 1.5rem; */
+
+  --navbar-height: 48px;
+  --navbar-bg-color: #f4f1ee;
+  --navbar-text-color: #4d5969;
+  --navbar-link-color: #4d5969;
+  --navbar-link-hover-color: #be5000;
+  --navbar-link-active-color: var(--accent-color, #a74c00);
+  --navbar-shadow-color: #4d596933;
   --navbar-font-size: 14px;
   --navbar-toggle-size: 1.5rem;
 
@@ -35,14 +45,16 @@
 
   /* Блоки */
   --block-bg-color: #fbfbfb;
-  --block-border-color: #e5e5e5;
+  --block-border-color: #4d596970;
   --block-border-shadow-color: #dcdcdc;
   --code-bg-color: #696767;
 
-  --article-bg-color: #f7f7f7;
-  --article-border-color: #e5e5e5;
+            
+  --article-bg-color: #e7e2de;
+  --article-border-color: #f4f1ee;
 
 
+            
   /* Текст */
   --text-color: #333;
   --text-color-shadow: #727272;
@@ -60,7 +72,7 @@
 
 
   /* Цвета состояний */
-  --success-color: #4fc473e8;
+  /* --success-color: #4fc473e8;
   --success-bg-color: #65dd8b;
   --alarm-color: #f88383;
   --alarm-bg-color: #f59391;
@@ -75,7 +87,36 @@
   --disabled-bg-color: #3b3c3f;
   --deleted-color: #16171d;
   --deleted-bg-color: #16171d;
-  --deleted-text-color: #ececec;
+  --deleted-text-color: #ececec; */
+
+    /* 🟢 Успешное состояние */
+  --success-color: #3ba66b;
+  --success-bg-color: #d9f3e4;
+
+  /* 🔴 Ошибка / Авария */
+  --alarm-color: #d15757;
+  --alarm-bg-color: #fbe5e5;
+
+  --error-color: #d15757;
+  --error-bg-color: #fbe5e5;
+  --error-text-color: #3b1f1f;
+
+  /* 🟠 Предупреждение */
+  --warning-color: #d9903f;
+  --warning-bg-color: #fff0d9;
+
+  /* 🔵 Заморожено / На паузе */
+  --frozen-color: #4f6ebd;
+  --frozen-bg-color: #e4ebfa;
+
+  /* ⚫ Отключено */
+  --disabled-color: #7a7a7a;
+  --disabled-bg-color: #574d4d;
+
+  /* ⚫ Удалено */
+  --deleted-color: #2f2f2f;
+  --deleted-bg-color: #d9d9d9;
+  --deleted-text-color: #f2f2f2;
 
   --offline-color: #fbd9d9;
   --valid-color: #4fc473e8;
@@ -112,11 +153,17 @@
   --link-shadow-color: #eeeeee42;
 
   /* Таблицы */
-  --elsatic-table-th-row-color: #f7f7f7;
-  --elsatic-table-odd-row-color: #fdfdfd;
-  --elsatic-table-odd-border-color: #f7f7f7;
-  --elsatic-table-even-row-color: #f7f7f7;
-  --elsatic-table-even-border-color: #fdfdfd;
+  /* --elastic-table-th-row-color: #f7f7f7;
+  --elastic-table-odd-row-color: #fdfdfd;
+  --elastic-table-odd-border-color: #f7f7f7;
+  --elastic-table-even-row-color: #f7f7f7;
+  --elastic-table-even-border-color: #fdfdfd; */
+
+  --elastic-table-th-row-color: #f0efed; 
+  --elastic-table-odd-row-color: #faf9f8;
+  --elastic-table-odd-border-color: #e2e0dd;
+  --elastic-table-even-row-color: #f4f1ee;
+  --elastic-table-even-border-color: #e7e5e2;
 
   /* Форма */
   --field-padding: 12px;
@@ -533,11 +580,18 @@ fieldset {
 
 
 .text {
+  font-size: var(--major-fsz);
   margin-bottom: 4px;
 }
 
 .text--fat {
   font-weight: 600;
+}
+.text--bold {
+  font-weight: 700;
+}
+.text--accent {
+  color: var(--accent-color);
 }
 
 .text--muted {
@@ -577,7 +631,6 @@ fieldset {
   grid-template-columns: min-content 1fr;
   gap: var(--gap-third) var(--gap-half);
   align-items: center;
-  margin: 0;
 }
 
 .description--column {
@@ -629,11 +682,13 @@ fieldset {
   justify-content: center;
   padding: 3px 12px;
   border-radius: 12px;
+  border: 1px solid transparent;
   text-transform: lowercase;
 }
 
 .tag--simple {
   background-color: var(--bg-color);
+  border-color: var(--block-border-color);
 }
 
 .tag--fat {
@@ -662,6 +717,7 @@ fieldset {
   color: var(--deleted-text-color);
   background-color: var(--deleted-bg-color);
 }
+
 
 
 .json {}

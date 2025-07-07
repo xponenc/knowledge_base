@@ -2,12 +2,19 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    --kb-accent-color: #027c31;
-    --cloud-accent-color: #1693cf;
-    --local-accent-color: #6f5a4b;
-    --website-accent-color: #e64709;
-    --urlbatch-accent-color: #673147;
+    --engine-accent-color: #6e60ce;
+    --kb-accent-color: #be5000;
+    --cloud-accent-color: #6d8dad;
+    --local-accent-color: #8c735b;
+    --website-accent-color: #5e5774;
+    --urlbatch-accent-color: #c17a4e;
     --content-accent-color: #0c3d48;
+}
+
+.page--engine {
+    --banner-color: var(--engine-accent-color);
+    --header-color: var(--engine-accent-color);
+    --accent-color: var(--engine-accent-color);
 }
 
 .page--kb {
@@ -84,7 +91,7 @@
     flex-direction: column;
     justify-content: center;
     padding: var(--gap);
-    background-color: var(--block-bg-color);
+    background-color: var(--bg-color);
     border-radius: var(--gap-half);
 }
 
@@ -92,8 +99,7 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: var(--gap);
-    background-color: var(--article-bg-color);
+    background-color: var(--bg-color);
     border-radius: var(--gap-half);
 }
 
@@ -124,15 +130,24 @@
     display: flex;
     flex-direction: column;
     padding: var(--gap) 0;
-    background-color: var(--article-bg-color);
+    /* background-color: var(--article-bg-color); */
     border-radius: var(--gap-half);
+    border: 1px solid var(--block-border-color);
 }
 
 .info-page {
     position: relative;
     overflow: hidden;
 }
+.info-page--border {
+    border: 1px solid var(--block-border-color) !important;
+}
 
+.info-page--kb {
+    --banner-color: var(--kb-accent-color);
+    --header-color: var(--kb-accent-color);
+    --accent-color: var(--kb-accent-color);
+}
 .info-page--cloud {
     --banner-color: var(--cloud-accent-color);
     --header-color: var(--cloud-accent-color);
@@ -162,11 +177,18 @@
     --header-color: var(--content-accent-color);
     --accent-color: var(--content-accent-color);
 }
+.info-page--logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: max(20px,  calc(3 * var(--gap)));
+}
 
 .info-page:has(.info-page__banner) {
     padding-top: calc(1.1 * var(--h1fsz) + var(--gap-half));
     border: 2px solid var(--banner-color);
 }
+
 
 .info-page__banner {
     position: absolute;
@@ -200,6 +222,12 @@
     line-height: 1.5;
     border-bottom: 2px solid var(--banner-color);
     background: none;
+}
+
+.info-page__logo {
+    object-fit: contain;
+    width: 100%;
+    max-height: 120px;
 }
 
 

@@ -98,7 +98,7 @@
                             {% endfor %}
                         </div>
                     </dd>
-                    <dt class="description__term">Создан в рамках обновления</dt>
+                    {% comment %} <dt class="description__term">Создан в рамках обновления</dt>
                     <dd class="description__defination">
                         <a href="{% url 'sources:websiteupdatereport_detail' content.report.pk %}" class="link-marker">
                             <span>Отчет обновления [id{{ content.report.pk }}] от {{ content.report.created_at|date:"d.m.Y H:i" }}</span>
@@ -106,7 +106,7 @@
                                 <use xlink:href="{% static 'img/icons/sprite.svg' %}#report"></use>
                         </a>
                         </svg>
-                    </dd>
+                    </dd> {% endcomment %}
                 </dl>
             </div>
             <div class="info-page__footer">
@@ -155,7 +155,8 @@
                                 контент
                             </h5>
                             <div class="source__manage json">
-                                {{ chunk.page_content|linebreaks }}
+                                {% comment %} {{ chunk.page_content|linebreaks }} {% endcomment %}
+                                {{ chunk.page_content }}
                             </div>
                         </div>
                     </div>

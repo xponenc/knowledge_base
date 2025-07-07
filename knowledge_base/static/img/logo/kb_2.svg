@@ -1,0 +1,19 @@
+<svg viewBox="0 0 350 192" xmlns="http://www.w3.org/2000/svg">
+  <!-- Квадратный элемент -->
+  <rect x="6" y="6" width="180" height="180" rx="10" ry="10" fill="none" stroke="#4d5969" stroke-width="6"></rect>
+
+  <!-- Атомный номер -->
+  <text x="12" y="31" font-family="Eurostile, sans-serif" font-size="20" fill="#666666">
+    47
+  </text>
+
+  <!-- "kb" — строчные, центрированы -->
+  <text x="96" y="131" text-anchor="middle" font-family="Eurostile, sans-serif" font-size="96" fill="#4d5969" font-weight="bold">
+    kb
+  </text>
+
+  <!-- "AI" справа -->
+  <text x="211" y="146" font-family="Proxima Nova, sans-serif" font-size="144" fill="#BE5000" font-weight="bold">
+    AI
+  </text>
+</svg>

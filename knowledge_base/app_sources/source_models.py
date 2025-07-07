@@ -135,7 +135,7 @@ class OutputDataType(Enum):
 class NetworkDocument(AbstractSource):
     """Документ связанный с сетевым хранилищем"""
 
-    storage = models.ForeignKey(CloudStorage, on_delete=models.CASCADE, related_name="network_documents")
+    storage = models.ForeignKey(CloudStorage, on_delete=models.CASCADE, related_name="documents")
     report = models.ForeignKey(CloudStorageUpdateReport, verbose_name="создано в отчете", on_delete=models.CASCADE, blank=True, null=True)
     path = models.URLField(verbose_name="путь к источнику", max_length=500)
     file_id = models.CharField(verbose_name="id файла в облаке", max_length=200, blank=True, null=True)
@@ -178,6 +178,12 @@ class LocalDocument(AbstractSource):
 
     name = models.CharField(max_length=200, unique=True, help_text="название")
     description = models.CharField(verbose_name="описание", max_length=1000, null=True, blank=True)
+    output_format = models.CharField(
+        verbose_name="формат вывода документа в базу знаний",
+        max_length=1,
+        choices=[(status.value, status.display_name) for status in OutputDataType],
+        default=OutputDataType.file.value,
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

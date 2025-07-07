@@ -29,6 +29,7 @@ urlpatterns = [
          get_celery_task_progress, name='celery_progress_info'),
     path('', include('app_core.urls')),
     path('sources/', include('app_sources.urls')),
+    path('embeddings/', include('app_embeddings.urls')),
     path('', include('app_parsers.urls')),
     path('chunks/', include('app_chunks.urls')),
     path('tasks/', include('app_tasks.urls')),

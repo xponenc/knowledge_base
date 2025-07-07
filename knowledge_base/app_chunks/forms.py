@@ -45,7 +45,8 @@ class SplitterSelectForm(forms.Form):
             return
 
         choices = [("", "--- выберите сплиттер ---")] + [
-            (f"{cls.__module__}.{cls.__name__}", f"{cls.__name__} ({cls.name})")
+            # (f"{cls.__module__}.{cls.__name__}", f"{cls.__name__} ({cls.name})")/
+            (f"{cls.__module__}.{cls.__name__}", f"{cls.name} ({cls.__name__})")
             for cls in (splitters or [])
         ]
         self.fields["splitters"].choices = choices

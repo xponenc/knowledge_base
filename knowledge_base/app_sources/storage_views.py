@@ -289,7 +289,7 @@ class CloudStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailV
         status_filter = self.request.GET.getlist("status", None)
         sorting = self.request.GET.get("sorting", None)
 
-        network_documents = network_storage.network_documents.order_by("title")
+        network_documents = network_storage.documents.order_by("title")
 
         if search_query:
             network_documents = network_documents.filter(
@@ -343,7 +343,7 @@ class CloudStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailV
         context["page_obj"] = page_obj
         context["paginator_query"] = paginator_query
         context["paginator"] = paginator
-        context["network_documents"] = page_obj.object_list
+        context["documents"] = page_obj.object_list
         context["is_paginated"] = page_obj.has_other_pages()
         context["search_query"] = search_query
         context["status_filter"] = status_filter
@@ -418,8 +418,15 @@ class CloudStorageUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
-        form.fields["name"].widget.attrs["class"] = "form-control"
-        form.fields["description"].widget = forms.Textarea(attrs={"rows": 4, "class": "form-control"})
+        form.fields["name"].widget.attrs.update({
+            "class": "custom-field__input custom-field__input_wide",
+            "placeholder": "Введите название базы знаний"
+        })
+
+        form.fields["description"].widget = forms.Textarea(attrs={
+            "class": "custom-field__input custom-field__input_wide custom-field__input_textarea",
+            "placeholder": "Добавьте описание (необязательно)"
+        })
         return form
 
 
@@ -446,7 +453,6 @@ class CloudStorageSyncView(LoginRequiredMixin, StoragePermissionMixin, View):
                       template_name="app_sources/storage_sync.html",
                       context=context
                       )
-
 
     def post(self, request, pk):
 

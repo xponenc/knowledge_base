@@ -258,11 +258,29 @@ class NetworkDocumentListView(LoginRequiredMixin, ListView):
 class NetworkDocumentDetailView(LoginRequiredMixin, DocumentPermissionMixin, HierarchicalContextMixin, DetailView):
     """Детальный просмотр объекта модели Сетевой документ NetworkDocument (с проверкой прав доступа)"""
     model = NetworkDocument
+    chunk_preview_set = Prefetch(
+        "chunks",
+        queryset=Chunk.objects.order_by("pk").only("id", "status", "metadata")[:5],
+        to_attr="chunk_preview_set"
+    )
+
+    cleanedcontent = Prefetch("cleanedcontent",
+                                  queryset=CleanedContent.objects
+                                  .select_related("author")
+                                  .prefetch_related(chunk_preview_set)
+                                  .annotate(
+                                        chunks_counter=Count("chunks", distinct=True),
+                                    )
+                                  )
+
     rawcontent_set = Prefetch(
         "rawcontent_set",
         queryset=RawContent.objects
         .select_related("report", "author")
-        .prefetch_related("cleanedcontent", "cleanedcontent__author")
+        .prefetch_related(cleanedcontent, chunk_preview_set)
+        .annotate(
+            chunks_counter=Count("chunks", distinct=True),
+        )
 
     )
     queryset = (NetworkDocument.objects.select_related("storage", "storage__kb", "report", )
@@ -1007,7 +1025,7 @@ class URLDetailView(LoginRequiredMixin, DocumentPermissionMixin, DetailView):
     """Детальный просмотр объекта модели Модель страницы сайта URL (с проверкой прав доступа)"""
     model = URL
     chunk_preview_set = Prefetch(
-        "chunk_set",
+        "chunks",
         queryset=Chunk.objects.order_by("pk").only("id", "status", "metadata")[:5],
         to_attr="chunk_preview_set"
     )
@@ -1019,7 +1037,7 @@ class URLDetailView(LoginRequiredMixin, DocumentPermissionMixin, DetailView):
             .annotate(
                 body_length=Length("body"),
                 body_preview=Left("body", 200),
-                chunks_counter=Count("chunk"),
+                chunks_counter=Count("chunks"),
             ).defer("body"),
         to_attr="urlcontent_preview_set"
     )

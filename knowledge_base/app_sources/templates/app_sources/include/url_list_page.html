@@ -140,9 +140,9 @@
                         <dt class="description__term">Дата синхронизации ?</dt>
                         <dd class="description__defination">{{ document.synchronized_at }}</dd> {% endcomment %}
                         <dt class="description__term">Дата создания</dt>
-                        <dd class="description__defination">{{ document.created_at }}</dd>
+                        <dd class="description__defination">{{ document.created_at|date:"d.m.Y H:i" }}</dd>
                         <dt class="description__term">Дата обновления</dt>
-                        <dd class="description__defination">{{ document.updated_at }}</dd>
+                        <dd class="description__defination">{{ document.updated_at|date:"d.m.Y H:i" }}</dd>
                         {% comment %} <dt class="description__term">Дата мягкого удаления</dt>
                         <dd class="description__defination">{{ document.soft_deleted_at }}</dd>
                         <dt class="description__term">Хранилище</dt>

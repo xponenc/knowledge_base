@@ -1,0 +1,217 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+{% load custom_filters %}
+{% load status_tags %}
+
+
+{% block extra_css %}
+    <link href="{% static 'css/pagination.css' %}" rel="stylesheet">
+    <link href="{% static 'css/storage.css' %}" rel="stylesheet">
+    <link href="{% static 'css/grader.css' %}" rel="stylesheet">
+    <link href="{% static 'libs/choices/choices.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/custom_choices.css' %}" rel="stylesheet">
+{% endblock %}
+
+
+{% block title %}embedding engine{% endblock %}
+
+{% block content %}
+<div class="page page--engine">
+    <div class="page__top page__grid">
+        <div class="page__info info-page info-page--logo">
+            <img src="{% static 'img/logo/kb_2.svg' %}" alt="Логотип проект kb AI" class="info-page__logo">
+        </div>
+        <div class="page__info info-page">
+            <span class="info-page__banner">engine</span>
+            <div class="info-page__header">
+                <h2 class="page__heading _ta-e">embedding models</h2>
+                <h3 class="info-page__heading">Детали</h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                <dl class="description _mb">
+                    <dt class="description__term">Движков в проекте</dt>
+                    <dd class="description__defination">
+                        {{object_list|length }}
+                    </dd>
+                </dl>
+            </div>
+            <div class="info-page__footer">
+                <div class="btns _jc-fe">
+                    <a href="{% url 'embeddings:engine_create' %}" class="btn btn--reset btn--simple btn--primary">Создать новую модель векторизации</a>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    <article class="page__content">
+        <h2 class="page__subheading"></h2>
+        <form class="page__grader form" action="" method="GET" id="engine-filter-form">
+            {% csrf_token %}
+            {% comment %} {% include "widgets/_form_content-widget.html" %} {% endcomment %}
+            <div class="form__container">
+                <div class="field-container field-container_wide">
+                    <div class="grader grader--bg">
+                        <div class="grader__top">
+                            <p class="grader__name text text_upper text_transparent text_micro">фильтрация и сортировка</p>
+                            <div class="grader__icons">
+                                <svg class="grader__icon grader__icon_filter visually-hidden">
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#filter2"></use>
+                                </svg>
+                                <svg class="grader__icon grader__icon_ascending js-icon-ascending visually-hidden">
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#sorted"></use>
+                                </svg>
+                                <svg class="grader__icon grader__icon_descending js-icon-descending visually-hidden">
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#sorted"></use>
+                                </svg>
+                                <svg class="grader__icon grader__icon_unsort">
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#unsorted"></use>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="grader__help">
+                            <div class="grader__help-icon grader__icon grader__icon_info" onClick="showHelp(event)">
+                                <svg>
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#info2"></use>
+                                </svg>
+                            </div>
+                            <div class="grader__help-text">
+                                Возможность отсортировать и отфильтровать сетевые документы.
+                            </div>
+                        </div>
+                        <div class="grader__body">
+                            <div class="grader__section">
+                                <div class="grader__header">
+                                    <h5 class="grader__heading">фильтрация </h5>
+                                </div>
+                                <div class="grader__content">
+                                    {% for filter_name, filter_choices in filters.items %}
+                                        {% for filter_value, filter_display_name in filter_choices %}
+                                            <label class="grader__checkbox checkbox-filter" aria-label="Фильтрация {{ filter_display_name }}">
+                                                <input type="checkbox" class="checkbox-filter__input visually-hidden js-filter js-filter-checkbox" name="{{ filter_name }}" value="{{ filter_value }}"{% if request.GET|getlist:filter_name == filter_value %} checked{% endif %} autocomplete="off" onchange="graderChexboxChange(event)">
+                                                <span class="checkbox-filter__box"></span>
+                                                <span class="checkbox-filter__text">{{ filter_display_name }}</span>
+                                            </label>
+                                        {% endfor %}
+                                    {% endfor %}
+                                </div>
+                                <div class="grader__content">
+                                    <label for="id_tags" class="grader__label">Фильтр по тегам</label>
+                                    <select name="tags" multiple="multiple" class="grader__select filter-select" id="id_tags">
+                                        {% for tag in available_tags %}
+                                            <option value="{{ tag|escape }}" {% if tag in tags_filter %}selected{% endif %}>{{ tag|escape }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                {% for range_name, range_data in standard_range_list.items %}
+                                    <div class="grader__header">
+                                        <h5 class="grader__heading">{{ range_name }}</h5>
+                                    </div>
+                                    <div class="grader__content grader__range range-grader">
+                                        <div class="range-grader__container">
+                                            {% for range_value, range_name in range_data.pairs %}
+                                                <label class="range-grader__label" for="id_{{ range_value }}">
+                                                    <span>{{ range_name }} </span>
+                                                </label>
+                                                <input
+                                                    class="range-grader__date js-filter"
+                                                    type="{{ range_data.type }}"
+                                                    id="id_{{ range_value }}"
+                                                    name="{{ range_value }}"
+                                                    autocomplete="off"
+                                                    onchange="graderChexboxChange(event)"
+                                                    {% if request.GET|get:range_value %}
+                                                        {% if range_data.type == 'date' %}
+                                                            value="{{ request.GET|get:range_value|as_iso_date }}"
+                                                        {% else %}
+                                                            value="{{ request.GET|get:range_value }}"
+                                                        {% endif %}
+                                                    {% endif %}
+                                                />
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                                {% for range_name, range_data in nonstandard_range_list.items %}
+                                    <div class="grader__header">
+                                        <h5 class="grader__heading">{{ range_name }}</h5>
+                                    </div>
+                                    <div class="grader__content grader__range range-grader">
+                                        <div class="range-grader__container">
+                                            {% for range_value, range_name in range_data.pairs %}
+                                                <label class="range-grader__label" for="id_{{ range_value }}">
+                                                    <span>{{ range_name }} </span>
+                                                </label>
+                                                <input
+                                                    class="range-grader__date js-filter"
+                                                    type="{{ range_data.type }}"
+                                                    id="id_{{ range_value }}"
+                                                    name="{{ range_value }}"
+                                                    autocomplete="off"
+                                                    onchange="graderChexboxChange(event)"
+                                                    {% if request.GET|get:range_value %}
+                                                        {% if range_data.type == 'date' %}
+                                                            value="{{ request.GET|get:range_value|as_iso_date }}"
+                                                        {% else %}
+                                                            value="{{ request.GET|get:range_value }}"
+                                                        {% endif %}
+                                                    {% endif %}
+                                                />
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                                <div class="grader__header">
+                                    <h5 class="grader__heading">Сортировка</h5>
+                                </div>
+                                <div class="grader__content">
+                                    {% for sorting_value, sorting_name in sorting_list %}
+                                        <label class="grader__checkbox checkbox-filter" aria-label="Сортировать по {{ sorting_name }}">
+                                            <input type="radio" class="checkbox-filter__input visually-hidden js-sort {% if sorting_value|slice:":1" == "-" %} js-sort-ascending{% else %} js-sort-descending{% endif %}" name="sorting" value="{{ sorting_value }}" onchange="graderChexboxChange(event)">
+                                            <svg class="checkbox-filter__icon {% if sorting_value|slice:":1" == "-" %} checkbox-filter__icon_ascending{% else %} checkbox-filter__icon_descending{% endif %}">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#sorted"></use>
+                                            </svg>
+                                            <span class="checkbox-filter__text">{{ sorting_name }}</span>
+                                        </label>
+                                    {% endfor %}
+                                    <label class="grader__checkbox checkbox-filter" aria-label="отменить сортировку">
+                                        <input type="checkbox" class="checkbox-filter__input visually-hidden js-reset-sort" checked onchange="processGraderResetSort(event)">
+                                        <svg class="checkbox-filter__icon">
+                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#unsorted"></use>
+                                        </svg>
+                                        <span class="checkbox-filter__text">отменить сортировку</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="field-container field-container_wide">
+                    <label class="custom-field">
+                        <input class="custom-field__input" type="text" name="search" value="{{ search_query|default:'' }}" placeholder=" ">
+                        <span class="custom-field__placeholder">Поиск по названию, URL</span>
+                    </label>
+                </div>
+                <button type="submit" class="btn btn--reset btn--round btn--accent" aria-label="Отпраавить запрос" title="Отпраавить запрос">
+                    <svg class="btn__icon">
+                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#search"></use>
+                    </svg>
+                </button>
+            </div>
+        <form>
+        <div class="page__wrapper" id="kb-container">
+            {% include "app_embeddings/include/engine_list_page.html" %}
+        </div>
+    
+    </article>
+</div>
+
+{% endblock content %}
+
+
+{% block script %}
+    <script src="{% static 'libs/choices/choices.min.js' %}"></script>
+    <script src="{% static 'js/grader.js' %}"></script>
+    
+    
+{% endblock script%}

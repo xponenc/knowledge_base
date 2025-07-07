@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models.fields.files import FieldFile
 from django.utils import timezone
 from django.core.serializers.json import DjangoJSONEncoder
 
@@ -78,7 +79,10 @@ class TrackableModel(models.Model):
                     old_val = getattr(old, name)
                     new_val = getattr(self, name)
                     if old_val != new_val:
-                        changes[name] = {"from": old_val, "to": new_val}
+                        changes[name] = {
+                            "from": self.serialize_value(old_val),
+                            "to": self.serialize_value(new_val),
+                        }
 
         super().save()  # сохраняем до m2m, чтобы id был
 
@@ -98,6 +102,14 @@ class TrackableModel(models.Model):
         if changes or not is_update:
             self.log_history(user, action, changes)
             super().save()  # ещё раз сохраняем с обновлённой историей
+
+    @staticmethod
+    def serialize_value(val):
+        if isinstance(val, FieldFile):
+            return val.name if val else None
+        elif isinstance(val, models.Model):
+            return str(val)  # или val.pk, если тебе важен ID
+        return val
 
 
 class SoftDeleteQuerySet(models.QuerySet):

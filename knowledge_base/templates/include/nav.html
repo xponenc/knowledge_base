@@ -1,0 +1,68 @@
+{% load static %}
+<nav class="navbar">
+    <div class="navbar__container container">
+        <div class="navbar__logo">
+            <a href="{% url 'core:knowledgebase_list' %}">
+                <img src="{% static 'img/logo/kb_2.svg' %}" alt="Логотип проекта kb AI">
+            </a>
+        </div>
+
+        <input type="checkbox" id="navbar-toggle" class="navbar__toggle-input" />
+        <label for="navbar-toggle" class="navbar__burger">
+        <span class="navbar__burger-line"></span>
+        <span class="navbar__burger-line"></span>
+        <span class="navbar__burger-line"></span>
+        </label>
+
+        <ul class="navbar__menu">
+            <li class="navbar__item navbar__item--active">
+                <a href="{% url 'embeddings:engine_list' %}" class="navbar__link">
+                    <svg class="navbar__icon">
+                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#engine"></use>
+                    </svg>
+                    Engine
+                </a>
+            </li>
+            <li class="navbar__item navbar__item--active">
+                <a href="{% url 'core:knowledgebase_list' %}" class="navbar__link">
+                    <svg class="navbar__icon">
+                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#root"></use>
+                    </svg>
+                    Базы знаний
+                </a>
+            </li>
+            <li class="navbar__item navbar__item--active">
+                <a href="{{ kb.get_absolute_url }}#cloud" class="navbar__link">
+                    <svg class="navbar__icon">
+                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#cloud"></use>
+                    </svg>
+                    Облачные хранилища
+                </a>
+            </li>
+            <li class="navbar__item">
+                <a href="{{ kb.get_absolute_url }}#local" class="navbar__link">
+                    <svg class="navbar__icon">
+                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#storage"></use>
+                    </svg>
+                    Локальные хранилища
+                </a>
+            </li>
+            <li class="navbar__item">
+                <a href="{{ kb.get_absolute_url }}#website" class="navbar__link">
+                    <svg class="navbar__icon">
+                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#website"></use>
+                    </svg>
+                    Веб-сайт
+                </a>
+            </li>
+            <li class="navbar__item">
+                <a href="{{ kb.get_absolute_url }}#urlbatch" class="navbar__link">
+                    <svg class="navbar__icon">
+                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#batch"></use>
+                    </svg>
+                    Веб-коллекция
+                </a>
+            </li>
+        </ul>
+    </div>
+</nav>

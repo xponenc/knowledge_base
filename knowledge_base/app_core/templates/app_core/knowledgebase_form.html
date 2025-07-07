@@ -1,13 +1,106 @@
-{% extends 'base.html' %}
-{% block title %}{{ view.object.pk|yesno:"Редактировать,Создать" }} базу знаний{% endblock %}
+{% extends 'clear_base.html' %}
+{% load static %}
+
+
+{% block extra_css %}
+    <link href="{% static 'libs/choices/choices.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/custom_choices.css' %}" rel="stylesheet">
+{% endblock %}
+
+
+{% block title %}
+{{ object|yesno:"Редактировать,Создать" }} базу знаний {{ object.name }}
+{% endblock %}
 
 {% block content %}
-<h2>{{ view.object.pk|yesno:"Редактировать,Создать" }} базу знаний</h2>
-
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-success">Сохранить</button>
-    <a href="{% url 'core:knowledgebase_list' %}" class="btn btn-sm btn-outline-secondary">Отмена</a>
-</form>
+<div class="page page--kb">
+    <div class="page__top page__grid">
+        <div class="page__info info-page info-page--logo">
+            {% if  object.logo.url %}
+                <img src="{{ object.logo.url }}" alt="Логотип базы знаний {{ object.name }}" class="info-page__logo">
+            {% endif %}
+        </div>
+        <div class="page__info info-page">
+            <span class="info-page__banner">База знаний</span>
+            <div class="info-page__header">
+                {% if object %}
+                    <h2 class="page__heading page__heading--accent _ta-e">{{ object.name }}</h2>
+                {% endif %}
+                <h3 class="info-page__heading _ta-e">{{ object|yesno:"Редактировать,Создать" }}</h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                {% if object %}
+                    <dl class="description">
+                        <dt class="description__term">Владельцы</dt>
+                        <dd class="description__defination tags">
+                            {% for user in object.owners.all %}
+                                <span class="tag tag--simple">
+                                    {{ user.get_full_name|default:user.username }}
+                                </span>
+                            {% endfor %}
+                        </dd>
+                        <dt class="description__term">Описание</dt>
+                        <dd class="description__defination">
+                            {{ object.description|default:"—" }}
+                        </dd>
+                        <dt class="description__term">Дата создания</dt>
+                        <dd class="description__defination">
+                            <pre class="text">{{ object.created_at|date:"d.m.Y H:i" }}</pre> 
+                        </dd>
+                    </dl>
+                {% endif %}
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+    </div>
+    <div class="page__content">
+        <form method="POST" class="form" enctype="multipart/form-data">
+            {% csrf_token %}
+            {% include "widgets/_form_content-widget.html" %}
+            <div class="form__btn-block">
+                <a href="{{ object.get_absolute_url }}" class="btn btn--reset btn--simple">ОТМЕНИТЬ</a>
+                <button type="submit" class="btn btn--reset btn--simple btn--primary" id="submit-btn">
+                    {{ object|yesno:"Сохранить,Создать" }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
+
+
+{% block script %}
+    <script src="{% static 'libs/choices/choices.min.js' %}"></script>
+    <script>
+        // Инициализация choice.js для #id_engine
+        let engineSelect = new Choices("#id_engine", {
+            allowHTML: true,
+            classNames: {
+                containerOuter: 'choices custom-choices custom-choices_transparent',
+            },
+            position: 'down',
+            itemSelectText: 'Выберите engine',
+            searchEnabled: true,
+            searchPlaceholderValue: 'поиск',
+            maxItemText: 'Выбрано максимально допустимое количество',
+            removeItemButton: true,
+            noResultsText: 'Ничего не найдено',
+        })
+        // Инициализация choice.js для #id_owners
+        let ownersSelect = new Choices("#id_owners", {
+            allowHTML: true,
+            classNames: {
+                containerOuter: 'choices custom-choices custom-choices_transparent',
+            },
+            position: 'down',
+            itemSelectText: 'Выберите владелеца',
+            searchEnabled: true,
+            searchPlaceholderValue: 'поиск',
+            maxItemText: 'Выбрано максимально допустимое количество',
+            removeItemButton: true,
+            noResultsText: 'Ничего не найдено',
+        })
+    </script>
+{% endblock script %}

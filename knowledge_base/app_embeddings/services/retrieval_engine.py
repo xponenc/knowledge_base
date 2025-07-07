@@ -3,10 +3,11 @@ import re
 from openai import OpenAI
 
 from app_embeddings.services.embedding_config import FAISS_THRESHOLD, TOP_N
-from app_embeddings.services.embedding_store import RERANKER, VECTORSTORE
+# from app_embeddings.services.embedding_store import RERANKER, VECTORSTORE
 
 
-def rerank_documents(query, docs_with_scores, reranker=RERANKER, threshold=FAISS_THRESHOLD, top_n=TOP_N):
+# def rerank_documents(query, docs_with_scores, reranker=RERANKER, threshold=FAISS_THRESHOLD, top_n=TOP_N):
+def rerank_documents(query, docs_with_scores, reranker, threshold=FAISS_THRESHOLD, top_n=TOP_N):
     """
      Фильтрует и переупорядочивает список документов на основе релевантности к запросу.
 
@@ -40,6 +41,7 @@ def rerank_documents(query, docs_with_scores, reranker=RERANKER, threshold=FAISS
 
     # Возвращаем [(Document, score)] (используем старый score из FAISS, если нужно можно заменить rerank-оценкой)
     return [doc_with_score for doc_with_score, _ in reranked[:top_n]]
+
 
 def answer_index(system, query, verbose=False):
     docs_with_scores = VECTORSTORE.similarity_search_with_score(query, k=10)

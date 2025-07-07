@@ -76,7 +76,6 @@ class StorageScanTagsForm(forms.Form):
         }
     )
 
-
     def __init__(self, *args, recognizers=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["scanning_depth"].widget.attrs.update({

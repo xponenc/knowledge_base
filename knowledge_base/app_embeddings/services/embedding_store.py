@@ -9,6 +9,8 @@ from langchain_openai import OpenAIEmbeddings
 from sentence_transformers import CrossEncoder
 import torch
 
+from knowledge_base.settings import BASE_DIR
+
 _selected_model = "frida"
 
 # def load_embedding(model_name: str):
@@ -32,11 +34,21 @@ def load_embedding(model_name: str):
         encode_kwargs={"normalize_embeddings": True, "batch_size": 8}
     )
 
-def get_vectorstore():
-    config = MODELS[_selected_model]
-    embeddings = load_embedding(config["name"])
+
+# def get_vectorstore():
+#     config = MODELS[_selected_model]
+#     embeddings = load_embedding(config["name"])
+#     return FAISS.load_local(
+#         str(config["path"]),
+#         embeddings=embeddings,
+#         index_name="index",
+#         allow_dangerous_deserialization=True
+#     )
+
+def get_vectorstore(path: str, embeddings):
+
     return FAISS.load_local(
-        str(config["path"]),
+        str(path),
         embeddings=embeddings,
         index_name="index",
         allow_dangerous_deserialization=True
@@ -70,5 +82,7 @@ def get_local_model_path(repo_id: str):
     return None
 
 
-VECTORSTORE = get_vectorstore()
-RERANKER = get_reranker()
+#
+#
+# VECTORSTORE = get_vectorstore()
+# RERANKER = get_reranker()

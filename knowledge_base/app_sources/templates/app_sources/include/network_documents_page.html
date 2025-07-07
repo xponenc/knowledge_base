@@ -2,7 +2,7 @@
 
 {% include "include/pagination.html" %}
 <div class="sources">
-    {% for document in network_documents %}
+    {% for document in documents %}
         <div class="source {% if document.status == "de" %} source--deleted{% endif %}">
             <div class="source__header">
                 <h3 class="source__heading">

@@ -6,6 +6,7 @@ from django.urls import reverse_lazy
 from django.shortcuts import redirect, get_object_or_404, render
 
 from app_sources.storage_models import CloudStorage, WebSite, LocalStorage, URLBatch
+from .forms import KnowledgeBaseForm
 from .models import KnowledgeBase
 from django.utils import timezone
 
@@ -20,10 +21,20 @@ class KBPermissionMixin(UserPassesTestMixin):
 class KnowledgeBaseListView(LoginRequiredMixin, ListView):
     """Список баз знаний (только доступные пользователю)"""
     model = KnowledgeBase
+    paginate_by = 3
+    queryset = (KnowledgeBase.objects.prefetch_related("owners")
+                .annotate(
+        cloudstorage_counter=Count("cloudstorage", distinct=True),
+        localstorage_counter=Count("localstorage", distinct=True),
+        website_counter=Count("website", distinct=True),
+        urlbatch_counter=Count("urlbatch", distinct=True)
+    )).order_by("created_at")
 
-    # def get_queryset(self):
-    #     queryset = KnowledgeBase.objects.all(include_deleted=self.request.user.is_superuser)
-    #     return queryset
+    def get_context_data(self, *args, **kwargs):
+        kb_counter = KnowledgeBase.objects.all().count()
+        context = super().get_context_data()
+        context["kb_counter"] = kb_counter
+        return context
 
 
 class KnowledgeBaseDetailView(LoginRequiredMixin, KBPermissionMixin, DetailView):
@@ -32,7 +43,7 @@ class KnowledgeBaseDetailView(LoginRequiredMixin, KBPermissionMixin, DetailView)
     cloud_storages = Prefetch(
         "cloudstorage_set",
         queryset=CloudStorage.objects.annotate(
-            networkdocuments_counter=Count("network_documents", distinct=True)
+            networkdocuments_counter=Count("documents", distinct=True)
         ),
         to_attr="cloud_storages"
     )
@@ -64,7 +75,7 @@ class KnowledgeBaseDetailView(LoginRequiredMixin, KBPermissionMixin, DetailView)
 class KnowledgeBaseCreateView(LoginRequiredMixin, CreateView):
     """Создание новой базы знаний"""
     model = KnowledgeBase
-    fields = ['name', 'description', 'owners']
+    form_class = KnowledgeBaseForm
     success_url = reverse_lazy('core:knowledgebase_list')
 
     def form_valid(self, form):
@@ -79,8 +90,8 @@ class KnowledgeBaseCreateView(LoginRequiredMixin, CreateView):
 class KnowledgeBaseUpdateView(LoginRequiredMixin, KBPermissionMixin, UpdateView):
     """Редактирование базы знаний с логированием изменений"""
     model = KnowledgeBase
-    fields = ['name', 'description', 'owners']
-    success_url = reverse_lazy('core:knowledgebase_list')
+    form_class = KnowledgeBaseForm
+    # success_url = reverse_lazy('core:knowledgebase_list')
 
     def form_valid(self, form):
         self.object = form.save(commit=False)

@@ -19,11 +19,16 @@
     padding: var(--gap);
     border-radius: var(--gap-half);
     background-color: var(--block-bg-color);
+    background-color: var(--article-bg-color);
     border: 1px solid var(--block-border-color);
 }
 
 .source--deleted {
     opacity: 0.7;
+}
+
+.source--border {
+    border: 1px solid var(--block-border-color);
 }
 
 .source__header {
@@ -51,7 +56,12 @@
 .source__wrapper {
     position: relative;
     margin-bottom: var(--gap-half);
-
+}
+.source__wrapper--logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: calc(46px + var(--gap) * 2);
 }
 
 .source__wrapper::after {
@@ -63,6 +73,12 @@
     height: 2px;
     border-radius: 2px;
     background-color: var(--block-border-color);
+}
+.source__logo {
+    padding: var(--gap);
+    height: 100%;
+    object-fit: contain;
+    
 }
 
 .source__manage {

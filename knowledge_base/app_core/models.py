@@ -11,6 +11,9 @@ class KnowledgeBase(TrackableModel):
     def logo_upload_path(instance, filename):
         return f"kb/logos/kb_{instance.pk}_{filename}"
 
+    engine = models.ForeignKey("app_embeddings.EmbeddingEngine", verbose_name="модель эмбеддинга",
+                               on_delete=models.SET_NULL, blank=True, null=True, related_name="bases")
+
     name = models.CharField(verbose_name="название", max_length=400, unique=True)
     description = models.CharField(verbose_name="описание", max_length=1000, null=True, blank=True)
 

@@ -11,6 +11,11 @@
 
 {% block title %}Разбиение на чанки{% endblock %}
 
+{% block nav %}
+    {% include "include/nav.html" %}
+{% endblock nav %}
+
+
 {% block breadcrumbs %}
 <nav aria-label="breadcrumb" class="breadcrumb-wrapper">
     <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
@@ -63,7 +68,7 @@
     <article class="page__content _mb">
         <h3 class="page__subheading">Информирование</h3>
         <dl class="description">
-            <dt class="description__term">Страниц</dt>
+            <dt class="description__term">Источников</dt>
             <dd class="description__defination">
                 {{ storage.source_counter }}
             </dd>
@@ -90,8 +95,11 @@
             {% csrf_token %}
             {% include "widgets/_form_content-widget.html" %}
             <!-- Контейнер для динамических полей конфигурации -->
-            <div id="config-form-container" class="mb-3">
+            <div id="config-form-container">
                 {% if config_form %}
+                    {% if splitter_help %}
+                        <div class="_mb"><p class="text text--accent text--bold">{{ splitter_help }}</p></div>
+                    {% endif %}
                     {% include "widgets/_form_content-widget.html" with form=config_form %}
                 {% endif %}
             </div>
@@ -132,7 +140,6 @@
         
             splitterSelect.addEventListener('change', () => {
                 const splitter = splitterSelect.value;
-                console.log(splitter)
                 if (!splitter) {
                     configContainer.innerHTML = '';
                     return;
@@ -147,6 +154,7 @@
                     return response.text();
                 })
                 .then(html => {
+                    console.log(html)
                     configContainer.innerHTML = html;
                 })
                 .catch(err => {

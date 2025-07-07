@@ -11,9 +11,10 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import NotSupportedError
 from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 from django.template.loader import render_to_string
+from django.utils.safestring import mark_safe
 from django.utils.timezone import make_aware
 from django.views import View
-from django.db.models import Subquery, OuterRef, Q, Prefetch, Count
+from django.db.models import Subquery, OuterRef, Q, Prefetch, Count, ExpressionWrapper, F, IntegerField
 from django.db.models.functions import Length
 from django.http import StreamingHttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -24,15 +25,14 @@ from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 
 from app_chunks.forms import ModelScoreTestForm, SplitterSelectForm, SplitterDynamicConfigForm
-from app_chunks.models import Chunk, ChunkStatus
+from app_chunks.models import Chunk, ChunkStatus, ChunkingReport
 from app_chunks.splitters.dispatcher import SplitterDispatcher
-from app_chunks.tasks import test_model_answer, bulk_chunks_create
+from app_chunks.tasks import test_model_answer, bulk_chunks_create, universal_bulk_chunks_create
 from app_embeddings.services.embedding_config import system_instruction
 from app_embeddings.services.retrieval_engine import answer_index
-from app_sources.content_models import URLContent
-from app_sources.report_models import ChunkingReport
-from app_sources.source_models import URL, SourceStatus
-from app_sources.storage_models import WebSite
+from app_sources.content_models import URLContent, RawContent, ContentStatus, CleanedContent
+from app_sources.source_models import URL, SourceStatus, NetworkDocument, OutputDataType
+from app_sources.storage_models import WebSite, CloudStorage, LocalStorage, URLBatch
 from utils.setup_logger import setup_logger
 
 logger = setup_logger(__name__, log_dir="logs/chunking", log_file="chunking.log")
@@ -54,10 +54,13 @@ class SplitterConfigView(LoginRequiredMixin, View):
 
         config_schema = getattr(splitter_cls, "config_schema", {})
         config_form = SplitterDynamicConfigForm(schema=config_schema)
-
-        html = render_to_string("widgets/_form_content-widget.html", {
+        form_html = render_to_string("widgets/_form_content-widget.html", {
             "form": config_form,
         }, request=request)
+
+        splitter_help = getattr(splitter_cls, "help_text", "")
+        help_html = mark_safe(f'<div class="_mb"><p class="text text--accent text--bold">{splitter_help}</p></div>')
+        html = help_html + form_html
 
         return HttpResponse(html)
 
@@ -281,6 +284,8 @@ class ChunkListView(LoginRequiredMixin, ListView):
     def get(self, *args, **kwargs):
         queryset = super().get_queryset()
         url_content_pk = self.request.GET.get("urlcontent")
+        cleaned_content_pk = self.request.GET.get("cleanedcontent")
+        raw_content_pk = self.request.GET.get("rawcontent")
         if url_content_pk:
             url_content = URLContent.objects.get(pk=url_content_pk)
             document = url_content.url
@@ -300,6 +305,47 @@ class ChunkListView(LoginRequiredMixin, ListView):
                 "object": url_content,
                 "chunk_list": queryset,
             }
+        elif cleaned_content_pk:
+            cleaned_content = CleanedContent.objects.get(pk=cleaned_content_pk)
+            document = cleaned_content.network_document or cleaned_content.local_document
+            storage = document.storage
+            kb = storage.kb
+
+            queryset = queryset.filter(cleaned_content=cleaned_content)
+            context = {
+                "content": cleaned_content,
+                "content_type_ru": "Чистый контент",
+                "document": document,
+                "document_type_ru": "Веб-страница",
+                "storage": storage,
+                "storage_type_eng": "website",
+                "storage_type_ru": "Веб-сайт",
+                "kb": kb,
+                # "object": url_content,
+                "chunk_list": queryset,
+            }
+
+        elif raw_content_pk:
+            raw_content = RawContent.objects.get(pk=raw_content_pk)
+            document = raw_content.network_document or raw_content.local_document
+            storage = document.storage
+            kb = storage.kb
+
+            queryset = queryset.filter(raw_content=raw_content)
+            context = {
+                "content": raw_content,
+                "content_type_ru": "Исходный контент",
+                "document": document,
+                "document_type_ru": "Сетевой документ" if raw_content.network_document else "Локальный документ",
+                "storage": storage,
+                "storage_type_eng": "cloud" if raw_content.network_document else "local",
+                "storage_type_ru": storage._meta.verbose_name,
+                "kb": kb,
+                # "object": url_content,
+                "chunk_list": queryset,
+            }
+        else:
+            context = {}
 
         return render(request=self.request, template_name="app_chunks/chunk_list.html", context=context)
 
@@ -423,11 +469,10 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
         except (ValueError, TypeError):
             return None
 
-    def get(self,request, pk):
-        export_only_flag = request.GET.get("export_only_flag")
+    def get(self, request, pk):
         storage_qs = WebSite.objects.annotate(
             source_counter=Count("url", distinct=True),
-            chunk_counter=Count("url__urlcontent__chunk", distinct=True)
+            chunk_counter=Count("url__urlcontent__chunks", distinct=True)
         )
         storage = get_object_or_404(storage_qs, pk=pk)
 
@@ -443,6 +488,7 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
         splitters = dispatcher.list_all()
 
         current_splitter = storage.configs.get("current_splitter")
+        splitter_help = None
 
         if current_splitter and isinstance(current_splitter, dict):
             # Получаем имя класса и конфигурацию
@@ -454,6 +500,7 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
                 splitter_cls = dispatcher.get_by_name(splitter_class_name)
                 splitter_instance = splitter_cls(initial_config)  # Проверка валидности
                 schema = splitter_cls.config_schema
+                splitter_help = getattr(splitter_cls, "help_text", "")
 
                 full_class_name = f"{splitter_cls.__module__}.{splitter_cls.__name__}"
                 splitter_select_form = SplitterSelectForm(
@@ -478,6 +525,7 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
             config_form = SplitterDynamicConfigForm()
 
         context["form"] = splitter_select_form
+        context["splitter_help"] = splitter_help
         context["config_form"] = config_form
         return render(request, "app_chunks/storage_chunking.html", context)
 
@@ -485,8 +533,8 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
         export_only_flag = request.POST.get("export_only_flag")
         if not export_only_flag:
             storage_qs = WebSite.objects.annotate(
-                source_counter=Count("url"),
-                chunk_counter=Count("url__urlcontent__chunk")
+                source_counter=Count("url", distinct=True),
+                chunk_counter=Count("url__urlcontent__chunks", distinct=True)
             )
             storage = get_object_or_404(storage_qs, pk=pk)
             kb = storage.kb
@@ -718,6 +766,210 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
         # save_documents_to_file(documents, "chunk.pickle")
         response = save_documents_to_response(request, documents, is_ajax)
         return response
+
+
+class ChunkCreateFromStorageView(LoginRequiredMixin, View):
+    """Создание чанков из Хранилища Storage (CloudStorage, LocalStorage)"""
+    STORAGES = {
+        "cloud": CloudStorage,
+        "Local": LocalStorage,
+        "website": WebSite,
+        "urlbatch": URLBatch,
+    }
+
+    def get(self, request, storage_type, storage_pk):
+
+        storage_cls = self.STORAGES.get(storage_type)
+        if not storage_cls:
+            return HttpResponse(404)
+
+        storage_qs = storage_cls.objects.annotate(
+            source_counter=Count("documents", distinct=True),
+            raw_chunks_count=Count("documents__rawcontent__chunks", distinct=True),
+            cleaned_chunks_count=Count("documents__cleanedcontent__chunks", distinct=True)
+        ).annotate(
+            chunk_counter=ExpressionWrapper(
+                F("raw_chunks_count") + F("cleaned_chunks_count"),
+                output_field=IntegerField()
+            )
+        )
+        storage = get_object_or_404(storage_qs, pk=storage_pk)
+
+        kb = storage.kb
+        context = {
+            "kb": kb,
+            "storage": storage,
+            "storage_type_ru": storage_cls._meta.verbose_name,
+            "storage_type_eng": storage_type,
+        }
+
+        dispatcher = SplitterDispatcher()
+        splitters = dispatcher.list_all()
+
+        current_splitter = storage.configs.get("current_splitter")
+        splitter_help = None
+
+        if current_splitter and isinstance(current_splitter, dict):
+            # Получаем имя класса и конфигурацию
+            splitter_class_name = current_splitter.get("cls")
+            initial_config = current_splitter.get("config", {})
+
+            try:
+                # Пробуем получить класс и экземпляр сплиттера
+                splitter_cls = dispatcher.get_by_name(splitter_class_name)
+                splitter_instance = splitter_cls(initial_config)  # Проверка валидности
+                splitter_help = getattr(splitter_cls, "help_text", "")
+                schema = splitter_cls.config_schema
+
+                full_class_name = f"{splitter_cls.__module__}.{splitter_cls.__name__}"
+                splitter_select_form = SplitterSelectForm(
+                    splitters=splitters,
+                    initial={"splitters": full_class_name}
+                )
+
+                config_form = SplitterDynamicConfigForm(
+                    schema=schema,
+                    initial_config=initial_config
+                )
+
+            except Exception as e:
+                logger.warning(f"Ошибка инициализации текущего сплиттера {splitter_class_name}: {e}")
+                # fallback на пустую форму без initial
+                splitter_select_form = SplitterSelectForm(splitters=splitters)
+                config_form = None
+
+        else:
+            # Если сплиттер не задан — пустая форма выбора
+            splitter_select_form = SplitterSelectForm(splitters=splitters)
+            config_form = None
+
+        context["form"] = splitter_select_form
+        context["splitter_help"] = splitter_help
+        context["config_form"] = config_form
+        return render(request, "app_chunks/storage_chunking.html", context)
+
+    def post(self, request, storage_type, storage_pk):
+        storage_cls = self.STORAGES.get(storage_type)
+        if not storage_cls:
+            return HttpResponse(404)
+
+        storage_qs = storage_cls.objects.annotate(
+            source_counter=Count("documents", distinct=True),
+            raw_chunks_count=Count("documents__rawcontent__chunks", distinct=True),
+            cleaned_chunks_count=Count("documents__cleanedcontent__chunks", distinct=True)
+        ).annotate(
+            chunk_counter=ExpressionWrapper(
+                F("raw_chunks_count") + F("cleaned_chunks_count"),
+                output_field=IntegerField()
+            )
+        )
+        storage = get_object_or_404(storage_qs, pk=storage_pk)
+
+        kb = storage.kb
+        context = {
+            "kb": kb,
+            "storage": storage,
+            "storage_type_ru": storage_cls._meta.verbose_name,
+            "storage_type_eng": storage_type,
+        }
+
+        dispatcher = SplitterDispatcher()
+        splitters = dispatcher.list_all()
+        splitter_select_form = SplitterSelectForm(request.POST, splitters=splitters)
+
+        if not splitter_select_form.is_valid():
+            context["form"] = splitter_select_form
+            context["config_form"] = None
+            return render(request, "app_chunks/storage_chunking.html", context)
+
+        splitter_cls = splitter_select_form.cleaned_data.get("splitters")
+        splitter_config_schema = getattr(splitter_cls, "config_schema", {})
+        splitter_help = getattr(splitter_cls, "help_text", "")
+        config_form = SplitterDynamicConfigForm(request.POST, schema=splitter_config_schema)
+
+        if not config_form.is_valid():
+            context["form"] = splitter_select_form
+            context["splitter_help"] = splitter_help
+            context["config_form"] = config_form
+            return render(request, "app_chunks/storage_chunking.html", context)
+
+        splitter_config = config_form.cleaned_data
+        splitter = splitter_cls(splitter_config)
+
+        # TODO дополнить фильтрацию статусов
+        raw_content_qs = RawContent.objects.filter(
+            status=ContentStatus.READY.value
+        ).select_related(
+            'cleanedcontent'
+        ).order_by("-created_at")[:1]
+
+        raw_content_active = Prefetch("rawcontent_set", queryset=raw_content_qs, to_attr='related_rawcontents')
+
+        documents = (storage.documents.prefetch_related(raw_content_active)
+                     .exclude(status=SourceStatus.EXCLUDED.value))
+        for doc in documents:
+            doc.active_raw_content = doc.related_rawcontents[0] if doc.related_rawcontents else None
+            if doc.active_raw_content and doc.active_raw_content.file:
+                doc.file_get_url = request.build_absolute_uri(doc.active_raw_content.file.url)
+            else:
+                doc.file_get_url = None
+
+        report_content = {
+            "initial_data": {
+                "splitter": {
+                    "cls": f"{splitter.__module__}.{splitter.__class__.__name__}",
+                    "config": splitter.config,
+                },
+                "objects": {
+                    "type": f"{storage_type} documents",
+                    "ids": [document.pk for document in documents],
+                },
+            }
+        }
+
+        chunking_report = ChunkingReport(
+            author=request.user,
+            content=report_content,
+        )
+        if isinstance(storage, CloudStorage):
+            chunking_report.cloud_storage = storage
+        elif isinstance(storage, LocalStorage):
+            chunking_report.local_storage = storage
+        elif isinstance(storage, WebSite):
+            chunking_report.site = storage
+        elif isinstance(storage, URLBatch):
+            chunking_report.batch = storage
+        chunking_report.save()
+
+        task = universal_bulk_chunks_create.delay(
+            sources_list=documents,
+            report_pk=chunking_report.pk,
+            splitter=splitter,
+            author_pk=request.user.pk
+        )
+
+        chunking_report.running_background_tasks[task.id] = "Создание чанков"
+        chunking_report.save(update_fields=["running_background_tasks", ])
+
+        splitter_config = {
+            "cls": f"{splitter.__module__}.{splitter.__class__.__name__}",
+            "config": splitter.config,
+        }
+
+        storage.configs["current_splitter"] = splitter_config
+        storage.save(update_fields=["configs", ])
+
+        context = {
+            "task_id": task.id,
+            "task_name": f"Чанкинг хранилища {storage_cls._meta.verbose_name}",
+            "task_object_url": storage.get_absolute_url(),  # TODO Поменять на вывод отчета
+            "task_object_name": "Отчет о чанкинге",
+            "next_step_url": storage.get_absolute_url(),  # TODO Поменять на вывод отчета
+        }
+        return render(request=request,
+                      template_name="celery_task_progress.html",
+                      context=context
+                      )
 
 
 class TestAskFridaView(LoginRequiredMixin, View):

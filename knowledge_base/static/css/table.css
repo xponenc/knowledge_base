@@ -65,7 +65,7 @@
 }
 
 .elastic-table__thead th {
-    background-color: var(--elsatic-table-th-row-color);
+    background-color: var(--elastic-table-th-row-color);
 }
 
 .elastic-table__th {
@@ -74,7 +74,7 @@
     align-items: center;
     gap: 8px 16px;
     min-height: 48px;
-    background-color: var(--elsatic-table-th-row-color);
+    background-color: var(--elastic-table-th-row-color);
     font-weight: 500;
 }
 
@@ -103,11 +103,11 @@
 }
 
 .elastic-table__tr:nth-child(even) .elastic-table__td {
-    background-color: var(--elsatic-table-even-row-color);
+    background-color: var(--elastic-table-even-row-color);
 }
 
 .elastic-table__tr:nth-child(odd) .elastic-table__td {
-    background-color: var(--elsatic-table-odd-row-color);
+    background-color: var(--elastic-table-odd-row-color);
 }
 
 .elastic-table__cell {

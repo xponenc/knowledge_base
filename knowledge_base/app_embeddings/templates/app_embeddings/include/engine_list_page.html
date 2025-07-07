@@ -1,0 +1,37 @@
+{% load static %}
+{% if object_list|length > 0 %}
+    {% include 'include/pagination.html' %}
+    
+    <table class="elastic-table elastic-table_3-auto">
+        <thead class="elastic-table__thead">
+            <tr class="elastic-table__tr">
+                <th class="elastic-table__th">id</th>
+                <th class="elastic-table__th">Название</th>
+                <th class="elastic-table__th">Используется в базах знаний</th>
+            </tr>
+        </thead>
+        <tbody class="elastic-table__tbody">
+            {% for engine in object_list %}
+            <tr class="elastic-table__tr">
+                <td class="elastic-table__td">{{ engine.id }}</td>
+                <td class="elastic-table__td">
+                    <a class="link-marker" href="{{ engine.get_absolute_url }}">
+                        <div class="elastic-table__cell">
+                            <span>{{ engine.name }}</span>
+                            <span>{{ engine.model_name }}</span>
+                        </div>
+                        <svg class="link-marker__marker">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#engine"></use>
+                        </svg>
+                    </a>    
+                </td>
+                <td class="elastic-table__td">{{ engine.bases_count }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% include 'include/pagination.html' %}
+{% else %}
+    <p class="text text--bold _ta-c">Список пуст</p>
+{% endif %}
