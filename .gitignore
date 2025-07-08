@@ -1,7 +1,9 @@
 # Created by https://www.toptal.com/developers/gitignore/api/python,django,pycharm,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,django,pycharm,visualstudiocode
 
-
+product_settings.py
+knowledge_base/product_settings.py
+local_settings.py
 temp/
 # api google таблиц
 credentials.json
