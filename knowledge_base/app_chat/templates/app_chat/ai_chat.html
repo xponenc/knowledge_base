@@ -30,13 +30,13 @@
                 {% for message in chat_history %}
                     <div class="message {% if message.is_user %} message--user{% else %} message--ai{% endif %}" data-message-id="{{ message.id }}" data-url="{% url 'chat:message_score' message.id %}">
                         {{ message.text|safe }}
-                        {% if not message.is_user and forloop.counter == chat_history|length %}
+                        {% if not message.is_user %}
                             <div class="rating" data-score="{{ message.score|default_if_none:'' }}">
                                 <div class="rating__stars">
                                     {% for i in "-2 -1 0 1 2"|split:" " %}
                                         {% with i_int=i|add:"0" %}
                                             <label class="rating__star">
-                                                <input type="radio" class="rating__input" name="score" value="{{ i_int }}" {% if message.score == i_int%} checked{% endif %}>
+                                                <input type="radio" class="rating__input" name="score-{{ message.id }}" value="{{ i_int }}" {% if message.score == i_int%} checked{% endif %}>
                                             </label>
                                         {% endwith %}
                                     {% endfor %}
@@ -114,7 +114,7 @@ document.addEventListener("DOMContentLoaded", function () {
         for (let i = -2; i <= 2; i++) {
             stars.push(`
                 <label class="rating__star">
-                    <input type="radio" class="rating__input" name="score" value="${i}" data-message-id="${messageId}" ${score === i ? 'checked' : ''}>
+                    <input type="radio" class="rating__input" name="score-${messageId}" value="${i}" data-message-id="${messageId}" ${score === i ? 'checked' : ''}>
                 </label>
             `);
         }
