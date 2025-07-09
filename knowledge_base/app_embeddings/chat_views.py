@@ -144,7 +144,11 @@ class ChatView(LoginRequiredMixin, View):
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
                     'user_message': user_message,
-                    'ai_response': ai_response,
+                    'ai_response': {
+                        "id": 123,
+                        "score": None,
+                        "text": ai_response,
+                    },
                     'current_docs': docs_serialized,
                 })
 
@@ -158,6 +162,15 @@ class ClearChatView(LoginRequiredMixin, View):
             del request.session['chat_history']
             request.session.modified = True
         return redirect(reverse_lazy('chunks:ask_frida'))
+
+
+class MessageScoreView(LoginRequiredMixin, View):
+    """Установка оценки ответа AI"""
+
+    def post(self, request, message_pk):
+        score = request.POST.get("score")
+        print(f"{score=}")
+        return JsonResponse({}, status=200)
 
 
 class CurrentTestChunksView(LoginRequiredMixin, View):

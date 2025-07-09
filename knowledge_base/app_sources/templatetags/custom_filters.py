@@ -27,3 +27,8 @@ def as_iso_date(value):
         return dt.strftime("%Y-%m-%d")
     except Exception:
         return ""
+
+
+@register.filter
+def split(value, sep=","):
+    return value.split(sep)

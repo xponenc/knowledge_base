@@ -53,12 +53,12 @@ def answer_index(db_index, system, query, verbose=False):
         print("========= \n\n\n")
     top_docs = docs_with_scores
     # Реранкинг
-    # top_docs = rerank_documents(query, docs_with_scores)
-    # if verbose:
-    #     print("Вывод top_docs ========= ")
-    #     for doc in top_docs:
-    #         print("\n", doc)
-    #     print("========= \n\n\n")
+    top_docs = rerank_documents(query, docs_with_scores)
+    if verbose:
+        print("Вывод top_docs ========= ")
+        for doc in top_docs:
+            print("\n", doc)
+        print("========= \n\n\n")
 
     if not top_docs:
         return top_docs, "Пожалуйста, задайте вопрос иначе или уточните его."
@@ -102,7 +102,7 @@ def answer_index_with_metadata(db_index, system, query, verbose=False, metadata=
     if not top_docs:
         top_docs = [(doc, score) for doc, score in docs_with_scores if score < threshold + 0.4]
 
-    # Реранкинг
+    # # Реранкинг
     # top_docs = rerank_documents(query, docs_with_scores)
     # if verbose:
     #     print("Вывод top_docs ========= ")

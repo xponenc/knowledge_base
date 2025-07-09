@@ -1,5 +1,6 @@
 {% extends 'clear_base.html' %}
 {% load static %}
+{% load custom_filters %}
 
 
 {% block extra_css %}
@@ -29,7 +30,24 @@
             <div class="chat__history" id="chat-history">
                 {% for message in chat_history %}
                     <div class="message message--user">{{ message.user|safe }}</div>
-                    <div class="message message--ai">{{ message.ai|safe }}</div>
+                    <div class="message message--ai" data-message-id="{{ message.id }}">
+                        {{ message.ai|safe }}
+                        <div class="rating" data-score="{{ message.score|default_if_none:'' }}">
+                            <div class="rating__stars">
+                                {% for i in "-2 -1 0 1 2"|split:" " %}
+                                    {% with i_int=i|add:"0" %}
+                                    <span 
+                                        class="rating__star {% if message.score == i_int %}rating__star--active{% endif %}" 
+                                        data-value="{{ i_int }}" 
+                                        data-message-id="{{ message.id }}"
+                                        title="{{ i_int }}"
+                                        style="cursor: {% if message.score is not None %}default{% else %}pointer{% endif %};"
+                                    >★</span>
+                                    {% endwith %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
                 {% endfor %}
             </div>
             <div class="chat__footer">
@@ -90,9 +108,64 @@
         const messageInput = document.getElementById("message-input");
         const submitBtn = document.getElementById("submit-btn");
         const loader = document.getElementById("loader");
+        const urlTemplate = "{% url 'embeddings:message_score' message_pk=0 %}";
 
         if (chatHistory) {
             chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function generateStarsHtml(messageId, score) {
+            const stars = [];
+            for (let i = -2; i <= 2; i++) {
+                const active = (i === score) ? 'rating__star--active' : '';
+                const disabled = (score !== null && score !== undefined) ? 'rating__star--disabled' : '';
+                stars.push(`
+                    <span class="rating__star ${active} ${disabled}" 
+                        data-message-id="${messageId}" 
+                        data-score="${i}" 
+                        title="${i}">★</span>
+                `);
+            }
+            return stars.join('');
+        }
+
+        function setupRatingEvents() {
+            document.querySelectorAll(".rating__star").forEach(star => {
+                star.addEventListener("click", function () {
+                    const container = star.closest(".rating");
+                    if (container.dataset.scored === "true") return;
+
+                    const messageId = star.dataset.messageId;
+                    if (!messageId) return;
+
+                    const score = star.dataset.score;
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                    
+                    urlTemplate =  urlTemplate.replace(/0\/?$/, `${messageId}/`);
+
+                    fetch(urlTemplate, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": csrfToken,
+                        },
+                        body: JSON.stringify({ score: parseInt(score) })
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            container.dataset.scored = "true";
+                            container.dataset.score = score;
+                            container.innerHTML = generateStarsHtml(messageId, parseInt(score));
+                        } else {
+                            alert("Ошибка при отправке оценки.");
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Ошибка отправки:", err);
+                        alert("Ошибка при отправке оценки.");
+                    });
+                });
+            });
         }
 
         chatForm.addEventListener("submit", function (e) {
@@ -110,51 +183,59 @@
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
             fetch("", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "X-CSRFToken": csrfToken,
-            "X-Requested-With": "XMLHttpRequest"
-        },
-        body: new URLSearchParams({
-            message,
-            use_metadata: useMetadata ? "on" : ""
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        const { user_message, ai_response, current_docs } = data;
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-CSRFToken": csrfToken,
+                    "X-Requested-With": "XMLHttpRequest"
+                },
+                body: new URLSearchParams({
+                    message,
+                    use_metadata: useMetadata ? "on" : ""
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const { user_message, ai_response, current_docs } = data;
 
-        chatHistory.innerHTML += `
-            <div class="message message--user">${user_message}</div>
-            <div class="message message--ai">${ai_response}</div>
-        `;
-        
-        chatHistory.scrollTop = chatHistory.scrollHeight;
+                chatHistory.innerHTML += `
+                    <div class="message message--user">${user_message}</div>
+                    <div class="message message--ai">
+                        ${ai_response.text}
+                        <div class="rating" data-scored="${ai_response.score !== null}" data-score="${ai_response.score ?? ''}">
+                            ${generateStarsHtml(ai_response.id, ai_response.score)}
+                        </div>
+                    </div>
+                `;
 
-        if (Array.isArray(current_docs) && current_docs.length > 0) {
-            docsContainer.innerHTML = current_docs.map((doc, i) => `
-                <div class="mb-3 p-2 border rounded bg-white">
-                    <strong>Документ ${i + 1}</strong><br/>
-                    <pre class="mb-0 text-break" style="white-space:pre-wrap;">${JSON.stringify(doc, null, 2)}</pre>
-                </div>
-            `).join('');
-        } else {
-            docsContainer.innerHTML = "<p class='text-muted'>Нет релевантных документов.</p>";
-        }
+                chatHistory.scrollTop = chatHistory.scrollHeight;
 
-        messageInput.value = "";
-    })
-    .catch(error => {
-        console.error("Ошибка:", error);
-        alert("Ошибка при отправке запроса.");
-    })
-    .finally(() => {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Отправить';
-        loader.classList.add("d-none");
-    });
+                if (Array.isArray(current_docs) && current_docs.length > 0) {
+                    docsContainer.innerHTML = current_docs.map((doc, i) => `
+                        <div class="mb-3 p-2 border rounded bg-white">
+                            <strong>Документ ${i + 1}</strong><br/>
+                            <pre class="mb-0 text-break" style="white-space:pre-wrap;">${JSON.stringify(doc, null, 2)}</pre>
+                        </div>
+                    `).join('');
+                } else {
+                    docsContainer.innerHTML = "<p class='text-muted'>Нет релевантных документов.</p>";
+                }
+
+                messageInput.value = "";
+                setupRatingEvents();  // подключить события на новые звёздочки
+            })
+            .catch(error => {
+                console.error("Ошибка:", error);
+                alert("Ошибка при отправке запроса.");
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Отправить';
+                loader.classList.add("d-none");
+            });
         });
+
+        setupRatingEvents();  // активировать при первичной загрузке, если оценки уже есть
     });
 </script>
 {% endblock script %}

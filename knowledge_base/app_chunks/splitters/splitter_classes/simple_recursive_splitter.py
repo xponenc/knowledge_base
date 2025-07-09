@@ -52,11 +52,15 @@ class SimpleRecursiveSplitter(BaseSplitter):
             chunk_overlap=chunk_overlap,
             length_function=lambda x: self._num_tokens_from_string(x, encoding_name)
         )
+        documents = []
+        chunks = splitter.split_text(text_to_split)
+        for chunk in chunks:
+            new_document = Document(page_content=chunk, metadata=metadata.copy())
+            new_document.metadata["size_in_tokens"] = self._num_tokens_from_string(new_document.page_content,
+                                                                                   encoding_name)
+            documents.append(new_document)
 
-        return [
-            Document(page_content=chunk, metadata=metadata.copy())
-            for chunk in splitter.split_text(text_to_split)
-        ]
+        return documents
 
     @staticmethod
     def _num_tokens_from_string(string: str, encoding_name: str) -> int:
