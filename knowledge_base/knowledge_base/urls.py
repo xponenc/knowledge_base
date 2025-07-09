@@ -33,6 +33,7 @@ urlpatterns = [
     path('', include('app_parsers.urls')),
     path('chunks/', include('app_chunks.urls')),
     path('tasks/', include('app_tasks.urls')),
+    path('chat/', include('app_chat.urls')),
 ]
 
 if settings.DEBUG:

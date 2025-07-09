@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'app_chunks',
     'app_tasks',
     'app_embeddings',
+    'app_chat',
     # 'app_retriever',
     "django.contrib.humanize",
     # "ckeditor",

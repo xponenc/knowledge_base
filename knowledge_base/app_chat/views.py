@@ -1,13 +1,59 @@
-from django.shortcuts import get_object_or_404, render
-from django.http import JsonResponse, HttpResponseBadRequest
+
+import json
+import logging
+import os
+import pickle
+from datetime import datetime
+
+import markdown
+
+from collections import Counter
+
+
+from django.shortcuts import get_object_or_404, render, redirect
+from django.http import JsonResponse
 from django.views import View
 from django.utils import timezone
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.urls import reverse_lazy
 
 from app_chat.models import ChatSession, ChatMessage
 from app_core.models import KnowledgeBase
+from app_embeddings.forms import ModelScoreTestForm
+from app_embeddings.services.embedding_config import system_instruction, system_instruction_metadata
+from app_embeddings.services.embedding_store import get_vectorstore, load_embedding
+from app_embeddings.services.retrieval_engine import answer_index, answer_index_with_metadata
+from app_embeddings.tasks import test_model_answer
+from knowledge_base.settings import BASE_DIR
+
+from threading import Lock
+
+logger = logging.getLogger(__file__)
+
+_model_cache = {}
+_index_cache = {}
+_lock = Lock()
+
+
+def get_cached_model(model_name, loader_func):
+    with _lock:
+        if model_name not in _model_cache:
+            logger.error(f"Загружаю модель эмбеддинга {model_name}")
+            _model_cache[model_name] = loader_func(model_name)
+        return _model_cache[model_name]
+
+
+def get_cached_index(index_path: str, model_name: str, loader_func, model_obj):
+    key = (index_path, model_name)
+    with _lock:
+        if key not in _index_cache:
+            logger.error(f"Загружаю векторную базу {model_name}")
+            _index_cache[key] = loader_func(index_path, model_obj)
+        return _index_cache[key]
 
 
 class ChatView(View):
+    """Базовый чат с AI"""
     template_name = "app_chat/ai_chat.html"
 
     def get(self, request, kb_pk, *args, **kwargs):
@@ -20,7 +66,16 @@ class ChatView(View):
 
         chat_session, _ = ChatSession.objects.get_or_create(session_key=session_key, kb=kb)
 
-        messages = chat_session.messages.order_by("created_at").all()
+        chat_history = chat_session.messages.filter(is_user_deleted__isnull=True).order_by("created_at")
+
+        messages = []
+        for message in chat_history:
+            messages.append({
+                "id": message.id,
+                "is_user": message.is_user,
+                "text": message.text if message.is_user else markdown.markdown(message.text),
+                "score": message.score,
+            })
 
         context = {
             'kb': kb,
@@ -29,7 +84,11 @@ class ChatView(View):
         return render(request, self.template_name, context)
 
     def post(self, request, kb_pk, *args, **kwargs):
+
         kb = get_object_or_404(KnowledgeBase.objects.select_related("engine"), pk=kb_pk)
+        embedding_engine = kb.engine
+        embeddings_model_name = embedding_engine.model_name
+
         session_key = request.session.session_key
         if not session_key:
             request.session.create()
@@ -49,30 +108,94 @@ class ChatView(View):
             created_at=timezone.now()
         )
 
-        # --- Здесь ваш код вызова AI и получение ответа ---
-        # Например:
-        # ai_response_text = call_your_ai_api(user_message_text)
+        try:
+            # embeddings_model = load_embedding(embeddings_model_name)
+            embeddings_model = get_cached_model(
+                embeddings_model_name,
+                loader_func=load_embedding
+            )
+        except Exception as e:
+            logger.error(f"Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
+            raise ValueError(f"Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
 
-        # Для примера пусть AI просто отвечает "Echo: {текст}"
-        ai_response_text = f"Echo: {user_message_text}"
+        # Инициализация или загрузка FAISS индекса
+        faiss_dir = os.path.join(BASE_DIR, "media", "kb", str(kb.pk), "embedding_store",
+                                 f"{embedding_engine.name}_faiss_index_db")
 
-        # Сохраняем ответ AI
-        ai_message = ChatMessage.objects.create(
-            session=chat_session,
-            is_user=False,
-            text=ai_response_text,
-            created_at=timezone.now()
-        )
+        try:
+            # db_index = get_vectorstore(
+            #     path=faiss_dir,
+            #     embeddings=embeddings_model
+            # )
+            db_index = get_cached_index(
+                index_path=faiss_dir,
+                model_name=embeddings_model_name,
+                loader_func=get_vectorstore,
+                model_obj=embeddings_model
+            )
+        except Exception as e:
+            logger.error(f"Ошибка векторная база {embeddings_model_name}: {str(e)}")
+            context = {
+                'kb': kb,
+                'chat_history': [],
+                'message': 'Не найдена готовая векторная база, необходимо выполнить векторизацию'
+            }
+            # Возвращаем JSON-ответ для AJAX
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'user_message': user_message,
+                    'ai_response': '<p class="text text--alarm text--bold">Не найдена готовая векторная база, необходимо выполнить векторизацию</p>',
+                    'current_docs': [],
+                })
+            return render(request, self.template_name, context)
 
-        # Возвращаем JSON с новым сообщением AI и ID для оценки
-        return JsonResponse({
-            "user_message": user_message.text,
-            "ai_response": {
-                "id": ai_message.id,
-                "score": ai_message.score,  # изначально None
-                "text": ai_message.text,
-            },
-        })
+        use_metadata = request.POST.get("use_metadata") == "on"
+        if user_message:
+            if use_metadata:
+                docs, ai_message_text = answer_index_with_metadata(
+                    db_index,
+                    system_instruction_metadata,
+                    user_message_text,
+                    verbose=False
+                )
+            else:
+                docs, ai_message_text = answer_index(db_index, system_instruction, user_message_text, verbose=False)
+            docs_serialized = [
+                {"score": float(doc_score), "metadata": doc.metadata, "content": doc.page_content, }
+                for doc, doc_score in docs]
+
+            # Сохраняем ответ AI
+            ai_message = ChatMessage.objects.create(
+                session=chat_session,
+                is_user=False,
+                text=ai_message_text,
+                created_at=timezone.now()
+            )
+            ai_message_text = markdown.markdown(ai_message_text)
+
+            # Возвращаем JSON-ответ для AJAX
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'user_message': user_message_text,
+                    'ai_response': {
+                        "id": 123,
+                        "score": None,
+                        "text": ai_message_text,
+                    },
+                    'current_docs': docs_serialized,
+                })
+        chat_history = ChatMessage.objects.filter(session=chat_session,
+                                                  is_user_deleted__isnull=True).order_by("created_at")
+        messages = []
+        for message in chat_history:
+            messages.append({
+                "id": message.id,
+                "is_user": message.is_user,
+                "text": message.text if message.is_user else markdown.markdown(message.text),
+                "score": message.score,
+            })
+
+        return render(request, self.template_name, {'chat_history': chat_history})
 
 
 class MessageScoreView(View):
@@ -81,6 +204,7 @@ class MessageScoreView(View):
     def post(self, request, message_pk):
         try:
             score = int(request.POST.get("score"))
+            print(score)
             if score not in range(-2, 3):  # -2, -1, 0, 1, 2
                 return JsonResponse({"error": "Invalid score value"}, status=400)
         except (TypeError, ValueError):
@@ -91,3 +215,94 @@ class MessageScoreView(View):
             return JsonResponse({"error": "Message not found or is a user message"}, status=404)
 
         return JsonResponse({"success": True, "score": score})
+
+
+class ClearChatView(LoginRequiredMixin, View):
+    def post(self, request, kb_pk, *args, **kwargs):
+
+        kb = get_object_or_404(KnowledgeBase, pk=kb_pk)
+
+        session_key = request.session.session_key
+        if not session_key:
+            request.session.create()
+            session_key = request.session.session_key
+
+        chat_session, _ = ChatSession.objects.get_or_create(session_key=session_key, kb=kb)
+
+        chat_session.messages.update(is_user_deleted__isnull=datetime.now())
+
+        return redirect(reverse_lazy('chat:chat', kwargs={"kb_pk": kb_pk}))
+
+
+class CurrentTestChunksView(LoginRequiredMixin, View):
+    def get(self, *args, **kwargs):
+        all_documents = None
+        chunk_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chunk.pickle")
+        with open(chunk_file, 'rb') as f:
+            # Загружаем (десериализуем) список документов из файла
+            all_documents = pickle.load(f)
+        context = {"all_documents": all_documents, }
+        return render(request=self.request, template_name="app_chunks/current_documents.html", context=context)
+
+
+class TestModelScoreView(LoginRequiredMixin, View):
+    """тестирование ответов"""
+
+    def get(self, *args, **kwargs):
+        all_documents = None
+        chunk_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chunk.pickle")
+        with open(chunk_file, 'rb') as f:
+            # Загружаем (десериализуем) список документов из файла
+            all_documents = pickle.load(f)
+        all_urls = list(set(doc.metadata.get("url") for doc in all_documents))
+        form = ModelScoreTestForm(all_urls=all_urls, initial={'urls': all_urls[:5]})
+        context = {
+            "form": form
+        }
+        return render(request=self.request, template_name="app_chunks/test_model_answer.html", context=context)
+
+    def post(self, *args, **kwargs):
+        all_documents = None
+        chunk_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chunk.pickle")
+        with open(chunk_file, 'rb') as f:
+            # Загружаем (десериализуем) список документов из файла
+            all_documents = pickle.load(f)
+        all_urls = list(set(doc.metadata.get("url") for doc in all_documents))
+        form = ModelScoreTestForm(self.request.POST, all_urls=all_urls)
+        if form.is_valid():
+            test_urls = form.cleaned_data.get("urls")
+            task = test_model_answer.delay(test_urls=test_urls)
+            return render(self.request, "celery_task_progress.html", {
+                "task_id": task.id,
+                "task_name": f"Тестирование ответов модели",
+                "task_object_url": reverse_lazy("chunks:test_model_report"),
+                "task_object_name": "FRIDA",
+                "next_step_url": reverse_lazy("chunks:test_model_report"),
+            })
+
+        context = {
+            "form": form
+        }
+        return render(request=self.request, template_name="app_chunks/test_model_answer.html", context=context)
+
+
+class TestModelScoreReportView(LoginRequiredMixin, View):
+    def get(self, *args, **kwargs):
+        test_report = None
+        all_documents = None
+        chunk_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chunk.pickle")
+        with open(chunk_file, 'rb') as f:
+            # Загружаем (десериализуем) список документов из файла
+            all_documents = pickle.load(f)
+        all_urls = list(doc.metadata.get("url") for doc in all_documents)
+        all_urls_counts = Counter(all_urls)
+
+        with open("test_report.json", encoding="utf-8") as f:
+            test_report = json.load(f)
+            for test_name, test_data in test_report.items():
+                test_report[test_name]["chunks_counter"] = all_urls_counts.get(test_data.get("url"))
+                test_report[test_name]["used_chunks"] = len(list(doc for doc in test_data.get("ai_documents", []) if
+                                                                 doc.get("metadata", {}).get("url") == test_data.get(
+                                                                     "url")))
+
+        return render(self.request, 'app_chunks/test_model_results.html', {'tests': test_report})

@@ -71,7 +71,7 @@
                         </svg>
                     </a>
                     {% if object.engine %}
-                        <a href="{% url 'embeddings:chat' object.pk %}" class="btn btn--reset btn--simple btn--primary">
+                        <a href="{% url 'chat:chat' object.pk %}" class="btn btn--reset btn--simple btn--primary">
                             <svg class="btn__icon">
                                 <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
                             </svg>

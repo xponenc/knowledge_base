@@ -1,11 +1,13 @@
+from django.core.validators import MinValueValidator
 from django.db import models
 
 from app_core.models import KnowledgeBase
 
 
 class ChatSession(models.Model):
-    session_key = models.CharField(max_length=40, unique=True, db_index=True)
-    kb = models.ForeignKey(KnowledgeBase, on_delete=models.CASCADE, related_name='chat_sessions')
+    session_key = models.CharField(verbose_name="ключ пользовательской сессии",
+                                   max_length=40, unique=True, db_index=True)
+    kb = models.ForeignKey(KnowledgeBase, verbose_name="диалоговая база", on_delete=models.CASCADE, related_name='chat_sessions')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -13,12 +15,16 @@ class ChatSession(models.Model):
 
 
 class ChatMessage(models.Model):
-    session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name='messages')
-    is_user = models.BooleanField(default=True)
-    text = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
+    session = models.ForeignKey(ChatSession, verbose_name="пользовательская сессия",
+                                on_delete=models.CASCADE, related_name='messages')
+    is_user = models.BooleanField(verbose_name="пользователь/ai", default=True)
+    text = models.TextField(verbose_name="сообщение")
+    score = models.SmallIntegerField(verbose_name="оценка", null=True, blank=True,
+                                     validators=[MinValueValidator(-2), MinValueValidator(2)])
 
-    score = models.SmallIntegerField(null=True, blank=True)
+    is_user_deleted = models.DateTimeField(verbose_name="удалено пользователем", blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         author = "User" if self.is_user else "AI"
