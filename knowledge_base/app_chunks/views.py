@@ -360,14 +360,14 @@ class ChunkCreateFromURLContentView(LoginRequiredMixin, View):
 
     def get(self, request, url_content_pk, *args, **kwargs):
         chunk_preview_set = Prefetch(
-            "chunk_set",
+            "chunks",
             queryset=Chunk.objects.order_by("pk").only("id", "status", "metadata")[:5],
             to_attr="chunk_preview_set"
         )
 
         urlcontent_qs = URLContent.objects.select_related("report", "author") \
             .prefetch_related(chunk_preview_set) \
-            .annotate(chunks_counter=Count("chunk"))
+            .annotate(chunks_counter=Count("chunks", distinct=True))
 
         url_content = get_object_or_404(urlcontent_qs, pk=url_content_pk)
         document = url_content.url
@@ -552,8 +552,11 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
                 context["form"] = splitter_select_form
                 context["config_form"] = None
                 return render(request, "app_chunks/storage_chunking.html", context)
+
             splitter_cls = splitter_select_form.cleaned_data.get("splitters")
             splitter_config_schema = getattr(splitter_cls, "config_schema", {})
+            splitter_help = getattr(splitter_cls, "help_text", "")
+
             config_form = SplitterDynamicConfigForm(request.POST, schema=splitter_config_schema)
             if not config_form.is_valid():
                 context["form"] = splitter_select_form
@@ -561,7 +564,16 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
                 return render(request, "app_chunks/storage_chunking.html", context)
 
             splitter_config = config_form.cleaned_data
-            splitter = splitter_cls(splitter_config)
+            # тестовая инициализация сплиттера
+            try:
+                splitter = splitter_cls(splitter_config)
+            except Exception as e:
+                splitter_select_form.add_error("splitters", f"Ошибка инициализации сплиттера"
+                                                            f" {splitter_cls} c конфигурацией {splitter_config}: {e}")
+                context["form"] = splitter_select_form
+                context["splitter_help"] = splitter_help
+                context["config_form"] = config_form
+                return render(request, "app_chunks/storage_chunking.html", context)
 
             url_contents = URLContent.objects.select_related("url").filter(url__site=storage)
 
@@ -587,7 +599,8 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
             task = bulk_chunks_create.delay(
                 content_list=url_contents,
                 report_pk=chunking_report.pk,
-                splitter=splitter,
+                splitter_cls=splitter_cls,
+                splitter_config=splitter_config,
                 author_pk=request.user.pk
             )
 
@@ -891,9 +904,17 @@ class ChunkCreateFromStorageView(LoginRequiredMixin, View):
             context["splitter_help"] = splitter_help
             context["config_form"] = config_form
             return render(request, "app_chunks/storage_chunking.html", context)
-
         splitter_config = config_form.cleaned_data
-        splitter = splitter_cls(splitter_config)
+        # тестовая инициализация сплиттера
+        try:
+            splitter = splitter_cls(splitter_config)
+        except Exception as e:
+            splitter_select_form.add_error("splitters", f"Ошибка инициализации сплиттера"
+                                                        f" {splitter_cls} c конфигурацией {splitter_config}: {e}")
+            context["form"] = splitter_select_form
+            context["splitter_help"] = splitter_help
+            context["config_form"] = config_form
+            return render(request, "app_chunks/storage_chunking.html", context)
 
         # TODO дополнить фильтрацию статусов
         raw_content_qs = RawContent.objects.filter(
@@ -943,7 +964,8 @@ class ChunkCreateFromStorageView(LoginRequiredMixin, View):
         task = universal_bulk_chunks_create.delay(
             sources_list=documents,
             report_pk=chunking_report.pk,
-            splitter=splitter,
+            splitter_cls=splitter_cls,
+            splitter_config=splitter_config,
             author_pk=request.user.pk
         )
 

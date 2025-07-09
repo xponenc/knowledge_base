@@ -1,8 +1,9 @@
-from typing import List
+from typing import List, Dict, Type
 
 from celery import shared_task
 from celery_progress.backend import ProgressRecorder
 from app_chunks.models import Chunk, ChunkStatus
+from app_chunks.splitters.base import BaseSplitter
 from app_sources.content_models import RawContent, CleanedContent
 from app_sources.source_models import OutputDataType
 from utils.setup_logger import setup_logger
@@ -15,7 +16,8 @@ def bulk_chunks_create(
         self,
         content_list: List,
         report_pk: int,
-        splitter,
+        splitter_cls: Type[BaseSplitter],
+        splitter_config: Dict,
         author_pk: int,
 ) -> str:
     """
@@ -24,7 +26,8 @@ def bulk_chunks_create(
     :param self: Celery-задача (для отображения прогресса).
     :param content_list: Список объектов URLContent для обработки.
     :param report_pk: Первичный ключ отчёта обновления.
-    :param splitter: Инициализированный объект класса-наследника BaseSplitter.
+    :param splitter_cls: Класс-наследник BaseSplitter.
+    :param splitter_config: Словарь с конфигурацией для объекта класса-наследника BaseSplitter.
     :param author_pk: Идентификатор пользователя, создавшего чанки.
     :return: Строка с информацией о завершении задачи.
     """
@@ -38,6 +41,8 @@ def bulk_chunks_create(
 
     bulk_container = []
     batch_size = 900
+
+    splitter = splitter_cls(splitter_config)
 
     for i, content in enumerate(content_list):
         try:
@@ -95,17 +100,18 @@ def universal_bulk_chunks_create(
         self,
         sources_list: List,
         report_pk: int,
-        splitter,
+        splitter_cls: Type[BaseSplitter],
+        splitter_config: Dict,
         author_pk: int,
 ) -> str:
     """
     Разбивает веб-страницы на чанки с использованием заданного сплиттера и сохраняет их в базу данных.
 
     :param self: Celery-задача (для отображения прогресса).
-    :param request: Входящий объект запроса класса HttpRequest.
     :param sources_list: Список объектов класса NetworkDocument или LocalDocument.
     :param report_pk: Первичный ключ отчёта обновления объекта класса ChunkingReport.
-    :param splitter: Инициализированный объект класса-наследника BaseSplitter.
+    :param splitter_cls: Класс-наследник BaseSplitter.
+    :param splitter_config: Словарь с конфигурацией для объекта класса-наследника BaseSplitter.
     :param author_pk: Идентификатор пользователя, создавшего чанки.
     :return: Строка с информацией о завершении задачи.
     """
@@ -120,6 +126,8 @@ def universal_bulk_chunks_create(
 
     bulk_container = []
     batch_size = 900
+
+    splitter = splitter_cls(splitter_config)
 
     for i, source in enumerate(sources_list):
         try:
