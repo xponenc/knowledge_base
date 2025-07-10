@@ -125,7 +125,7 @@ def universal_bulk_chunks_create(
     chunk_logger.info(f"[START] Разбиение {total} элементов. Отчёт ID={report_pk}")
 
     bulk_container = []
-    batch_size = 900
+    batch_size = 500
 
     splitter = splitter_cls(splitter_config)
 

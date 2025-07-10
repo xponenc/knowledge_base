@@ -14,26 +14,6 @@
 {% block breadcrumbs %}
 <nav aria-label="breadcrumb" class="breadcrumb-wrapper">
     <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
-        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-            <a href="{{ object.storage.kb.get_absolute_url }}" itemprop="item">
-                <span itemprop="name">База знаний {{ object.storage.kb.name }}</span>
-            </a>
-            <meta itemprop="position" content="1" />
-        </li>
-        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
-            <a href="{% url 'sources:cloudstorage_detail' object.storage.pk %}" itemprop="item">
-                <span itemprop="name">{{ object.storage.name }}</span>
-            </a>
-            <meta itemprop="position" content="2" />
-        </li>
-        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
-            <span itemprop="name">Сетевой документ</span>
-            <meta itemprop="position" content="3" />
-        </li>
-    </ol>
-</nav>
-<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
-    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
         {% comment %} база знаний {% endcomment %}
         <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
             <a href="{{ kb.get_absolute_url }}" itemprop="item">
@@ -87,7 +67,7 @@
                     <dd class="description__defination">{{ object.description|default:"" }}</dd>
                     <dt class="description__term">Статус</dt>
                     <dd class="description__defination">
-                        <span class="tag tag--fat{% if object.status == "ready" %} tag--success{% elif object.status == "de" %} tag--deleted{% elif object.status == "ex" %} tag--disabled {% elif object.status == "er" %} tag--alarm{% else %} tag--warning{% endif %}">
+                        <span class="tag tag--fat{% if object.status == "active" %} tag--success{% elif object.status == "de" %} tag--deleted{% elif object.status == "ex" %} tag--disabled {% elif object.status == "er" %} tag--alarm{% else %} tag--warning{% endif %}">
                             {{ object.get_status_display  }}
                         </span>
                     </dd>
@@ -377,9 +357,8 @@
                                         </table>
                                     {% endif %}
                                 {% elif object.output_format == "f" %}
-                                {{raw_content.chunk_preview_set }}
                                     {% if raw_content.chunks_counter > 0 %}
-                                        <table class="elastic-table elastic-table_1-auto _mb">
+                                        <table class="elastic-table elastic-table_2-auto _mb">
                                             <thead class="elastic-table__thead">
                                                 <tr class="elastic-table__tr">
                                                     <th class="elastic-table__th">Чанк</th>

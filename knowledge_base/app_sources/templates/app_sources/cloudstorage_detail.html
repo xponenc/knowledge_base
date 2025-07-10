@@ -76,7 +76,14 @@
                             </svg>
                         </a>
                     {% endif %}
-                  
+                    {% if documents|length > 0 and kb.engine %}
+                        <a href="{% url 'embeddings:storage_vectorize' 'cloud' cloudstorage.id %}" class="btn btn--reset btn--simple btn--primary" id="submit-btn" title="Будет открыта форма для создания векторов" aria-label="Будет открыта форма для создания чанков в базае данных">
+                            <span>Создать вектора</span>
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#embedding"></use>
+                            </svg>
+                        </a>
+                    {% endif %}
                     <form id="export-form" action="{% url 'sources:export_to_google_sheet' cloudstorage.pk %}" method="POST">
                         {% csrf_token %}
                         <button type="submit" class="btn btn--reset btn--simple">

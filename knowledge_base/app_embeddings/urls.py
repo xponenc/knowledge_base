@@ -2,8 +2,7 @@ from django.urls import path
 
 from app_chat.views import CurrentTestChunksView
 from app_embeddings.views import EngineDetailView, EngineListView, EngineCreateView, EngineUpdateView, EngineDeleteView, \
-    VectorizeWebsiteView
-
+    VectorizeWebsiteView, VectorizeStorageView
 
 app_name = "embeddings"
 
@@ -15,6 +14,7 @@ urlpatterns = [
     path("engine/<int:pk>/update", EngineDeleteView.as_view(), name="engine_delete"),
 
     path("website/<int:pk>/vectorize", VectorizeWebsiteView.as_view(), name="website_vectorize"),
+    path("storage/<str:storage_type>/<int:pk>/vectorize", VectorizeStorageView.as_view(), name="storage_vectorize"),
 
 
 

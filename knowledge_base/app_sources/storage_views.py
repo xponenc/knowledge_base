@@ -16,6 +16,7 @@ from django.views.generic import DetailView, ListView, CreateView, UpdateView, D
 from app_core.models import KnowledgeBase
 from app_sources.content_models import RawContent, ContentStatus
 from app_sources.forms import CloudStorageForm
+from app_sources.models import HierarchicalContextMixin
 from app_sources.report_models import CloudStorageUpdateReport
 from app_sources.services.google_sheets_manager import GoogleSheetsManager
 from app_sources.source_models import URL, NetworkDocument, LocalDocument, SourceStatus
@@ -205,8 +206,7 @@ class StorageTagsView(LoginRequiredMixin, StoragePermissionMixin, View):
         )
 
 
-
-class CloudStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, DetailView):
+class CloudStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, HierarchicalContextMixin, DetailView):
     """Детальный просмотр объекта модели Облачное хранилище"""
     model = CloudStorage
     #

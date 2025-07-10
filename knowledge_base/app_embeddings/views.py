@@ -9,9 +9,12 @@ from django.views.generic import ListView, DetailView, CreateView, UpdateView, D
 
 from app_core.models import KnowledgeBase
 from app_embeddings.models import EmbeddingEngine, EmbeddingsReport
-from app_sources.storage_models import WebSite
+from app_sources.storage_models import WebSite, CloudStorage, LocalStorage, URLBatch
 from app_sources.storage_views import StoragePermissionMixin
-from app_embeddings.tasks import create_vectors_task
+from app_embeddings.tasks import create_vectors_task, universal_create_vectors_task
+from utils.setup_logger import setup_logger
+
+logger = setup_logger(name=__file__, log_dir="logs/embeddings", log_file="embeddings.log")
 
 
 class EngineListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -193,6 +196,108 @@ class VectorizeWebsiteView(LoginRequiredMixin, StoragePermissionMixin, View):
         try:
             task = create_vectors_task.delay(
                 website_id=storage.pk,
+                author_pk=request.user.pk,
+                report_pk=embeddings_report.pk
+            )
+
+            embeddings_report.running_background_tasks[task.id] = "Векторизация чанков"
+            embeddings_report.save(update_fields=["running_background_tasks", ])
+
+            context = {
+                "task_id": task.id,
+                "task_name": f"Векторизация хранилища {storage._meta.verbose_name} {storage.name}",
+                "task_object_url": storage.get_absolute_url(),  # TODO Поменять на вывод отчета
+                "task_object_name": "Отчет о векторизации",
+                "next_step_url": storage.get_absolute_url(),  # TODO Поменять на вывод отчета
+            }
+            return render(request=request,
+                          template_name="celery_task_progress.html",
+                          context=context
+                          )
+
+        except Exception as e:
+            logger.exception(f"Ошибка векторизации хранилища: {storage.name}, запущена {request.user},"
+                             f" отчет [EmbeddingsReport id {embeddings_report.pk}]")
+            embeddings_report.content.setdefault("errors", []).append(str(e))
+            embeddings_report.save()
+            return render(request, 'app_sources/sync_result.html', {
+                'result': {'error': f"Ошибка получения файлов: {e}"},
+                'cloud_storage': cloud_storage
+            })
+
+
+class VectorizeStorageView(LoginRequiredMixin, StoragePermissionMixin, View):
+    """
+    Векторизация содержимого Storage (создание эмбеддингов для чанков и сохранение в FAISS).
+    """
+    template_name = 'app_embeddings/vectorize_website.html'
+
+    STORAGES = {
+        "cloud": CloudStorage,
+        "local": LocalStorage,
+    }
+
+    def get(self, request, storage_type, pk):
+        """Отображает форму подтверждения векторизации."""
+        storage_cls = self.STORAGES.get(storage_type)
+        if not storage_cls:
+            raise ValueError("Неизвестный тип хранилища")
+        storage = get_object_or_404(storage_cls, id=pk)
+        kb = storage.kb
+        context = {
+            "kb": kb,
+            "storage": storage,
+            "storage_type_ru": storage._meta.verbose_name,
+            "storage_type_eng": storage_type,
+        }
+
+        return render(request, self.template_name, context)
+
+    def post(self, request, storage_type, pk):
+        # Получаем объект WebSite
+        storage_cls = self.STORAGES.get(storage_type)
+        if not storage_cls:
+            raise ValueError("Неизвестный тип хранилища")
+        storage = get_object_or_404(storage_cls, id=pk)
+        kb = storage.kb
+        engine = kb.engine
+
+        context = {
+            "kb": kb,
+            "storage": storage,
+            "storage_type_ru": storage._meta.verbose_name,
+            "storage_type_eng": "website",
+        }
+
+        report_content = {
+            "initial_data": {
+                "engine": {
+                    "model_name": engine.model_name,
+                    "config": engine.fine_tuning_params,
+                },
+                # "objects": {
+                #     "type": f"",
+                #     "ids": [],
+                # },
+            }
+        }
+
+        embeddings_report = EmbeddingsReport(
+            author=self.request.user,
+            content=report_content,
+        )
+        if isinstance(storage, CloudStorage):
+            embeddings_report.cloud_storage = storage
+        elif isinstance(storage, LocalStorage):
+            embeddings_report.local_storage = storage
+        elif isinstance(storage, WebSite):
+            embeddings_report.site = storage
+        elif isinstance(storage, URLBatch):
+            embeddings_report.batch = storage
+        embeddings_report.save()
+
+        try:
+            task = universal_create_vectors_task.delay(
                 author_pk=request.user.pk,
                 report_pk=embeddings_report.pk
             )

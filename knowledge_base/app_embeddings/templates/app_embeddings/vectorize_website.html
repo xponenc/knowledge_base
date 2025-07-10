@@ -10,6 +10,34 @@
 {{ object|yesno:"Редактировать,Создать" }} Векторизация сайта {{ storage.name }}
 {% endblock %}
 
+
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        {% comment %} база знаний {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ kb.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">База знаний {{ kb.name }}</span>
+            </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        {% comment %} хранилище {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <a href="{{ storage.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">{{ storage_type_ru }} {{ storage.name }}</span>
+            </a>
+            <meta itemprop="position" content="2" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">Векторизация</span>
+            <meta itemprop="position" content="35" />
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+
 {% block content %}
 <div class="page page--{{ storage_type_eng }}">
     <div class="page__top page__grid">
@@ -19,7 +47,7 @@
             {% endif %}
         </div>
         <div class="page__info info-page">
-            <span class="info-page__banner">вебсайт</span>
+            <span class="info-page__banner">{{ storage_type_ru }}</span>
             <div class="info-page__header">
                 <h2 class="page__heading page__heading--accent _ta-e">{{ storage.name }}</h2>
                 <h3 class="info-page__heading _ta-e">векторизация</h3>
@@ -33,7 +61,7 @@
         </div>
     </div>
     <div class="page__content">
-        <h1>Векторизация сайта: {{ storage.name }}</h1>
+        <h1>Векторизация хранилища {{ storage_type_ru }}: {{ storage.name }}</h1>
 
         {% if error %}
             <div class="alert alert-danger" role="alert">
@@ -41,9 +69,9 @@
             </div>
             <a href="{{ storage.get_absolute_url }}" class="btn btn-secondary">Вернуться к сайту</a>
         {% else %}
-            <p class="text">Вы собираетесь запустить векторизацию для сайта <strong>{{ storage.base_url }}</strong>.</p>
+            <p class="text">Вы собираетесь запустить векторизацию для хранилища <strong>{% firstof storage.base_url storage.name %}</strong>.</p>
             <p class="text">Это создаст эмбеддинги для всех чанков, связанных с сайтом, и сохранит их в FAISS.</p>
-            <form method="post" action="{% url 'embeddings:website_vectorize' storage.id %}" class="form">
+            <form method="post" class="form">
                 {% csrf_token %}
                 <p class="text text--bold text--alarm">Вы уверены, что хотите продолжить?</p>
                 <div class="form__btn-block">

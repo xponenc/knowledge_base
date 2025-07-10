@@ -4,6 +4,7 @@ import torch
 # Глобальный кеш для модели и токенизатора
 _model_cache = {}
 
+
 def get_model_and_tokenizer(model_name='utrobinmv/t5_summary_en_ru_zh_base_2048', device=None):
     global _model_cache
     if 'model' not in _model_cache or 'tokenizer' not in _model_cache:
@@ -14,7 +15,8 @@ def get_model_and_tokenizer(model_name='utrobinmv/t5_summary_en_ru_zh_base_2048'
             _model_cache['model'].to(device)
     return _model_cache['model'], _model_cache['tokenizer']
 
-def summarize_text(text: str, mode: str = 'summary', device: str = None) -> str:
+
+def summarize_text(text: str, mode: str = 'summary big', device: str = None) -> str:
     """
     Получить суммаризацию текста с помощью модели T5.
 
@@ -35,11 +37,12 @@ def summarize_text(text: str, mode: str = 'summary', device: str = None) -> str:
     inputs = tokenizer(src_text, return_tensors="pt", truncation=True, max_length=1024)
     inputs = {k: v.to(device) for k, v in inputs.items()}
 
-    generated_ids = model.generate(**inputs, max_length=200, num_beams=5, early_stopping=True)
+    generated_ids = model.generate(**inputs, max_length=400, num_beams=5, early_stopping=True)
     summaries = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
 
     # Обычно результат - список из одной строки
     return summaries[0] if summaries else ''
+
 
 # Пример использования:
 if __name__ == '__main__':
@@ -71,9 +74,9 @@ def summarize_with_sber(text: str, beams=5, count=3, length_penalty=0.5) -> str 
     async def fetch():
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                "https://api.aicloud.sbercloud.ru/public/v2/summarizator/predict",
-                json=payload,
-                headers={"Content-Type": "application/json", "accept": "application/json"}
+                    "https://api.aicloud.sbercloud.ru/public/v2/summarizator/predict",
+                    json=payload,
+                    headers={"Content-Type": "application/json", "accept": "application/json"}
             ) as response:
                 try:
                     data = await response.json()
