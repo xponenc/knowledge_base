@@ -80,6 +80,10 @@
     margin-bottom: var(--gap);
     background-color: inherit;
 }
+.page__top--system-chat {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+}
 
 .page__grid {
     display: grid;

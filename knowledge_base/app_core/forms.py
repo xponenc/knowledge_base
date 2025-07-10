@@ -8,7 +8,7 @@ class KnowledgeBaseForm(forms.ModelForm):
     """Форма создания/редактирования KnowledgeBase"""
     class Meta:
         model = KnowledgeBase
-        fields = ['name', 'engine', 'description', 'owners', 'logo']
+        fields = ['name', 'engine', 'description', 'owners', 'logo', 'system_instruction', 'system_metadata_instruction']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -22,6 +22,14 @@ class KnowledgeBaseForm(forms.ModelForm):
             'placeholder': '',
         })
         self.fields['description'].widget = Textarea(attrs={
+            'class': 'custom-field__input custom-field__input_wide custom-field__input_textarea',
+            'placeholder': ' ',
+        })
+        self.fields['system_instruction'].widget = Textarea(attrs={
+            'class': 'custom-field__input custom-field__input_wide custom-field__input_textarea',
+            'placeholder': ' ',
+        })
+        self.fields['system_metadata_instruction'].widget = Textarea(attrs={
             'class': 'custom-field__input custom-field__input_wide custom-field__input_textarea',
             'placeholder': ' ',
         })

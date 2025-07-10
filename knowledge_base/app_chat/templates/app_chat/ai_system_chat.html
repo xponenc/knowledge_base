@@ -18,8 +18,8 @@
 
 {% block content %}
 <div class="page page--kb">
-    <div class="page__top">
-        <!-- Правая колонка: Чат -->
+    <div class="page__top page__top--system-chat">
+        <!-- Левая колонка: Чат -->
         <div class="chat">
             <div class="chat__header">
                 <h3 class="chat__heading">🧠 Ask {{ kb.engine.name }}</h3>
@@ -78,6 +78,31 @@
                 </form>
             </div>
         </div>
+        <!-- Левая колонка: системная форма -->
+        <div class="page__info info-page info-page--content _jc-fs">
+            <span class="info-page__banner info-page__banner--medium">инструкции</span>
+            <div class="info-page__header">
+                <h2 class="page__heading _ta-e"></h2>
+                <h3 class="info-page__heading"></h3>
+            </div>
+            <div class="info-page__body">
+                {% include "widgets/_form_content-widget.html" with form=system_instruction_form %}
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+    </div>
+    <div class="page__content">
+        <div class="d-flex gap-2 mt-2 mb-2">
+            {% comment %} <a href="{% url 'chunks:current_chuncks' %}" class="btn btn-outline-secondary btn-sm">Действующие чанки</a> {% endcomment %}
+            {% comment %} <a href="{% url 'chunks:test_model_score' %}" class="btn btn-outline-secondary btn-sm">Тестировать модель</a> {% endcomment %}
+        </div>
+        <div class="col-md-6" id="docs-column">
+            <h4>🔍 Найденные документы</h4>
+            <div id="current-docs" class="bg-light border rounded p-3">
+                <p class="text-muted">Нет данных</p>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock content %}
@@ -88,9 +113,31 @@
 document.addEventListener("DOMContentLoaded", function () {
     const chatForm = document.querySelector("#chat-form");
     const chatHistory = document.getElementById("chat-history");
+    const docsContainer = document.getElementById("current-docs");
     const messageInput = document.getElementById("message-input");
     const submitBtn = document.getElementById("submit-btn");
     const loader = document.getElementById("loader");
+
+    const metadataCheckbox = document.querySelector("#id_use_metadata");
+    const systemInstructionMetadata = document.querySelector("#id_system_metadata_instruction");
+    const systemInstructionStandard = document.querySelector("#id_system_instruction");
+
+    function toggleTextareas() {
+        if (metadataCheckbox.checked) {
+            systemInstructionMetadata.classList.remove("visually-hidden");
+            systemInstructionStandard.classList.add("visually-hidden");
+        } else {
+            systemInstructionMetadata.classList.add("visually-hidden");
+            systemInstructionStandard.classList.remove("visually-hidden");
+        }
+    }
+
+    // Инициализация на загрузке
+    toggleTextareas();
+
+    // Переключение при изменении чекбокса
+    metadataCheckbox.addEventListener("change", toggleTextareas);
+
 
     if (chatHistory) {
         chatHistory.scrollTop = chatHistory.scrollHeight;
@@ -149,13 +196,17 @@ document.addEventListener("DOMContentLoaded", function () {
         const message = messageInput.value.trim();
         if (!message) return;
 
-        const useMetadata = document.getElementById("id_use_metadata").checked;
+        const useMetadata = metadataCheckbox.checked;
 
         submitBtn.disabled = true;
         submitBtn.innerHTML = 'Обработка... <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
         loader.classList.remove("d-none");
 
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+        const systemMetadata = systemInstructionMetadata.value;
+        const systemStandard = systemInstructionStandard.value;
+
 
         fetch("", {
             method: "POST",
@@ -166,7 +217,9 @@ document.addEventListener("DOMContentLoaded", function () {
             },
             body: new URLSearchParams({
                 message,
-                use_metadata: useMetadata ? "on" : ""
+                use_metadata: useMetadata ? "on" : "",
+                system_instruction: systemStandard,
+                system_metadata_instruction: systemMetadata,
             })
         })
         .then(response => response.json())
@@ -182,9 +235,19 @@ document.addEventListener("DOMContentLoaded", function () {
                     </div>
                 </div>
             `;
-
             chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            docsContainer.innerHTML = Array.isArray(current_docs) && current_docs.length > 0
+                ? current_docs.map((doc, i) => `
+                    <div class="mb-3 p-2 border rounded bg-white">
+                        <strong>Документ ${i + 1}</strong><br/>
+                        <pre class="mb-0 text-break" style="white-space:pre-wrap;">${JSON.stringify(doc, null, 2)}</pre>
+                    </div>
+                `).join('')
+                : "<p class='text-muted'>Нет релевантных документов.</p>";
+
             messageInput.value = "";
+            
         })
         .catch(error => {
             console.error("Ошибка:", error);

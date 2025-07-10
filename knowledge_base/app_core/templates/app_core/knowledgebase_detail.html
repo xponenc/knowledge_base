@@ -53,13 +53,13 @@
                             {{ object.fine_tuning_params }}
                         </dd>
                     {% endif %}
-                    {% comment %} <dt class="description__term">автор</dt>
+                    <dt class="description__term">системная инструкция</dt>
                     <dd class="description__defination">
-                        <pre class="text">{{ object.author.get_full_name|default:object.author.username }}</pre> 
-                    </dd> {% endcomment %}
-                    <dt class="description__term">дата создания</dt>
+                        {{ object.system_instruction }}
+                    </dd> 
+                    <dt class="description__term">системная инструкция (вариант с метаданными)</dt>
                     <dd class="description__defination">
-                        <pre class="text">{{ object.created_at|date:"d.m.Y H:i" }}</pre> 
+                        {{  object.system_metadata_instruction }}
                     </dd>
                 </dl>
             </div>
@@ -76,6 +76,12 @@
                                 <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
                             </svg>
                             чат
+                        </a>
+                        <a href="{% url 'chat:system_chat' object.pk %}" class="btn btn--reset btn--simple btn--primary">
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                            </svg>
+                            системный чат
                         </a>
                     
                     {% endif %}

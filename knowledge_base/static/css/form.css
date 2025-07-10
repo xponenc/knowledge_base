@@ -397,6 +397,11 @@
     resize: none;
     line-height: 1.2;
 }
+.custom-field__input_textarea-extra-toll {
+    height: 440px;
+    resize: none;
+    line-height: 1.2;
+}
 
 .custom-field__input:focus,
 .custom-field__input:hover {
