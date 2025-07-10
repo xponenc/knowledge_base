@@ -324,7 +324,6 @@ class SystemChatView(View):
 
         if user_message:
             if use_metadata:
-                print(system_metadata_instruction)
                 docs, ai_message_text = answer_index_with_metadata(
                     db_index,
                     system_metadata_instruction,
