@@ -25,6 +25,8 @@ class Storage(TrackableModel, SoftDeleteModel):
     description = models.CharField(verbose_name="описание", max_length=1000, null=True, blank=True)
     configs = models.JSONField(verbose_name="конфигурации", default=dict, blank=True, null=True)
 
+    default_retriever = models.BooleanField(verbose_name="Поиск по умолчанию", default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     soft_deleted_at = models.DateTimeField(blank=True, null=True, verbose_name="мягко удалена")

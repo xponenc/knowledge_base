@@ -1,22 +1,70 @@
-{% extends 'base.html' %}
-{% block title %}Создать хранилище класса "Вебсайт"{% endblock %}
-{% block content %}
-<h2>Создать хранилище класса "Вебсайт"</h2>
-<form method="post">
-    {% csrf_token %}
-    {{ form.errors }}
-    <div class="mb-3">
-        <label for="{{ form.name.id_for_label }}" class="form-label">Название</label>
-        {{ form.name }}
-    </div>
-    <div class="mb-3">
-        <label for="{{ form.base_url.id_for_label }}" class="form-label">Главная ссылка на сайт</label>
-        {{ form.base_url }}
-    </div>
-    <div class="mb-3">
-        <label for="{{ form.xml_map_url.id_for_label }}" class="form-label">Ссылка на xml карту сайта</label>
-        {{ form.xml_map_url }}
-    </div>
-    <button type="submit" class="btn btn-primary">Создать</button>
-</form>
+{% extends 'clear_base.html' %}
+{% load static %}
+
+
+{% block extra_css %}
 {% endblock %}
+
+
+{% block title %}{% endblock %}
+{{ object|yesno:"Редактировать,Создать" }} вебсайт {{ object.name }}
+
+
+{% block content %}
+<div class="page page--website">
+    <div class="page__top page__grid">
+        <div class="page__info info-page info-page--logo">
+            {% if  object.kb.logo.url %}
+                <img src="{{ object.kb.logo.url }}" alt="Логотип базы знаний {{ object.kb.name }}" class="info-page__logo">
+            {% endif %}
+        </div>
+        <div class="page__info info-page">
+            <span class="info-page__banner">вебсайт</span>
+            <div class="info-page__header">
+                {% if object %}
+                    <h2 class="page__heading page__heading--accent _ta-e">{{ object.name }}</h2>
+                {% endif %}
+                <h3 class="info-page__heading _ta-e">{{ object|yesno:"Редактировать,Создать" }}</h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                {% if object %}
+                    <dl class="description">
+                        <dt class="description__term">База знаний</dt>
+                        <dd class="description__defination tags">
+                            {{ object.kb.name }}
+                        </dd>
+                        <dt class="description__term">Описание</dt>
+                        <dd class="description__defination">
+                            {{ object.description|default:"—" }}
+                        </dd>
+                        <dt class="description__term">Дата создания</dt>
+                        <dd class="description__defination">
+                            <pre class="text">{{ object.created_at|date:"d.m.Y H:i" }}</pre> 
+                        </dd>
+                    </dl>
+                {% endif %}
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+    </div>
+    <div class="page__content">
+        <form method="POST" class="form" enctype="multipart/form-data">
+            {% csrf_token %}
+            {% include "widgets/_form_content-widget.html" %}
+            <div class="form__btn-block">
+                <a href="{{ object.get_absolute_url }}" class="btn btn--reset btn--simple">ОТМЕНИТЬ</a>
+                <button type="submit" class="btn btn--reset btn--simple btn--primary" id="submit-btn">
+                    {{ object|yesno:"Сохранить,Создать" }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block script %}
+    
+{% endblock script %}

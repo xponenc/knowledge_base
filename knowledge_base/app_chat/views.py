@@ -22,7 +22,7 @@ from app_core.models import KnowledgeBase
 from app_embeddings.forms import ModelScoreTestForm
 # from app_embeddings.services.embedding_config import system_instruction, system_instruction_metadata
 from app_embeddings.services.embedding_store import get_vectorstore, load_embedding
-from app_embeddings.services.retrieval_engine import answer_index, answer_index_with_metadata
+from app_embeddings.services.retrieval_engine import answer_index, answer_index_with_metadata, get_cached_multi_chain
 from app_embeddings.tasks import test_model_answer
 from knowledge_base.settings import BASE_DIR
 
@@ -108,87 +108,93 @@ class ChatView(View):
             created_at=timezone.now()
         )
 
-        try:
-            # embeddings_model = load_embedding(embeddings_model_name)
-            embeddings_model = get_cached_model(
-                embeddings_model_name,
-                loader_func=load_embedding
-            )
-        except Exception as e:
-            logger.error(f"Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
-            raise ValueError(f"Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
-
-        # Инициализация или загрузка FAISS индекса
-        faiss_dir = os.path.join(BASE_DIR, "media", "kb", str(kb.pk), "embedding_store",
-                                 f"{embedding_engine.name}_faiss_index_db")
-
-        try:
-            # db_index = get_vectorstore(
-            #     path=faiss_dir,
-            #     embeddings=embeddings_model
-            # )
-            db_index = get_cached_index(
-                index_path=faiss_dir,
-                model_name=embeddings_model_name,
-                loader_func=get_vectorstore,
-                model_obj=embeddings_model
-            )
-        except Exception as e:
-            logger.error(f"Ошибка векторная база {embeddings_model_name}: {str(e)}")
-            context = {
-                'kb': kb,
-                'chat_history': [],
-                'message': 'Не найдена готовая векторная база, необходимо выполнить векторизацию'
-            }
-            # Возвращаем JSON-ответ для AJAX
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({
-                    'user_message': user_message,
-                    'ai_response': '<p class="text text--alarm text--bold">Не найдена готовая векторная база, необходимо выполнить векторизацию</p>',
-                })
-            return render(request, self.template_name, context)
+        multi_chain = get_cached_multi_chain(kb.pk)
+        #
+        # try:
+        #     # embeddings_model = load_embedding(embeddings_model_name)
+        #     embeddings_model = get_cached_model(
+        #         embeddings_model_name,
+        #         loader_func=load_embedding
+        #     )
+        # except Exception as e:
+        #     logger.error(f"Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
+        #     raise ValueError(f"Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
+        #
+        # # Инициализация или загрузка FAISS индекса
+        # faiss_dir = os.path.join(BASE_DIR, "media", "kb", str(kb.pk), "embedding_store",
+        #                          f"{embedding_engine.name}_faiss_index_db")
+        #
+        # try:
+        #     # db_index = get_vectorstore(
+        #     #     path=faiss_dir,
+        #     #     embeddings=embeddings_model
+        #     # )
+        #     db_index = get_cached_index(
+        #         index_path=faiss_dir,
+        #         model_name=embeddings_model_name,
+        #         loader_func=get_vectorstore,
+        #         model_obj=embeddings_model
+        #     )
+        # except Exception as e:
+        #     logger.error(f"Ошибка векторная база {embeddings_model_name}: {str(e)}")
+        #     context = {
+        #         'kb': kb,
+        #         'chat_history': [],
+        #         'message': 'Не найдена готовая векторная база, необходимо выполнить векторизацию'
+        #     }
+        #     # Возвращаем JSON-ответ для AJAX
+        #     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        #         return JsonResponse({
+        #             'user_message': user_message,
+        #             'ai_response': '<p class="text text--alarm text--bold">Не найдена готовая векторная база, необходимо выполнить векторизацию</p>',
+        #         })
+        #     return render(request, self.template_name, context)
 
         use_metadata = request.POST.get("use_metadata") == "on"
-        if user_message:
-            if use_metadata:
-                system_metadata_instruction = kb.system_metadata_instruction
-                if not system_metadata_instruction:
-                    return JsonResponse({"error": "Пустая системная инструкция (вариант с метаданными)"}, status=400)
-                docs, ai_message_text = answer_index_with_metadata(
-                    db_index,
-                    system_metadata_instruction,
-                    user_message_text,
-                    verbose=False
-                )
-            else:
-                system_instruction = kb.system_instruction
-                if not system_instruction:
-                    return JsonResponse({"error": "Пустая системная инструкция"}, status=400)
-                docs, ai_message_text = answer_index(db_index,
-                                                     system_instruction,
-                                                     user_message_text,
-                                                     verbose=False)
+        ai_message_text = multi_chain.run(user_message_text)
+        ai_message_text = multi_chain.run({
+            "input": user_message_text,
+        })
 
-            # Сохраняем ответ AI
-            ai_message = ChatMessage.objects.create(
-                session=chat_session,
-                is_user=False,
-                text=ai_message_text,
-                created_at=timezone.now()
-            )
-            ai_message_text = markdown.markdown(ai_message_text)
+        # if use_metadata:
+        #     system_metadata_instruction = kb.system_metadata_instruction
+        #     if not system_metadata_instruction:
+        #         return JsonResponse({"error": "Пустая системная инструкция (вариант с метаданными)"}, status=400)
+        #     docs, ai_message_text = answer_index_with_metadata(
+        #         db_index,
+        #         system_metadata_instruction,
+        #         user_message_text,
+        #         verbose=False
+        #     )
+        # else:
+        #     system_instruction = kb.system_instruction
+        #     if not system_instruction:
+        #         return JsonResponse({"error": "Пустая системная инструкция"}, status=400)
+        #     docs, ai_message_text = answer_index(db_index,
+        #                                          system_instruction,
+        #                                          user_message_text,
+        #                                          verbose=False)
 
-            # Возвращаем JSON-ответ для AJAX
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({
-                    'user_message': user_message_text,
-                    'ai_response': {
-                        "id": 123,
-                        "score": None,
-                        "request_url": reverse_lazy("chat:message_score", kwargs={"message_pk": ai_message.pk}),
-                        "text": ai_message_text,
-                    },
-                })
+        # Сохраняем ответ AI
+        ai_message = ChatMessage.objects.create(
+            session=chat_session,
+            is_user=False,
+            text=ai_message_text,
+            created_at=timezone.now()
+        )
+        ai_message_text = markdown.markdown(ai_message_text)
+
+        # Возвращаем JSON-ответ для AJAX
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'user_message': user_message_text,
+                'ai_response': {
+                    "id": ai_message.pk,
+                    "score": None,
+                    "request_url": reverse_lazy("chat:message_score", kwargs={"message_pk": ai_message.pk}),
+                    "text": ai_message_text,
+                },
+            })
         chat_history = ChatMessage.objects.filter(session=chat_session,
                                                   is_user_deleted__isnull=True).order_by("created_at")
         messages = []

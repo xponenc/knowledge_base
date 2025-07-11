@@ -138,6 +138,7 @@ def universal_bulk_chunks_create(
 
                 body = f" {source.title}" if source.title else ""
                 body += f" {source.description}" if source.description else ""
+                body += f" [Ссылка на файл]{source.file_get_url}"
 
             else:
                 content = getattr(source.active_raw_content, "cleanedcontent")

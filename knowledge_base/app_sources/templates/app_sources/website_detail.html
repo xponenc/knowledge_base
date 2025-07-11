@@ -91,6 +91,11 @@
                             </svg>
                         </a>
                     {% endif %}
+                    <a href="{% url 'sources:website_update' website.id %}" class="btn btn--reset btn--round" title="Редактировать информацию о веб-сайте" aria-label="Редактировать информацию о веб-сайте">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                        </svg>
+                    </a>
                 </div>
             </div>
         </div>

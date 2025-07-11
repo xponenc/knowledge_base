@@ -565,7 +565,7 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, Hierarchical
 class WebSiteCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateView):
     """Создание объекта модели Вебсайт"""
     model = WebSite
-    fields = ['name', 'base_url', 'xml_map_url']
+    fields = ['name', 'base_url', 'default_retriever', 'xml_map_url', 'description']
 
     def dispatch(self, request, *args, **kwargs):
         """Сохраняем knowledge_base для дальнейшего использования"""
@@ -596,7 +596,27 @@ class WebSiteCreateView(LoginRequiredMixin, StoragePermissionMixin, CreateView):
 class WebSiteUpdateView(LoginRequiredMixin, StoragePermissionMixin, UpdateView):
     """Редактирование объекта модели Вебсайт"""
     model = WebSite
-    fields = ['name', 'xml_map_url']
+    fields = ['name', 'default_retriever', 'xml_map_url', 'description']
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields["name"].widget.attrs.update({
+            "class": "custom-field__input custom-field__input_wide",
+            "placeholder": " "
+        })
+        form.fields["default_retriever"].widget.attrs.update({
+            "class": "switch",
+            "placeholder": " "
+        })
+        form.fields["xml_map_url"].widget.attrs.update({
+            "class": "custom-field__input custom-field__input_wide",
+            "placeholder": " "
+        })
+        form.fields["description"].widget = forms.Textarea(attrs={
+            "class": "custom-field__input custom-field__input_wide custom-field__input_textarea",
+            "placeholder": " "
+        })
+        return form
 
 
 class WebSiteDeleteView(LoginRequiredMixin, DeleteView):
