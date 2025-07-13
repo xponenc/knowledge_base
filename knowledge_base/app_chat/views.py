@@ -26,6 +26,7 @@ from app_embeddings.services.retrieval_engine import answer_index, answer_index_
 from app_embeddings.tasks import test_model_answer
 from knowledge_base.settings import BASE_DIR
 
+
 from threading import Lock
 
 logger = logging.getLogger(__file__)
@@ -151,11 +152,13 @@ class ChatView(View):
         #     return render(request, self.template_name, context)
 
         use_metadata = request.POST.get("use_metadata") == "on"
-        ai_message_text = multi_chain.run(user_message_text)
-        ai_message_text = multi_chain.run({
-            "input": user_message_text,
-        })
-
+        result = multi_chain.invoke({"input": user_message_text, "system_prompt": kb.system_instruction})
+        docs = result.get("source_documents", [])
+        ai_message_text = result["result"]
+        verbose = True
+        if verbose:
+            print("Source Documents:", [doc.page_content for doc in docs])
+            print("Answer:", ai_message_text)
         # if use_metadata:
         #     system_metadata_instruction = kb.system_metadata_instruction
         #     if not system_metadata_instruction:
