@@ -17,7 +17,8 @@ import re
 from typing import List, Tuple, Optional, Any, Dict
 
 from langchain_core.callbacks import CallbackManagerForChainRun
-from langchain_core.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate, ChatPromptTemplate, SystemMessagePromptTemplate, \
+    HumanMessagePromptTemplate
 from langchain_openai import ChatOpenAI
 from openai import OpenAI
 import langchain
@@ -44,92 +45,88 @@ def get_cached_multi_chain(kb_id):
 class CustomRetriever(BaseRetriever):
     db_index: Any
     system_prompt: str
+    description: str
 
     def _get_relevant_documents(self, query: str, *, run_manager) -> List[Document]:
+
+        def extract_links(metadata: dict) -> List[str]:
+            links = []
+            for key, value in metadata.items():
+                if key.startswith("files__documents") or key.startswith("files__images") or key.startswith(
+                        "external_links"):
+                    if isinstance(value, str):
+                        links.append(value)
+            return links
+
+        # print(f"[*** CustomRetriever] {query=}")
         if isinstance(query, dict):
             query = query.get("input", "")
         docs_with_scores = self.db_index.similarity_search_with_score(query, k=10)
-        top_docs = rerank_documents(query, docs_with_scores)
+        # print(f"[*** CustomRetriever] {docs_with_scores=}")
+
+        top_docs = rerank_documents(query, docs_with_scores, threshold=1.5)
+        print(f"[*** CustomRetriever] {top_docs=}")
+
         if not top_docs:
             return [Document(page_content="Пожалуйста, задайте вопрос иначе или уточните его.")]
-        return [doc for doc, _ in top_docs]
+        for doc, score in top_docs:
+            doc.metadata["retriever_score"] = float(score)
+        top_docs = [doc for doc, _ in top_docs]
+        # Добавляем полезные ссылки из metadata
+        enriched_docs = self._append_links_to_documents(top_docs)
 
+        return enriched_docs
+
+
+    def _append_links_to_documents(self, docs: List[Document]) -> List[Document]:
+        def extract_links(metadata: dict) -> List[str]:
+            links = []
+            for key, value in metadata.items():
+                if key.startswith("files__documents") or key.startswith("files__images") or key.startswith(
+                        "external_links"):
+                    if isinstance(value, str):
+                        links.append(value)
+            return links
+
+        for doc in docs:
+            links = extract_links(doc.metadata)
+            if links:
+                links_text = "\n\nПолезные материалы:\n" + "\n".join(f"- {link}" for link in links)
+                doc.page_content += links_text  # Модифицируем содержимое документа
+
+        return docs
 
 # Кастомная цепочка RetrievalQA с постобработкой
 class CustomRetrievalQA(RetrievalQA):
     def _get_docs(self, inputs, run_manager: CallbackManagerForChainRun = None) -> List[Document]:
-        # docs = super()._get_docs(inputs, run_manager=run_manager)
-        # if not docs or docs[0].page_content == "Пожалуйста, задайте вопрос иначе или уточните его.":
-        #     return docs
-        # processed_docs = []
-        # for doc in docs:
-        #     # Пример постобработки: добавление метаданных
-        #     # doc.metadata["processed_at"] = datetime.now().isoformat()
-        #     processed_docs.append(doc)
-        # return processed_docs
+        # print(f"[*** CustomRetrievalQA] {inputs=}")
 
         query = inputs.get("input") or inputs.get("query")
-        return self.retriever.get_relevant_documents(query)
-    #
-    # def _call(self, inputs, run_manager=None, **kwargs):
-    #     # Получаем документы
-    #     docs = self._get_docs(inputs, run_manager=run_manager)
-    #     if not docs or docs[0].page_content == "Пожалуйста, задайте вопрос иначе или уточните его.":
-    #         return {"result": "Пожалуйста, задайте вопрос иначе или уточните его.", "source_documents": docs}
-    #
-    #     # Формируем message_content как в answer_index
-    #     message_content = re.sub(
-    #         r'\n{2}', ' ',
-    #         '\n '.join([
-    #             f'\nОтрывок документа №{i + 1}\n=====================\n{doc.page_content}\n'
-    #             for i, doc in enumerate(docs)
-    #         ])
-    #     )
-    #     system_prompt = inputs.get("system_prompt", self.retriever.system_prompt)
-    #     # Формируем полный промпт
-    #     prompt = PromptTemplate(
-    #         input_variables=["system_prompt", "context", "input"],
-    #         template="SYSTEM: {system_prompt}\n\nCONTEXT: {context}\n\nQuestion: {input}"
-    #     )
-    #     formatted_prompt = prompt.format(
-    #         system_prompt=self.retriever.system_prompt,
-    #         context=message_content,
-    #         input=inputs["query"]
-    #     )
-    #     # Передаем кастомный промпт в StuffDocumentsChain
-    #     llm_chain = self.combine_documents_chain.llm_chain
-    #     llm_chain.prompt = prompt
-    #     result = self.combine_documents_chain(
-    #         {"context": message_content, "question": inputs["query"], "system_prompt": system_prompt})
-    #     return {"result": result["output_text"], "source_documents": docs}
-    #
-    #     # # Вызываем LLM
-    #     # result = self.llm.invoke(formatted_prompt)
-    #     # return {"result": result.content, "source_documents": docs}
+        docs = self.retriever.get_relevant_documents(query)
+        # print(f"[*** CustomRetrievalQA] {docs=}")
+        return docs
+
 
     def _call(self, inputs: dict, run_manager: CallbackManagerForChainRun = None) -> Dict[str, Any]:
         query = inputs.get("input") or inputs.get("query")
-        system_prompt = inputs.get("system_prompt")
+        system_prompt = inputs.get("system_prompt", getattr(self.retriever, "system_prompt", ""))
 
-        # 1. Получаем документы
         docs = self._get_docs(inputs, run_manager)
 
-        # 2. Собираем контекстные данные
         new_inputs = {
             "input_documents": docs,
             "input": query,
-            "system_prompt": system_prompt or "",
+            "system_prompt": system_prompt,
         }
 
         result = self.combine_documents_chain.invoke(new_inputs, run_manager=run_manager)
         return {
-            "result": result["output_text"],  # <-- правильно отдаем result
-            "source_documents": docs  # <-- важно, даже если docs пустой
+            "result": result["output_text"],
+            "source_documents": docs
         }
 
 
 def init_multi_retrieval_qa_chain(kb_id):
-    retriever_infos = []
     kb = (KnowledgeBase.objects
           .select_related("engine")
           .prefetch_related("website_set", "cloudstorage_set", "localstorage_set", "urlbatch_set")
@@ -150,114 +147,6 @@ def init_multi_retrieval_qa_chain(kb_id):
         kb.urlbatch_set,
     ]
 
-    default_retriever = None
-
-    # Обход всех хранилищ
-    # for storage_set in storage_sets:
-    #     for storage in storage_set.all():
-    #         # Формируем путь к FAISS индексу
-    #         faiss_dir = os.path.join(
-    #             BASE_DIR, "media", "kb", str(kb.pk), "embedding_stores",
-    #             f"{storage.__class__.__name__}_id_{storage.pk}_embedding_store",
-    #             f"{embedding_engine.name}_faiss_index_db"
-    #         )
-    #         try:
-    #             db_index = get_vectorstore(
-    #                 path=faiss_dir,
-    #                 embeddings=embeddings_model
-    #             )
-    #         except Exception as e:
-    #             print(f"Ошибка загрузки векторного хранилища для {storage.__class__.__name__} id {storage.pk}: {str(e)}")
-    #             db_index = None
-    #
-    #         if db_index:
-    #             print(db_index)
-    #             print(storage.name)
-    #             print(storage.description)
-    #             retriever = CustomRetriever(
-    #                 db_index=db_index,
-    #                 system_prompt=kb.system_instruction
-    #             )
-    #             retriever_infos.append({
-    #                 "name": f"retriever_{storage.__class__.__name__}_{storage.pk}",
-    #                 "retriever": retriever,
-    #                 "description": f"{storage.name} — {storage.description}",
-    #                 "chain_type": CustomRetrievalQA,
-    #                 "prompt": PromptTemplate(
-    #                             input_variables=["system_prompt", "input"],
-    #                             template="SYSTEM: {system_prompt}\n\nCONTEXT: {context}\n\nQuestion: {input}"
-    #                         ),
-    #                 "chain_type_kwargs": {
-    #                     "return_source_documents": True
-    #                 }
-    #             })
-    #             if storage.default_retriever:
-    #                 default_retriever = retriever
-    # if not retriever_infos:
-    #     raise ValueError("Не удалось создать ретриверы для данной базы знаний.")
-    # if not default_retriever:
-    #     default_retriever = retriever_infos[0]
-    #
-    # print("retriever_infos:", [info["name"] for info in retriever_infos])
-    #
-    #
-    #
-    # # retriever = db_simblie_merged.as_retriever(
-    # #     search_type="similarity",
-    # #     search_kwargs={"k": 4}
-    # # )
-    # #
-    # # template = """Отвечайте на вопросы только на основе следующего контекста:
-    # #
-    # # {context}
-    # #
-    # # Вопрос: {question}
-    # # """
-    # # prompt = ChatPromptTemplate.from_template(template)
-    # # model = ChatOpenAI(model='gpt-4o-mini', temperature=0.1)
-    # #
-    # # def format_docs(docs):
-    # #     return "\n\n".join([d.page_content for d in docs])
-    # #
-    # # chain = (
-    # #         {"context": retriever | format_docs, "question": RunnablePassthrough()}
-    # #         | prompt
-    # #         | model
-    # #         | StrOutputParser()
-    # # )
-    #
-    # llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1)
-    # # default_chain = CustomRetrievalQA(
-    # #     llm=llm,
-    # #     retriever=default_retriever,
-    # #     return_source_documents=True,
-    # #     chain_type_kwargs={
-    # #         "prompt": PromptTemplate(
-    # #             input_variables=["system_prompt", "context", "input"],
-    # #             template="SYSTEM: {system_prompt}\n\nCONTEXT: {context}\n\nQuestion: {input}"
-    # #         )
-    # #     }
-    # # )
-    # prompt = PromptTemplate(
-    #     input_variables=["system_prompt", "context", "input"],
-    #     template="SYSTEM: {system_prompt}\n\nCONTEXT: {context}\n\nQuestion: {input}"
-    # )
-    # llm_chain = LLMChain(llm=llm, prompt=prompt)
-    # combine_documents_chain = StuffDocumentsChain(llm_chain=llm_chain, document_variable_name="context")
-    #
-    # default_chain = CustomRetrievalQA(
-    #     retriever=default_retriever,
-    #     combine_documents_chain=combine_documents_chain,
-    #     return_source_documents=True
-    # )
-    #
-    # multi_chain = MultiRetrievalQAChain.from_retrievers(
-    #     llm=llm,
-    #     retriever_infos=retriever_infos,
-    #     default_chain=default_chain,
-    #     verbose=True
-    # )
-    # return multi_chain
     destination_chains = {}
     default_chain = None
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
@@ -276,13 +165,19 @@ def init_multi_retrieval_qa_chain(kb_id):
 
             retriever = CustomRetriever(
                 db_index=db_index,
-                system_prompt=kb.system_instruction
+                system_prompt=kb.system_instruction,
+                description=storage.description or storage.name
             )
 
-            prompt = PromptTemplate(
-                input_variables=["system_prompt", "context", "input"],
-                template="SYSTEM: {system_prompt}\n\nCONTEXT: {context}\n\nQuestion: {input}"
-            )
+            # prompt = PromptTemplate(
+            #     input_variables=["system_prompt", "context", "input"],
+            #     template="SYSTEM: {system_prompt}\n\nCONTEXT: {context}\n\nQuestion: {input}"
+            # )
+            # Версия для ChatOpenAI
+            prompt = ChatPromptTemplate.from_messages([
+                SystemMessagePromptTemplate.from_template("{system_prompt}"),
+                HumanMessagePromptTemplate.from_template("CONTEXT: {context}\n\nQuestion: {input}")
+            ])
             llm_chain = LLMChain(llm=llm, prompt=prompt)
             combine_documents_chain = StuffDocumentsChain(llm_chain=llm_chain, document_variable_name="context")
 
@@ -302,7 +197,7 @@ def init_multi_retrieval_qa_chain(kb_id):
         raise ValueError("Не удалось создать цепочки поиска для базы знаний.")
 
     destinations_str = "\n".join([
-        f"{name}: {destination_chains[name].retriever.system_prompt[:50]}..."
+        f"{name}: {destination_chains[name].retriever.description}"
         for name in destination_chains
     ])
 
@@ -352,6 +247,9 @@ def rerank_documents(query, docs_with_scores, reranker=RERANKER, threshold=FAISS
          List[Tuple[Document, float]]: Список топ-N документов с их оценками (по умолчанию исходный FAISS score).
      """
     # Фильтрация по порогу
+    # print(f"[*** rerank_documents] {query=}")
+    # print(f"[*** rerank_documents] {docs_with_scores=}")
+
     filtered = [(doc, score) for doc, score in docs_with_scores if score < threshold]
     if not filtered:
         filtered = [(doc, score) for doc, score in docs_with_scores if score < threshold + 0.4]
