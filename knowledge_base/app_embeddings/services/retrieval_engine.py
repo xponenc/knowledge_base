@@ -3,22 +3,27 @@ import os
 import re
 
 from langchain.chains import LLMChain
-from langchain.chains.combine_documents.stuff import StuffDocumentsChain
+from langchain.chains.combine_documents.stuff import StuffDocumentsChain, create_stuff_documents_chain
 from langchain.chains.conversation.base import ConversationChain
+from langchain.chains.retrieval import create_retrieval_chain
 from langchain.chains.retrieval_qa.base import RetrievalQA
 from langchain.chains.router import MultiRetrievalQAChain
 from threading import Lock
 
 from langchain.chains.router.llm_router import RouterOutputParser, LLMRouterChain
 from langchain.chains.router.multi_retrieval_prompt import MULTI_RETRIEVAL_ROUTER_TEMPLATE
+from langchain.retrievers import EnsembleRetriever, ContextualCompressionRetriever
+from langchain.retrievers.document_compressors import CrossEncoderReranker
 from langchain.schema import BaseRetriever, Document
 from langchain.chains import MultiRetrievalQAChain
 import re
 from typing import List, Tuple, Optional, Any, Dict
 
+from langchain_community.vectorstores import FAISS
 from langchain_core.callbacks import CallbackManagerForChainRun
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate, SystemMessagePromptTemplate, \
     HumanMessagePromptTemplate
+from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI
 from openai import OpenAI
 import langchain
@@ -31,6 +36,7 @@ from knowledge_base.settings import BASE_DIR
 
 _lock = Lock()
 _multi_chain_cache = {}
+_ensemble_chain_cache = {}
 
 
 def get_cached_multi_chain(kb_id):
@@ -39,6 +45,14 @@ def get_cached_multi_chain(kb_id):
         if key not in _multi_chain_cache:
             _multi_chain_cache[key] = init_multi_retrieval_qa_chain(kb_id)
         return _multi_chain_cache[key]
+
+
+def get_cached_ensemble_chain(kb_id):
+    key = f"kb_{kb_id}"
+    with _lock:
+        if key not in _ensemble_chain_cache:
+            _ensemble_chain_cache[key] = init_ensemble_retriever_chain(kb_id)
+        return _ensemble_chain_cache[key]
 
 
 # Кастомный ретривер
@@ -225,6 +239,120 @@ def init_multi_retrieval_qa_chain(kb_id):
         verbose=True
     )
     return multi_chain
+
+
+def init_ensemble_retriever_chain(kb_id: int, *, k: int = 5):
+    kb = (KnowledgeBase.objects
+          .select_related("engine")
+          .prefetch_related("website_set", "cloudstorage_set", "localstorage_set", "urlbatch_set")
+          .get(pk=kb_id))
+    embedding_engine = kb.engine
+    embeddings_model_name = embedding_engine.model_name
+
+    try:
+        embeddings_model = load_embedding(embeddings_model_name)
+    except Exception as e:
+        raise ValueError(f"Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
+
+    # Список всех наборов хранилищ
+    storage_sets = [
+        kb.website_set,
+        kb.cloudstorage_set,
+        kb.localstorage_set,
+        kb.urlbatch_set,
+    ]
+    retrievers = []
+    for storage_set in storage_sets:
+        for storage in storage_set.all():
+            faiss_dir = os.path.join(
+                BASE_DIR, "media", "kb", str(kb.pk), "embedding_stores",
+                f"{storage.__class__.__name__}_id_{storage.pk}_embedding_store",
+                f"{embedding_engine.name}_faiss_index_db"
+            )
+            try:
+                db_index = get_vectorstore(path=faiss_dir, embeddings=embeddings_model)
+            except Exception as e:
+                print(
+                    f"Ошибка загрузки векторного хранилища для {storage.__class__.__name__} id {storage.pk}: {str(e)}")
+                continue
+            # retriever = db_index.as_retriever(search_kwargs={"k": 2})
+            retriever = create_custom_retriever(db_index, k=2)
+            retrievers.append(retriever)
+
+    if not retrievers:
+        raise ValueError("Не удалось создать EnsembleRetriever, нет доступных векторных хранилищ")
+
+    ensemble_retriever = EnsembleRetriever(
+        retrievers=retrievers, weights=[1.0] * len(retrievers),
+    )
+
+    # compression_retriever = ContextualCompressionRetriever(
+    #     base_compressor=CustomCrossEncoderReranker(cross_encoder_model=RERANKER),
+    #     base_retriever=ensemble_retriever
+    # )
+
+    system_prompt = getattr(kb, "system_instruction")
+    if not system_prompt:
+        raise ValueError("Не удалось создать EnsembleRetriever, нет system_prompt")
+
+    # prompt = ChatPromptTemplate.from_messages([
+    #     SystemMessagePromptTemplate.from_template("{system_prompt}"),
+    #     # SystemMessagePromptTemplate.from_template(system_prompt),
+    #     HumanMessagePromptTemplate.from_template("CONTEXT: {context}\n\nQuestion: {input}")
+    # ])
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "{system_prompt}"),
+        ("human", "CONTEXT: {context}\n\nQuestion: {input}")
+    ])
+
+    # llm = ChatOpenAI(model=model, temperature=temperature)
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    # llm_chain = LLMChain(llm=llm, prompt=prompt)
+    # combine_documents_chain = StuffDocumentsChain(
+    #     llm_chain=llm_chain,
+    #     document_variable_name="context"
+    # )
+    document_chain = create_stuff_documents_chain(llm, prompt)
+
+    # qa_chain = RetrievalQA(
+    #     retriever=ensemble_retriever,
+    #     combine_documents_chain=combine_documents_chain,
+    #     return_source_documents=True,
+    #     input_key="input",
+    #     output_key="result"
+    # )
+    retrieval_chain = create_retrieval_chain(ensemble_retriever, document_chain)
+
+    return retrieval_chain
+
+
+def create_custom_retriever(vectorstore: FAISS, k: int = 2):
+    """Создаёт кастомный retriever, который добавляет score в метаданные документов."""
+    class CustomRetriever(Runnable):
+        def __init__(self, vectorstore, k):
+            super().__init__()
+            self.vectorstore = vectorstore
+            self.k = k
+
+        def invoke(self, input, config=None, **kwargs):
+            # Выполняем поиск с возвратом score
+            docs_and_scores = self.vectorstore.similarity_search_with_score(input, k=self.k)
+            # Добавляем score в метаданные каждого документа
+            updated_docs = []
+            for doc, score in docs_and_scores:
+                new_metadata = doc.metadata.copy()
+                new_metadata["retriever_score"] = float(score)
+                updated_doc = Document(
+                    page_content=doc.page_content,
+                    metadata=new_metadata
+                )
+                updated_docs.append(updated_doc)
+            return updated_docs
+
+        def get_relevant_documents(self, query: str):
+            return self.invoke(query)
+
+    return CustomRetriever(vectorstore, k)
 
 
 def rerank_documents(query, docs_with_scores, reranker=RERANKER, threshold=FAISS_THRESHOLD, top_n=TOP_N):

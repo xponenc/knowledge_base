@@ -3,6 +3,8 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
+from langchain_core.documents import BaseDocumentCompressor
+
 from app_embeddings.services.embedding_config import MODELS, RERANKER_MODEL
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -72,7 +74,6 @@ def get_reranker():
         max_length=512,
         device="cuda" if torch.cuda.is_available() else "cpu"
     )
-
 
 def get_local_model_path(repo_id: str):
     """Возвращает путь к локальной модели Hugging Face, если она загружена"""
