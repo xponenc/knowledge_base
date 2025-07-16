@@ -147,7 +147,7 @@ class NetworkDocument(AbstractSource):
         choices=[(status.value, status.display_name) for status in OutputDataType],
         default=OutputDataType.file.value,
     )
-    description = models.CharField(verbose_name="краткое описание", max_length=1000, null=True, blank=True)
+    description = models.CharField(verbose_name="краткое описание", max_length=10000, null=True, blank=True)
 
     class Meta:
         verbose_name = "Network Document"

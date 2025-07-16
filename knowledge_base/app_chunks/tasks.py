@@ -4,7 +4,7 @@ from celery import shared_task
 from celery_progress.backend import ProgressRecorder
 from app_chunks.models import Chunk, ChunkStatus
 from app_chunks.splitters.base import BaseSplitter
-from app_sources.content_models import RawContent, CleanedContent
+from app_sources.content_models import RawContent, CleanedContent, ContentStatus
 from app_sources.source_models import OutputDataType
 from utils.setup_logger import setup_logger
 
