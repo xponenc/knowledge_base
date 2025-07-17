@@ -184,6 +184,7 @@ class ChatView(View):
         # Сохраняем ответ AI
         ai_message = ChatMessage.objects.create(
             session=chat_session,
+            answer_for=user_message,
             is_user=False,
             text=ai_message_text,
             created_at=timezone.now()
@@ -385,6 +386,7 @@ class SystemChatView(View):
         # Сохраняем ответ AI
         ai_message = ChatMessage.objects.create(
             session=chat_session,
+            answer_for=user_message,
             is_user=False,
             text=ai_message_text,
             created_at=timezone.now()
@@ -452,6 +454,25 @@ class ClearChatView(LoginRequiredMixin, View):
         chat_session.messages.update(is_user_deleted__isnull=datetime.now())
 
         return redirect(reverse_lazy('chat:chat', kwargs={"kb_pk": kb_pk}))
+
+
+class ChatReportView(LoginRequiredMixin, View):
+    """Просмотровый отчет по диалогам с моделью"""
+
+    def get(self, request, kb_pk):
+        kb = get_object_or_404(KnowledgeBase, pk=kb_pk)
+        if not kb.is_owner_or_superuser(request.user):
+            raise 404
+        messages = (ChatMessage.objects.select_related("session").prefetch_related("answer")
+                    .filter(session__kb=kb, is_user=True)
+                    .order_by("-created_at", "session"))
+        context = {
+            "kb": kb,
+            "chat_messages": messages,
+        }
+        return render(request=request,
+                      template_name="app_chat/chat_report.html",
+                      context=context)
 
 
 class CurrentTestChunksView(LoginRequiredMixin, View):

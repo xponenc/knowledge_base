@@ -608,6 +608,11 @@ fieldset {
   font-weight: 500;
 }
 
+.text--break, .text--break * {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
 .text--info {}
 
 .text--code {

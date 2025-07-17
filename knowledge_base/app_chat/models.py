@@ -17,6 +17,8 @@ class ChatSession(models.Model):
 class ChatMessage(models.Model):
     session = models.ForeignKey(ChatSession, verbose_name="пользовательская сессия",
                                 on_delete=models.CASCADE, related_name='messages')
+    answer_for = models.OneToOneField("ChatMessage", verbose_name="ответ на", blank=True, null=True,
+                                      on_delete=models.CASCADE, related_name="answer")
     is_user = models.BooleanField(verbose_name="пользователь/ai", default=True)
     text = models.TextField(verbose_name="сообщение")
     score = models.SmallIntegerField(verbose_name="оценка", null=True, blank=True,

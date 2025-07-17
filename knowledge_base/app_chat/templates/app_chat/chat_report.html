@@ -1,0 +1,108 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+
+
+{% block extra_css %}
+
+{% endblock %}
+
+
+{% block title %}История чатов по базе знаний{{ kb.name }}{% endblock %}
+
+{% block nav %}
+    {% include "include/nav.html" %}
+{% endblock nav %}
+
+
+{% block content %}
+<div class="page page--kb">
+    <div class="page__top page__grid">
+        <div class="page__info info-page info-page--logo">
+            {% if  kb.logo.url %}
+                <img src="{{ kb.logo.url }}" alt="Логотип базы знаний {{ kb.name }}" class="info-page__logo">
+            {% endif %}
+        </div>
+        <div class="page__info info-page">
+            <span class="info-page__banner">База знаний</span>
+            <div class="info-page__header">
+                <h2 class="page__heading page__heading--accent _ta-e">{{ kb.name }}</h2>
+                <h3 class="info-page__heading">Детали базы знаний</h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                <dl class="description">
+                    <dt class="description__term">владельцы</dt>
+                    <dd class="description__defination tags">
+                        {% for user in kb.owners.all %}
+                            <span class="tag tag--simple">
+                                {{ user.get_full_name|default:user.username }}
+                            </span>
+                        {% endfor %}
+                    </dd>
+                    <dt class="description__term">описание</dt>
+                    <dd class="description__defination">
+                        {{ kb.description|default:"—" }}
+                    </dd>
+                    
+                </dl>
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+    </div>
+    <div class="page__content">
+        
+        <div class="page__info info-page info-page--kb _mb" id="details">
+            <span class="info-page__banner info-page__banner--medium">сообщения</span>
+            <div class="info-page__header">
+                <h3 class="info-page__heading _ta-e"></h3>
+            </div>
+            <div class="info-page__body">
+                {% if chat_messages|length > 0 %}
+                    <table class="elastic-table elastic-table_4-auto">
+                        <thead class="elastic-table__thead">
+                            <tr class="elastic-table__tr">
+                                <th class="elastic-table__th">дата</th>
+                                <th class="elastic-table__th">вопрос</th>
+                                <th class="elastic-table__th">ответ</th>
+                                <th class="elastic-table__th">оценка</th>
+                            </tr>
+                        </thead>
+                        <tbody class="elastic-table__tbody">
+                            {% for message in chat_messages %}
+                                <tr class="elastic-table__tr">
+                                    <td class="elastic-table__td">
+                                        <div class="elastic-table__cell">
+                                            <a href="{% url 'chat:chat_report' kb.id %}?session_id=message.session.session_key" class="link-marker">
+                                                <span>{{ message.session.session_key }}</span>
+                                                <svg class="link-marker__marker">
+                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#cloud"></use>
+                                                </svg>
+                                            </a>
+                                            <span>{{ message.created_at }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="elastic-table__td">
+                                        <span class="text text--break">{{ message.text|linebreaks }}</span>
+                                        
+                                    </td>
+                                    <td class="elastic-table__td">
+                                        <span class="text text--break">{{ message.answer.text|linebreaks }}</span>
+                                    </td>
+                                    <td class="elastic-table__td">
+                                        {{ message.answer.score|default:"-" }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="text text--muted _ta-c">Нет сообщений</p>
+                {% endif %}
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

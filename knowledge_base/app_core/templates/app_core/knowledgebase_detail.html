@@ -43,24 +43,7 @@
                     <dd class="description__defination">
                         {{ object.description|default:"—" }}
                     </dd>
-                    {% if object.engine %}
-                        <dt class="description__term">модель эмбеддинга</dt>
-                        <dd class="description__defination">
-                            {{ object.engine.name }} ({{ object.engine.model_name }})
-                        </dd>
-                        <dt class="description__term">параметры fine-tuning</dt>
-                        <dd class="description__defination">
-                            {{ object.fine_tuning_params }}
-                        </dd>
-                    {% endif %}
-                    <dt class="description__term">системная инструкция</dt>
-                    <dd class="description__defination">
-                        {{ object.system_instruction }}
-                    </dd> 
-                    <dt class="description__term">системная инструкция (вариант с метаданными)</dt>
-                    <dd class="description__defination">
-                        {{  object.system_metadata_instruction }}
-                    </dd>
+                    
                 </dl>
             </div>
             <div class="info-page__footer">
@@ -85,12 +68,45 @@
                         </a>
                     
                     {% endif %}
+                    <a href="{% url 'chat:chat_report' object.pk %}" class="btn btn--reset btn--simple btn--primary">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                        </svg>
+                        отчет по чатам
+                    </a>
                 </div>
             </div>
         </div>
     </div>
     <div class="page__content">
         
+        <div class="page__info info-page info-page--kb _mb" id="details">
+            <span class="info-page__banner info-page__banner--medium"></span>
+            <div class="info-page__header">
+                <h3 class="info-page__heading _ta-e">настройки базы</h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                <dl class="description">
+                    {% if object.engine %}
+                        <dt class="description__term">модель эмбеддинга</dt>
+                        <dd class="description__defination">
+                            {{ object.engine.name }} ({{ object.engine.model_name }})
+                        </dd>
+                        <dt class="description__term">параметры fine-tuning</dt>
+                        <dd class="description__defination">
+                            {{ object.fine_tuning_params|default:"—" }}
+                        </dd>
+                    {% endif %}
+                    <dt class="description__term">системная инструкция</dt>
+                    <dd class="description__defination">
+                        {{ object.system_instruction|linebreaks }}
+                    </dd> 
+                </dl>
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
         <div class="page__info info-page info-page--cloud _mb" id="cloud">
             <span class="info-page__banner info-page__banner--medium">облака</span>
             <div class="info-page__header">
