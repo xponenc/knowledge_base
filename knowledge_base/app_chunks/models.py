@@ -1,6 +1,7 @@
 from enum import Enum
 
 from django.contrib.auth import get_user_model
+from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import CheckConstraint, Q
@@ -74,6 +75,14 @@ class Chunk(models.Model):
     class Meta:
         verbose_name = "Chunk"
         verbose_name_plural = "Chunks"
+
+        indexes = [
+            GinIndex(
+                name="chunk_pgtrgm_idx",
+                fields=["page_content"],
+                opclasses=["gin_trgm_ops"],
+            ),
+        ]
 
     def get_absolute_url(self):
         return reverse_lazy("chunks:chunk_detail", kwargs={"pk": self.pk})

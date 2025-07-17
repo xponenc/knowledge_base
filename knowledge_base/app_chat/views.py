@@ -24,7 +24,7 @@ from app_embeddings.forms import ModelScoreTestForm
 # from app_embeddings.services.embedding_config import system_instruction, system_instruction_metadata
 from app_embeddings.services.embedding_store import get_vectorstore, load_embedding
 from app_embeddings.services.retrieval_engine import answer_index, answer_index_with_metadata, get_cached_multi_chain, \
-    get_cached_ensemble_chain
+    get_cached_ensemble_chain, trigram_similarity_answer_index
 from app_embeddings.tasks import test_model_answer
 from knowledge_base.settings import BASE_DIR
 
@@ -256,6 +256,9 @@ class SystemChatView(View):
         kb = get_object_or_404(KnowledgeBase.objects.select_related("engine"), pk=kb_pk)
         embedding_engine = kb.engine
         embeddings_model_name = embedding_engine.model_name
+        is_multichain = request.POST.get("is_multichain") == "true"
+        is_ensemble = request.POST.get("is_ensemble") == "true"
+        is_trigram = request.POST.get("is_trigram") == "true"
 
         system_instruction_form = SystemInstructionForm(request.POST)
         if system_instruction_form.is_valid():
@@ -344,23 +347,35 @@ class SystemChatView(View):
         #     {"score": float(doc_score), "metadata": doc.metadata, "content": doc.page_content, }
         #     for doc, doc_score in docs]
 
-        # multi_chain = get_cached_multi_chain(kb.pk)
-        #
-        # result = multi_chain.invoke({"input": user_message_text, "system_prompt": kb.system_instruction})
-        # docs = result.get("source_documents", [])
-        # ai_message_text = result["result"]
+        if is_multichain:
 
-        qa_chain = get_cached_ensemble_chain(kb.pk)
-        result = qa_chain.invoke({
-            "input": user_message_text,
-            "system_prompt": kb.system_instruction,  # если хочешь переопределить системный промпт
-        })
-        pprint(result)
-        ai_message_text = result["answer"]
-        docs = result.get("context", [])
-        verbose = True
+            multi_chain = get_cached_multi_chain(kb.pk)
+
+            result = multi_chain.invoke({
+                "input": user_message_text,
+                "system_prompt": system_instruction or kb.system_instruction})
+            docs = result.get("source_documents", [])
+            ai_message_text = result["result"]
+        elif is_ensemble:
+            qa_chain = get_cached_ensemble_chain(kb.pk)
+            result = qa_chain.invoke({
+                "input": user_message_text,
+                "system_prompt": system_instruction or kb.system_instruction,
+            })
+            ai_message_text = result["answer"]
+            docs = result.get("context", [])
+        else:
+            result = trigram_similarity_answer_index(kb.pk,
+                                                     system =  system_instruction or kb.system_instruction,
+                                                     query=user_message_text,
+                                                     verbose=False)
+            docs, ai_message_text = result
+
+        verbose = False
         if verbose:
-            print("Source Documents:", [doc for doc in docs])
+            print("Source Documents:")
+            for doc in docs:
+                pprint(doc)
             print("Answer:", ai_message_text)
 
         docs_serialized = [

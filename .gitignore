@@ -4,6 +4,7 @@
 product_settings.py
 knowledge_base/product_settings.py
 local_settings.py
+**test_db_zone/
 temp/
 # api google таблиц
 credentials.json

@@ -53,21 +53,6 @@
                 </form>
                 <form id="chat-form" method="post" class="chat__form form" >
                     {% csrf_token %}
-                    <label class="switch">
-                        <span class="switch__label">использовать metadata</span>
-                        <div class="switch__wrapper">
-                            <input class="switch__input visually-hidden" type="checkbox" name="use_metadata" data-validate-field="use_metadata" id="id_use_metadata" checked="">
-                            <svg class="switch__icon switch__icon_off" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M16 8C16 12.4183 12.4183 16 8 16C3.58172 16 0 12.4183 0 8C0 3.58172 3.58172 0 8 0C12.4183 0 16 3.58172 16 8ZM2 8C2 11.3137 4.68629 14 8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8Z"></path>
-                            </svg>
-                            <div class="switch__body">
-                                <div class="switch__slider"></div>
-                            </div>
-                            <svg class="switch__icon switch__icon_on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
-                                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 1 1 16 0zM2 8a6 6 0 1 0 12 0A6 6 0 1 0 2 8zm10 0a4 4 0 1 1-8 0 4 4 0 1 1 8 0z"></path>
-                            </svg>
-                        </div>
-                    </label>
                     <div class="chat__input">
                         <input type="text" name="message" id="message-input" class="form-control" placeholder="Введите ваше сообщение..." required>
                         <button type="submit" class="btn btn--reset btn--simple btn--primary" id="submit-btn">
@@ -149,11 +134,24 @@ document.addEventListener("DOMContentLoaded", function () {
         const message = messageInput.value.trim();
         if (!message) return;
 
-        const useMetadata = document.getElementById("id_use_metadata").checked;
-
+          // Показать загрузку и блокировать кнопку
         submitBtn.disabled = true;
         submitBtn.innerHTML = 'Обработка... <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
         loader.classList.remove("d-none");
+
+         // Очистить поле ввода и временно добавить сообщение пользователя
+        messageInput.value = "";
+        const tempUserMsg = `<div class="message message--user">${message}</div>`;
+        const tempBotMsgId = `temp-bot-${Date.now()}`;
+        const tempBotMsg = `
+            <div class="message message--ai" id="${tempBotMsgId}">
+                <div class="message__typing-indicator">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        `;
+        chatHistory.innerHTML += tempUserMsg + tempBotMsg;
+        chatHistory.scrollTop = chatHistory.scrollHeight;
 
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
@@ -166,25 +164,26 @@ document.addEventListener("DOMContentLoaded", function () {
             },
             body: new URLSearchParams({
                 message,
-                use_metadata: useMetadata ? "on" : ""
             })
         })
         .then(response => response.json())
         .then(data => {
             const { user_message, ai_response, current_docs } = data;
 
-            chatHistory.innerHTML += `
-                <div class="message message--user">${user_message}</div>
-                <div class="message message--ai" data-message-id="${ai_response.id}" data-url="${ai_response.request_url}">
-                    ${ai_response.text}
-                    <div class="rating" data-score="${ai_response.score ?? ''}">
-                        ${generateStarsHtml(ai_response.id, ai_response.score)}
+            // Заменить временный ответ AI на реальный
+            const botMsgEl = document.getElementById(tempBotMsgId);
+            if (botMsgEl) {
+                botMsgEl.outerHTML = `
+                    <div class="message message--ai" data-message-id="${ai_response.id}" data-url="${ai_response.request_url}">
+                        ${ai_response.text}
+                        <div class="rating" data-score="${ai_response.score ?? ''}">
+                            ${generateStarsHtml(ai_response.id, ai_response.score)}
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            }
 
             chatHistory.scrollTop = chatHistory.scrollHeight;
-            messageInput.value = "";
         })
         .catch(error => {
             console.error("Ошибка:", error);

@@ -2,6 +2,9 @@
 import os
 import re
 
+from django.contrib.postgres.search import TrigramSimilarity
+from django.db.models import Q, Value, TextField
+from django.db.models.functions import Cast
 from langchain.chains import LLMChain
 from langchain.chains.combine_documents.stuff import StuffDocumentsChain, create_stuff_documents_chain
 from langchain.chains.conversation.base import ConversationChain
@@ -27,7 +30,10 @@ from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI
 from openai import OpenAI
 import langchain
-langchain.debug = True
+
+from app_chunks.models import Chunk, ChunkStatus
+
+langchain.debug = False
 
 from app_core.models import KnowledgeBase
 from app_embeddings.services.embedding_config import FAISS_THRESHOLD, TOP_N
@@ -291,9 +297,9 @@ def init_ensemble_retriever_chain(kb_id: int, *, k: int = 5):
     #     base_retriever=ensemble_retriever
     # )
 
-    system_prompt = getattr(kb, "system_instruction")
-    if not system_prompt:
-        raise ValueError("Не удалось создать EnsembleRetriever, нет system_prompt")
+    # system_prompt = getattr(kb, "system_instruction")
+    # if not system_prompt:
+    #     raise ValueError("Не удалось создать EnsembleRetriever, нет system_prompt")
 
     # prompt = ChatPromptTemplate.from_messages([
     #     SystemMessagePromptTemplate.from_template("{system_prompt}"),
@@ -347,7 +353,8 @@ def create_custom_retriever(vectorstore: FAISS, k: int = 2):
                     metadata=new_metadata
                 )
                 updated_docs.append(updated_doc)
-            return updated_docs
+            enriched_documents = append_links_to_documents(updated_docs)
+            return enriched_documents
 
         def get_relevant_documents(self, query: str):
             return self.invoke(query)
@@ -510,3 +517,85 @@ def answer_index_with_metadata(db_index, system, query, verbose=False, metadata=
     client = OpenAI()
     completion = client.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0)
     return top_docs, completion.choices[0].message.content
+
+
+def trigram_similarity_answer_index(kb_id, system, query, verbose=False):
+    chunks = Chunk.objects.filter(
+        Q(url_content__url__batch__kb_id=kb_id) |
+        Q(url_content__url__site__kb_id=kb_id) |
+        Q(raw_content__network_document__storage__kb_id=kb_id) |
+        Q(raw_content__local_document__storage__kb_id=kb_id) |
+        Q(cleaned_content__raw_content__network_document__storage__kb_id=kb_id) |
+        Q(cleaned_content__raw_content__local_document__storage__kb_id=kb_id)
+    ).filter(status=ChunkStatus.ACTIVE.value).distinct()
+
+    chunks = chunks.annotate(
+        similarity=TrigramSimilarity('page_content',  Cast(Value(query), TextField()))
+    ).order_by('-similarity')[:10]
+
+    docs_with_scores = []
+    for chunk in chunks:
+        chunk.metadata["score"] = chunk.similarity
+        docs_with_scores.append((Document(page_content=chunk.page_content, metadata=chunk.metadata), chunk.similarity))
+
+    if verbose:
+        print("Вывод docs_with_scores ========= ")
+        for doc in docs_with_scores:
+            print("\n", doc)
+        print("========= \n\n\n")
+    # Реранкинг
+    top_docs = rerank_documents(query, docs_with_scores)
+    if verbose:
+        print("Вывод top_docs ========= ")
+        for doc in top_docs:
+            print("\n", doc)
+        print("========= \n\n\n")
+
+    if not top_docs:
+        return top_docs, "Пожалуйста, задайте вопрос иначе или уточните его."
+
+    # message_content = re.sub(
+    #     r'\n{2}', ' ',
+    #     '\n '.join([f'\nОтрывок документа №{i + 1}\n=====================' + doc.page_content + '\n' for i, doc in enumerate(top_docs)])
+    # )
+    top_docs = [doc for (doc, _score) in top_docs]
+    enriched_documents = append_links_to_documents(top_docs)
+
+    message_content = re.sub(
+        r'\n{2}', ' ',
+        '\n '.join([
+            f'\nОтрывок документа №{i + 1}\n=====================' + doc.page_content + '\n'
+            for i, doc in enumerate(enriched_documents)
+        ])
+    )
+
+    if verbose:
+        print("message_content:\n", message_content)
+
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": f"Ответь на вопрос. Документ с информацией для ответа: {message_content}\n\nВопрос пользователя: \n{query}"}
+    ]
+
+    client = OpenAI()
+    completion = client.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0)
+    return top_docs, completion.choices[0].message.content
+
+
+def append_links_to_documents(docs: List[Document]) -> List[Document]:
+    def extract_links(metadata: dict) -> List[str]:
+        links = []
+        for key, value in metadata.items():
+            if key.startswith("files__documents") or key.startswith("files__images") or key.startswith(
+                    "external_links"):
+                if isinstance(value, str):
+                    links.append(value)
+        return links
+
+    for doc in docs:
+        links = extract_links(doc.metadata)
+        if links:
+            links_text = "\n\nПолезные материалы:\n" + "\n".join(f"- {link}" for link in links)
+            doc.page_content += links_text  # Модифицируем содержимое документа
+
+    return docs
