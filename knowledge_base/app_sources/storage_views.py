@@ -1,10 +1,13 @@
+import json
 import logging
 import os
 
 from django import forms
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.paginator import Paginator
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import Func, IntegerField, F, Q, Prefetch, Count
+from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
@@ -13,6 +16,7 @@ from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import DetailView, ListView, CreateView, UpdateView, DeleteView
 
+from app_chunks.models import Chunk, ChunkStatus
 from app_core.models import KnowledgeBase
 from app_sources.content_models import RawContent, ContentStatus
 from app_sources.forms import CloudStorageForm
@@ -256,6 +260,36 @@ class CloudStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, Hierarc
         network_storage = self.object
         context = super().get_context_data()
 
+        # Распределение чанков по размеру в токенах, должно быть поле metadata.size_in_tokens
+        chunk_distribution = (
+            Chunk.objects
+            .filter(
+                Q(raw_content__network_document__storage=network_storage) |
+                Q(cleaned_content__raw_content__network_document__storage=network_storage),
+                status=ChunkStatus.ACTIVE.value)
+            .annotate(size=Cast(KeyTextTransform('size_in_tokens', 'metadata'), IntegerField()))
+            .values('size')
+            .annotate(count=Count('id'))
+            .order_by('size')
+        )
+
+
+        # Распределение URL по статусу
+        document_status_map = {s.value: s.display_name for s in SourceStatus}
+        status_counts = (NetworkDocument.objects.filter(storage=network_storage)
+                         .values('status')
+                         .annotate(count=Count('id'))
+                         .order_by('status')
+                         )
+
+        document_distribution = [
+            {
+                "status": document_status_map.get(row["status"], row["status"]),
+                "count": row["count"]
+            }
+            for row in status_counts
+        ]
+
         # отчеты по обновлениям
         update_report_count = CloudStorageUpdateReport.objects.filter(storage=network_storage).count()
         context["update_report_count"] = update_report_count
@@ -350,6 +384,8 @@ class CloudStorageDetailView(LoginRequiredMixin, StoragePermissionMixin, Hierarc
         context["source_statuses"] = source_statuses
         context["filters"] = filters
         context["sorting_list"] = sorting_list
+        context["chunk_distribution"] = json.dumps(list(chunk_distribution), cls=DjangoJSONEncoder)
+        context["source_distribution"] = json.dumps(list(document_distribution), cls=DjangoJSONEncoder)
         return context
 
 

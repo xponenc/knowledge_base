@@ -169,6 +169,22 @@
                 {% endif %}
             </div>
         </div>
+        <div class="page__info info-page">
+            <div class="info-page__header">
+                <h3 class="info-page__heading">Распределение чанков по размеру</h3>
+            </div>
+            <div class="info-page__body">
+                <canvas id="distributionChunkBySize" width="95%" height="300px"></canvas>
+            </div>
+        </div>
+        <div class="page__info info-page">
+            <div class="info-page__header">
+                <h3 class="info-page__heading">Распределение источников по статусу</h3>
+            </div>
+            <div class="info-page__body">
+                <canvas id="distributionSourceByStatus" width="95%" height="300px"></canvas>
+            </div>
+        </div>
     </div>
     <article class="page__content">
         <h3 class="page__subheading">🗂️ Источники</h3>
@@ -284,98 +300,237 @@
 {% endblock %}
 
 {% block script %}
-<script src="{% static 'js/grader.js' %}"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const container = document.querySelector('#network-documents-container');
-        const form = document.querySelector('#network-document-filter-form');
+    <script src="{% static 'js/grader.js' %}"></script>
+    <script src="{% static 'libs/chartJS/chart.min.js' %}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const container = document.querySelector('#network-documents-container');
+            const form = document.querySelector('#network-document-filter-form');
 
-        function fetchAndUpdate(url) {
-            fetch(url, {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            })
-            .then(response => response.json())
-            .then(data => {
-                container.innerHTML = data.html;
-                window.history.pushState({}, '', url); // обновление URL без перезагрузки
-                syncCheckboxesFromURL();
-            });
-        }
+            function fetchAndUpdate(url) {
+                fetch(url, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    container.innerHTML = data.html;
+                    window.history.pushState({}, '', url); // обновление URL без перезагрузки
+                    syncCheckboxesFromURL();
+                });
+            }
 
-        // Перехват отправки формы
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
-            const formData = new FormData(form);
-            const params = new URLSearchParams(formData);
-            const url = `${window.location.pathname}?${params.toString()}`;
-            fetchAndUpdate(url);
-        });
-
-        // Перехват кликов по пагинации (делегирование с .closest)
-        container.addEventListener('click', function (e) {
-            const link = e.target.closest('.pagination__link');
-            if (link && container.contains(link)) {
+            // Перехват отправки формы
+            form.addEventListener('submit', function (e) {
                 e.preventDefault();
-                const url = link.getAttribute('href');
+                const formData = new FormData(form);
+                const params = new URLSearchParams(formData);
+                const url = `${window.location.pathname}?${params.toString()}`;
                 fetchAndUpdate(url);
+            });
+
+            // Перехват кликов по пагинации (делегирование с .closest)
+            container.addEventListener('click', function (e) {
+                const link = e.target.closest('.pagination__link');
+                if (link && container.contains(link)) {
+                    e.preventDefault();
+                    const url = link.getAttribute('href');
+                    fetchAndUpdate(url);
+                }
+            });
+
+            function syncCheckboxesFromURL() {
+                const params = new URLSearchParams(window.location.search);
+                document.querySelectorAll('.js-filter').forEach(input => {
+                    const values = params.getAll(input.name);
+                    input.checked = values.includes(input.value);
+                });
+            }
+
+            const exportForm = document.querySelector('#export-form');
+            const button = exportForm.querySelector('button[type="submit"]');
+            const resultDiv = document.querySelector('#export-result');
+
+            exportForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                // Заблокировать кнопку и показать загрузку
+                button.disabled = true;
+                button.classList.add("btn--disabled")
+                const originalHTML = button.innerHTML;
+                button.innerHTML = 'Выгружается...';
+
+                fetch(exportForm.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': exportForm.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                })
+                .then(response => response.text())
+                .then(link => {
+                    resultDiv.innerHTML = `
+                        <div>
+                            <p>Отчет успешно выгружен в Google Sheets: 
+                                <a href="${link}" target="_blank" class="link-marker">
+                                    Открыть таблицу
+                                    <svg class="link-marker__marker">
+                                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#report"></use>
+                                    </svg>
+                                </a>
+                            </p>
+                            
+                        </div>
+                    `;
+                })
+                .catch(err => {
+                    resultDiv.innerHTML = '<p style="color:red;">Ошибка выгрузки отчета</p>';
+                    console.error(err);
+                })
+                .finally(() => {
+                    button.disabled = false;
+                    button.classList.remove("btn--disabled")
+                    button.innerHTML = originalHTML;
+                });
+            });
+        });
+    </script>
+    <script>
+        // График распределения активных чанков по размеру
+
+        const distributionChunkBySize = {{ chunk_distribution|safe }};
+
+        const distributionChunkBySizeLabels = distributionChunkBySize.map(item => item.size);
+        const distributionChunkBySizeCounts = distributionChunkBySize.map(item => item.count);
+
+        var ctx1 = document.querySelector('#distributionChunkBySize');
+        var chunkChart = new Chart(ctx1, {
+            type: 'bar',
+            data: {
+                labels: distributionChunkBySizeLabels,
+                datasets: [{
+                    label: 'Количество чанков',
+                    data: distributionChunkBySizeCounts,
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: ['#555',],
+                    borderWidth: '1',
+                    barPercentage: 0.95,
+                }]  
+            },
+            options: {
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                    callbacks: {
+                            title: (items) => `Токены: ${items[0].label}`,
+                            label: (item) => `Чанков: ${item.raw}`
+                        },
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Количество чанков' },
+                        ticks: {
+                            precision: 0
+                        },
+                    },
+                    x: {
+                        title: { display: true, text: 'Размер чанка (в токенах)' },
+                    },
+                },
+                animation: {
+                    duration: 3000,
+                    animateScale: true,
+                    backgroundColor: {
+                        duration: 2500,
+                        type: 'color',
+                        easing: 'linear',
+                        from: 'transparent',
+                    },
+                },
+                responsive: true,
+                maintainAspectRatio: false,
             }
         });
-
-        function syncCheckboxesFromURL() {
-            const params = new URLSearchParams(window.location.search);
-            document.querySelectorAll('.js-filter').forEach(input => {
-                const values = params.getAll(input.name);
-                input.checked = values.includes(input.value);
-            });
-        }
-
-        const exportForm = document.querySelector('#export-form');
-        const button = exportForm.querySelector('button[type="submit"]');
-        const resultDiv = document.querySelector('#export-result');
-
-        exportForm.addEventListener('submit', function (e) {
-            e.preventDefault();
-
-            // Заблокировать кнопку и показать загрузку
-            button.disabled = true;
-            button.classList.add("btn--disabled")
-            const originalHTML = button.innerHTML;
-            button.innerHTML = 'Выгружается...';
-
-            fetch(exportForm.action, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': exportForm.querySelector('[name=csrfmiddlewaretoken]').value
-                }
-            })
-            .then(response => response.text())
-            .then(link => {
-                resultDiv.innerHTML = `
-                    <div>
-                        <p>Отчет успешно выгружен в Google Sheets: 
-                            <a href="${link}" target="_blank" class="link-marker">
-                                Открыть таблицу
-                                <svg class="link-marker__marker">
-                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#report"></use>
-                                </svg>
-                            </a>
-                        </p>
-                        
-                    </div>
-                `;
-            })
-            .catch(err => {
-                resultDiv.innerHTML = '<p style="color:red;">Ошибка выгрузки отчета</p>';
-                console.error(err);
-            })
-            .finally(() => {
-                button.disabled = false;
-                button.classList.remove("btn--disabled")
-                button.innerHTML = originalHTML;
-            });
+        window.addEventListener('resize', () => {
+            setChartSize(chunkChart);
         });
-    });
-</script>
+        window.addEventListener('orientationchange', () => {
+            setChartSize(chunkChart);
+        });
+
+        function setChartSize(chart) {
+            chart.resize();
+
+            switch(true) {
+                case window.innerWidth < 500:
+                    chart.options.aspectRatio = 0.7;
+                    {% comment %} chart.data.datasets[0].barThickness = 10; {% endcomment %}
+                    chart.resize();
+                    break;
+            
+                case window.innerWidth < 768:
+                    chart.options.aspectRatio = 1;
+                    {% comment %} chart.data.datasets[0].barThickness = 15; {% endcomment %}
+                    chart.resize();
+                    break;
+                case window.innerWidth < 1024:
+                    chart.options.aspectRatio = 1.5;
+                    {% comment %} chart.data.datasets[0].barThickness = 15; {% endcomment %}
+                    chart.resize();
+                    break;
+            
+                default:
+                    chart.options.aspectRatio = 2;
+                    {% comment %} chart.data.datasets[0].barThickness = 20; {% endcomment %}
+                    chart.resize();
+                    break;
+            }
+            
+        }
+        setChartSize(chunkChart);
+        //yourChart.canvas.parentNode.style.height = '480px'; 
+        //yourChart.canvas.parentNode.style.width = '280px';
+    </script>
+    <script>
+        // График распределения источников по стаусу
+        const statusData = {{ source_distribution|safe }};
+        const labels = statusData.map(item => item.status);
+        const counts = statusData.map(item => item.count);
+
+        const ctx = document.querySelector('#distributionSourceByStatus').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+            labels: labels,
+            datasets: [{
+                label: 'Статус URL',
+                data: counts,
+                backgroundColor: [
+                '#36A2EB', '#FF6384', '#FFCE56',
+                '#4BC0C0', '#9966FF', '#FF9F40', '#8BC34A'
+                ],
+                borderWidth: 1
+            }]
+            },
+            options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 2.5, // Или 1.2, 1.0 — подбери визуально
+            plugins: {
+                legend: {
+                position: 'right'
+                },
+                tooltip: {
+                callbacks: {
+                    label: function(context) {
+                    return `${context.label}: ${context.raw}`;
+                    }
+                }
+                }
+            }
+            }
+        });
+    </script>
 {% endblock script %}
 
 

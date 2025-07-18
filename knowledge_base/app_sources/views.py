@@ -1,5 +1,6 @@
 import csv
 import hashlib
+import json
 import logging
 import os.path
 from datetime import datetime
@@ -9,7 +10,9 @@ from dateutil.parser import parse
 from django import forms
 from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
 from django.core.files.base import ContentFile
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch, ForeignKey, Q, IntegerField, Count
+from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Left, Coalesce, Substr, Length, Cast
 from django.http import Http404, JsonResponse, HttpResponse
 from django.shortcuts import get_object_or_404, render, redirect
@@ -22,7 +25,7 @@ from django.contrib import messages
 from django.views.generic import DetailView, ListView, CreateView, UpdateView, DeleteView
 from django.core.paginator import Paginator
 
-from app_chunks.models import Chunk
+from app_chunks.models import Chunk, ChunkStatus
 from app_core.models import KnowledgeBase
 from app_parsers.forms import TestParseForm, BulkParseForm, ParserDynamicConfigForm
 from app_parsers.models import TestParser, TestParseReport, MainParser
@@ -365,6 +368,30 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, Hierarchical
         website = self.object
 
         available_tags = website.tags
+        # Распределение чанков по размеру в токенах, должно быть поле metadata.size_in_tokens
+        chunk_distribution = (
+            Chunk.objects
+            .filter(url_content__url__site=website, status=ChunkStatus.ACTIVE.value)
+            .annotate(size=Cast(KeyTextTransform('size_in_tokens', 'metadata'), IntegerField()))
+            .values('size')
+            .annotate(count=Count('id'))
+            .order_by('size')
+        )
+        # Распределение URL по статусу
+        url_status_map = {s.value: s.display_name for s in SourceStatus}
+        status_counts = (URL.objects.filter(site=website)
+            .values('status')
+            .annotate(count=Count('id'))
+            .order_by('status')
+        )
+
+        url_distribution = [
+            {
+                "status": url_status_map.get(row["status"], row["status"]),
+                "count": row["count"]
+            }
+            for row in status_counts
+        ]
 
         source_statuses = [(status.value, status.display_name) for status in SourceStatus]
         filters = {"status": source_statuses}
@@ -557,6 +584,8 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, Hierarchical
             "sorting_list": sorting_list,
             "standard_range_list": standard_range_list,
             "nonstandard_range_list": nonstandard_range_list,
+            "chunk_distribution": json.dumps(list(chunk_distribution), cls=DjangoJSONEncoder),
+            "url_distribution": json.dumps(list(url_distribution), cls=DjangoJSONEncoder),
         })
 
         return context

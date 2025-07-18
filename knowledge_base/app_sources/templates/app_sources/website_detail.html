@@ -150,6 +150,22 @@
             </div>
             <div class="reports__footer"></div>
         </div>
+        <div class="page__info info-page">
+            <div class="info-page__header">
+                <h3 class="info-page__heading">Распределение чанков по размеру</h3>
+            </div>
+            <div class="info-page__body">
+                <canvas id="distributionChunkBySize" width="95%" height="300px"></canvas>
+            </div>
+        </div>
+        <div class="page__info info-page">
+            <div class="info-page__header">
+                <h3 class="info-page__heading">Распределение источников по статусу</h3>
+            </div>
+            <div class="info-page__body">
+                <canvas id="distributionSourceByStatus" width="95%" height="300px"></canvas>
+            </div>
+        </div>
         <div class="page__info info-page info-page--border">
             <div class="info-page__header">
                 <h2 class="page__heading">Основной парсер</h2>
@@ -456,6 +472,7 @@
 {% block script %}
     <script src="{% static 'libs/choices/choices.min.js' %}"></script>
     <script src="{% static 'js/grader.js' %}"></script>
+    <script src="{% static 'libs/chartJS/chart.min.js' %}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             let choicesInstance = new Choices("#id_tags", {
@@ -589,6 +606,154 @@
                 submitBtn.disabled = false;
                 submitBtnSpan.innerHTML = 'Скачать чанки';
             });
+        });
+    </script>
+    <script>
+        // График распределения активных чанков по размеру
+
+        const distributionChunkBySize = {{ chunk_distribution|safe }};
+
+        const distributionChunkBySizeLabels = distributionChunkBySize.map(item => item.size);
+        const distributionChunkBySizeCounts = distributionChunkBySize.map(item => item.count);
+
+        var ctx1 = document.querySelector('#distributionChunkBySize');
+        var chunkChart = new Chart(ctx1, {
+            type: 'bar',
+            data: {
+                labels: distributionChunkBySizeLabels,
+                datasets: [{
+                    label: 'Количество чанков',
+                    data: distributionChunkBySizeCounts,
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: ['#555',],
+                    borderWidth: '1',
+                    barPercentage: 0.95,
+                }]  
+            },
+            options: {
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                    callbacks: {
+                            title: (items) => `Токены: ${items[0].label}`,
+                            label: (item) => `Чанков: ${item.raw}`
+                        },
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Количество чанков' },
+                        ticks: {
+                            precision: 0
+                        },
+                    },
+                    x: {
+                        title: { display: true, text: 'Размер чанка (в токенах)' },
+                    },
+                },
+                animation: {
+                    duration: 3000,
+                    animateScale: true,
+                    backgroundColor: {
+                        duration: 2500,
+                        type: 'color',
+                        easing: 'linear',
+                        from: 'transparent',
+                    },
+                },
+                responsive: true,
+                maintainAspectRatio: false,
+            }
+        });
+        window.addEventListener('resize', () => {
+            setChartSize(chunkChart);
+        });
+        window.addEventListener('orientationchange', () => {
+            setChartSize(chunkChart);
+        });
+
+        function setChartSize(chart) {
+            chart.resize();
+
+            switch(true) {
+                case window.innerWidth < 500:
+                    chart.options.aspectRatio = 0.7;
+                    {% comment %} chart.data.datasets[0].barThickness = 10; {% endcomment %}
+                    chart.resize();
+                    break;
+            
+                case window.innerWidth < 768:
+                    chart.options.aspectRatio = 1;
+                    {% comment %} chart.data.datasets[0].barThickness = 15; {% endcomment %}
+                    chart.resize();
+                    break;
+                case window.innerWidth < 1024:
+                    chart.options.aspectRatio = 1.5;
+                    {% comment %} chart.data.datasets[0].barThickness = 15; {% endcomment %}
+                    chart.resize();
+                    break;
+            
+                default:
+                    chart.options.aspectRatio = 2;
+                    {% comment %} chart.data.datasets[0].barThickness = 20; {% endcomment %}
+                    chart.resize();
+                    break;
+            }
+            
+        }
+        setChartSize(chunkChart);
+        //yourChart.canvas.parentNode.style.height = '480px'; 
+        //yourChart.canvas.parentNode.style.width = '280px';
+    </script>
+    <script>
+        // График распределения источников по стаусу
+        const statusData = {{ url_distribution|safe }};
+        const labels = statusData.map(item => item.status);
+        const counts = statusData.map(item => item.count);
+
+        const ctx = document.querySelector('#distributionSourceByStatus').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Статус URL',
+                    data: counts,
+                    backgroundColor: [
+                    '#36A2EB', '#FF6384', '#FFCE56',
+                    '#4BC0C0', '#9966FF', '#FF9F40', '#8BC34A'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 2.5, // Или 1.2, 1.0 — подбери визуально
+                plugins: {
+                    legend: {
+                    position: 'right'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                            return `${context.label}: ${context.raw}`;
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    duration: 3000,
+                    animateScale: true,
+                    backgroundColor: {
+                        duration: 2500,
+                        type: 'color',
+                        easing: 'linear',
+                        from: 'transparent',
+                    },
+                },
+            }
         });
     </script>
 {% endblock script%}
