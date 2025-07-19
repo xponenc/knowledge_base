@@ -26,7 +26,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.callbacks import CallbackManagerForChainRun
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate, SystemMessagePromptTemplate, \
     HumanMessagePromptTemplate
-from langchain_core.runnables import Runnable
+from langchain_core.runnables import Runnable, RunnableLambda
 from langchain_openai import ChatOpenAI
 from openai import OpenAI
 import langchain
@@ -292,14 +292,48 @@ def init_ensemble_retriever_chain(kb_id: int, *, k: int = 5):
         retrievers=retrievers, weights=[1.0] * len(retrievers),
     )
 
+    # Оборачиваем EnsembleRetriever в RunnableLambda для реранкинга и добавления score
+    def rerank_and_enrich_documents(input):
+        query = input.get("input", input) if isinstance(input, dict) else input
+        # Получаем все документы от EnsembleRetriever
+        docs = ensemble_retriever.invoke(query)
+        print(f"rerank_and_enrich_documents {docs=}")
+
+        # Собираем документы с их исходными score для реранкинга
+        docs_and_scores = [(doc, doc.metadata.get("retriever_score", 0.0)) for doc in docs]
+
+        # Применяем реранкинг
+        top_docs = rerank_documents(query, docs_and_scores, threshold=1.5)
+
+        if not top_docs:
+            return [Document(page_content="Пожалуйста, задайте вопрос иначе или уточните его.")]
+
+        # Добавляем retriever_score и ссылки в метаданные
+        updated_docs = []
+        for doc, score in top_docs:
+            new_metadata = doc.metadata.copy()
+            new_metadata["retriever_score"] = float(score)
+            updated_doc = Document(
+                page_content=doc.page_content,
+                metadata=new_metadata
+            )
+            updated_docs.append(updated_doc)
+
+        # Добавляем ссылки из метаданных
+        updated_docs = append_links_to_documents(updated_docs)
+
+        return updated_docs
+
+    scored_retriever = RunnableLambda(rerank_and_enrich_documents)
+
     # compression_retriever = ContextualCompressionRetriever(
     #     base_compressor=CustomCrossEncoderReranker(cross_encoder_model=RERANKER),
     #     base_retriever=ensemble_retriever
     # )
 
-    # system_prompt = getattr(kb, "system_instruction")
-    # if not system_prompt:
-    #     raise ValueError("Не удалось создать EnsembleRetriever, нет system_prompt")
+    system_prompt = getattr(kb, "system_instruction")
+    if not system_prompt:
+        raise ValueError("Не удалось создать EnsembleRetriever, нет system_prompt")
 
     # prompt = ChatPromptTemplate.from_messages([
     #     SystemMessagePromptTemplate.from_template("{system_prompt}"),
@@ -327,7 +361,7 @@ def init_ensemble_retriever_chain(kb_id: int, *, k: int = 5):
     #     input_key="input",
     #     output_key="result"
     # )
-    retrieval_chain = create_retrieval_chain(ensemble_retriever, document_chain)
+    retrieval_chain = create_retrieval_chain(scored_retriever, document_chain)
 
     return retrieval_chain
 
@@ -399,6 +433,74 @@ def rerank_documents(query, docs_with_scores, reranker=RERANKER, threshold=FAISS
 
     # Возвращаем [(Document, score)] (используем старый score из FAISS, если нужно можно заменить rerank-оценкой)
     return [doc_with_score for doc_with_score, _ in reranked[:top_n]]
+
+
+def reformulate_question(
+    current_question: str,
+    chat_history: List[Tuple[str, str]],
+    openai_model: str = "gpt-4o-mini",
+) -> str:
+    """
+    Переформулирует текущий вопрос с учётом истории диалога,
+    только если он логически связан с предыдущими репликами.
+
+    Если вопрос самостоятельный и тема изменилась, возвращает оригинальный вопрос.
+
+    Args:
+        current_question (str): Новый вопрос пользователя.
+        chat_history (List[Tuple[str, str]]): История диалога как список пар (вопрос, ответ).
+        openai_model (str): Название модели OpenAI (по умолчанию "gpt-4o-mini").
+
+    Returns:
+        str: Переформулированный вопрос (если связан с историей) или оригинальный вопрос.
+
+    Пример:
+        chat_history = [
+            ("Кто у вас генеральный директор?", "Иванов Иван Иванович"),
+        ]
+        current_question = "А есть приказ о его назначении?"
+        reformulated = reformulate_question(current_question, chat_history)
+    """
+    # Собираем историю диалога
+    chat_str = ""
+    for user_q, ai_a in chat_history:
+        chat_str += f"Пользователь: {user_q}\nАссистент: {ai_a}\n"
+
+    # Шаблон prompt-а
+    reformulate_prompt = PromptTemplate(
+        input_variables=["chat_history", "question"],
+        template="""
+            История диалога:
+            {chat_history}
+            
+            Вопрос пользователя: {question}
+            
+            1. Связан ли этот вопрос с историей диалога? Ответь "да" или "нет".
+            2. Если "да", переформулируй вопрос так, чтобы он стал самостоятельным и включал важный контекст из истории.
+            3. Если "нет", верни исходный вопрос без изменений.
+            
+            Ответ:
+        """,
+    )
+
+    # Инициализируем модель
+    llm = ChatOpenAI(temperature=0, model=openai_model)
+    llm_chain = LLMChain(llm=llm, prompt=reformulate_prompt)
+
+    # Выполняем запрос
+    response = llm_chain.run({
+        "chat_history": chat_str.strip(),
+        "question": current_question.strip()
+    }).strip()
+
+    # Попытка найти переформулированный текст после "2." или просто вернуть оригинальный
+    lines = response.split("\n")
+    reformulated = None
+    for line in lines:
+        if line.strip().startswith("2."):
+            reformulated = line.strip()[2:].strip(":").strip()
+            break
+    return reformulated if reformulated else current_question
 
 
 # def answer_index(system, query, verbose=False):

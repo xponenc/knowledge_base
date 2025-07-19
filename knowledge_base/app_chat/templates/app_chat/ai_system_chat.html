@@ -75,51 +75,76 @@
                 {% include "widgets/_form_content-widget.html" with form=system_instruction_form %}
             </div>
             <div class="info-page__footer">
-                <label class="switch" title="При формировании ответа будет использована MultiRetrievalQAChain">
-                    <span class="switch__label">multichain</span>
-                    <div class="switch__wrapper">
-                        <input class="switch__input visually-hidden" type="radio" name="retriver_scheme" data-validate-field="retriver_scheme" id="id_multichain">
-                        <svg class="switch__icon switch__icon_off" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M16 8C16 12.4183 12.4183 16 8 16C3.58172 16 0 12.4183 0 8C0 3.58172 3.58172 0 8 0C12.4183 0 16 3.58172 16 8ZM2 8C2 11.3137 4.68629 14 8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8Z"></path>
-                        </svg>
-                        <div class="switch__body">
-                            <div class="switch__slider"></div>
-                        </div>
-                        <svg class="switch__icon switch__icon_on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
-                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 1 1 16 0zM2 8a6 6 0 1 0 12 0A6 6 0 1 0 2 8zm10 0a4 4 0 1 1-8 0 4 4 0 1 1 8 0z"></path>
-                        </svg>
+                <div class="info-page__manage">
+                    <div class="info-page__block">
+                        <label class="switch" title="При формировании ответа будет использована MultiRetrievalQAChain">
+                            <span class="switch__label">multichain</span>
+                            <div class="switch__wrapper">
+                                <input class="switch__input visually-hidden" type="radio" name="retriver_scheme" data-validate-field="retriver_scheme" id="id_multichain" checked="">
+                                <svg class="switch__icon switch__icon_off" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M16 8C16 12.4183 12.4183 16 8 16C3.58172 16 0 12.4183 0 8C0 3.58172 3.58172 0 8 0C12.4183 0 16 3.58172 16 8ZM2 8C2 11.3137 4.68629 14 8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8Z"></path>
+                                </svg>
+                                <div class="switch__body">
+                                    <div class="switch__slider"></div>
+                                </div>
+                                <svg class="switch__icon switch__icon_on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                                    <path d="M16 8A8 8 0 1 1 0 8a8 8 0 1 1 16 0zM2 8a6 6 0 1 0 12 0A6 6 0 1 0 2 8zm10 0a4 4 0 1 1-8 0 4 4 0 1 1 8 0z"></path>
+                                </svg>
+                            </div>
+                        </label>
+                        <label class="switch" title="При формировании ответа будет использован EnsembleRetriever">
+                            <span class="switch__label">ensemble</span>
+                            <div class="switch__wrapper">
+                                <input class="switch__input visually-hidden" type="radio" name="retriver_scheme" data-validate-field="retriver_scheme" id="id_ensemble">
+                                <svg class="switch__icon switch__icon_off" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M16 8C16 12.4183 12.4183 16 8 16C3.58172 16 0 12.4183 0 8C0 3.58172 3.58172 0 8 0C12.4183 0 16 3.58172 16 8ZM2 8C2 11.3137 4.68629 14 8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8Z"></path>
+                                </svg>
+                                <div class="switch__body">
+                                    <div class="switch__slider"></div>
+                                </div>
+                                <svg class="switch__icon switch__icon_on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                                    <path d="M16 8A8 8 0 1 1 0 8a8 8 0 1 1 16 0zM2 8a6 6 0 1 0 12 0A6 6 0 1 0 2 8zm10 0a4 4 0 1 1-8 0 4 4 0 1 1 8 0z"></path>
+                                </svg>
+                            </div>
+                        </label>
+                        <label class="switch" title="При формировании ответа будет использован TrigramSimilarity PostgreSQL">
+                            <span class="switch__label">TrigramSimilarity</span>
+                            <div class="switch__wrapper">
+                                <input class="switch__input visually-hidden" type="radio" name="retriver_scheme" data-validate-field="retriver_scheme" id="id_trigram">
+                                <svg class="switch__icon switch__icon_off" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M16 8C16 12.4183 12.4183 16 8 16C3.58172 16 0 12.4183 0 8C0 3.58172 3.58172 0 8 0C12.4183 0 16 3.58172 16 8ZM2 8C2 11.3137 4.68629 14 8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8Z"></path>
+                                </svg>
+                                <div class="switch__body">
+                                    <div class="switch__slider"></div>
+                                </div>
+                                <svg class="switch__icon switch__icon_on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                                    <path d="M16 8A8 8 0 1 1 0 8a8 8 0 1 1 16 0zM2 8a6 6 0 1 0 12 0A6 6 0 1 0 2 8zm10 0a4 4 0 1 1-8 0 4 4 0 1 1 8 0z"></path>
+                                </svg>
+                            </div>
+                        </label>
                     </div>
-                </label>
-                <label class="switch" title="При формировании ответа будет использован EnsembleRetriever">
-                    <span class="switch__label">ensemble</span>
-                    <div class="switch__wrapper">
-                        <input class="switch__input visually-hidden" type="radio" name="retriver_scheme" data-validate-field="retriver_scheme" id="id_ensemble" checked="">
-                        <svg class="switch__icon switch__icon_off" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M16 8C16 12.4183 12.4183 16 8 16C3.58172 16 0 12.4183 0 8C0 3.58172 3.58172 0 8 0C12.4183 0 16 3.58172 16 8ZM2 8C2 11.3137 4.68629 14 8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8Z"></path>
-                        </svg>
-                        <div class="switch__body">
-                            <div class="switch__slider"></div>
-                        </div>
-                        <svg class="switch__icon switch__icon_on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
-                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 1 1 16 0zM2 8a6 6 0 1 0 12 0A6 6 0 1 0 2 8zm10 0a4 4 0 1 1-8 0 4 4 0 1 1 8 0z"></path>
-                        </svg>
+                    <div class="info-page__block">
+                        <label class="switch" title="При формировании ответа использовать историю с корректировкой запроса">
+                            <span class="switch__label">reformulate question</span>
+                            <div class="switch__wrapper">
+                                <input class="switch__input visually-hidden" type="checkbox" name="reformulate_question" data-validate-field="reformulate_question" id="id_reformulate_question" checked="">
+                                <svg class="switch__icon switch__icon_off" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M16 8C16 12.4183 12.4183 16 8 16C3.58172 16 0 12.4183 0 8C0 3.58172 3.58172 0 8 0C12.4183 0 16 3.58172 16 8ZM2 8C2 11.3137 4.68629 14 8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8Z"></path>
+                                </svg>
+                                <div class="switch__body">
+                                    <div class="switch__slider"></div>
+                                </div>
+                                <svg class="switch__icon switch__icon_on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                                    <path d="M16 8A8 8 0 1 1 0 8a8 8 0 1 1 16 0zM2 8a6 6 0 1 0 12 0A6 6 0 1 0 2 8zm10 0a4 4 0 1 1-8 0 4 4 0 1 1 8 0z"></path>
+                                </svg>
+                            </div>
+                        </label>
+                        <label class="custom-field" title="Количество пар вопрос-ответ из истории чата используемых при формировании ответа">
+                            <span class="custom-field__label">Глубина истории</span>
+                            <input type="number" name="name" class="custom-field__input custom-field__input_wide" value=1 min="1" max="10" required="" id="id_history_deep">
+                        </label>
                     </div>
-                </label>
-                <label class="switch" title="При формировании ответа будет использован TrigramSimilarity PostgreSQL">
-                    <span class="switch__label">TrigramSimilarity</span>
-                    <div class="switch__wrapper">
-                        <input class="switch__input visually-hidden" type="radio" name="retriver_scheme" data-validate-field="retriver_scheme" id="id_trigram">
-                        <svg class="switch__icon switch__icon_off" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M16 8C16 12.4183 12.4183 16 8 16C3.58172 16 0 12.4183 0 8C0 3.58172 3.58172 0 8 0C12.4183 0 16 3.58172 16 8ZM2 8C2 11.3137 4.68629 14 8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8Z"></path>
-                        </svg>
-                        <div class="switch__body">
-                            <div class="switch__slider"></div>
-                        </div>
-                        <svg class="switch__icon switch__icon_on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
-                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 1 1 16 0zM2 8a6 6 0 1 0 12 0A6 6 0 1 0 2 8zm10 0a4 4 0 1 1-8 0 4 4 0 1 1 8 0z"></path>
-                        </svg>
-                    </div>
-                </label>
+                </div>
             </div>
         </div>
     </div>
@@ -218,6 +243,8 @@ document.addEventListener("DOMContentLoaded", function () {
         const multichainScheme = document.querySelector("#id_multichain").checked;
         const ensembleScheme = document.querySelector("#id_ensemble").checked;
         const trigramScheme = document.querySelector("#id_trigram").checked;
+        const reformulateQuestion = document.querySelector("#id_reformulate_question").checked;
+        const historyDeep = document.querySelector("#id_history_deep").value;
 
 
         // Очистить поле ввода и временно добавить сообщение пользователя
@@ -247,6 +274,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 is_multichain: multichainScheme.toString(),
                 is_ensemble: ensembleScheme.toString(),
                 is_trigram: trigramScheme.toString(),
+                is_reformulate_question: reformulateQuestion.toString(),
+                history_deep: historyDeep.toString(),
             })
         })
         .then(response => response.json())

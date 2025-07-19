@@ -249,10 +249,24 @@
 .info-page__body {
     margin-bottom: var(--gap-half);
 }
+.info-page__block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-half);
+    padding: var(--gap-third) var(--gap);
+    border: 1px solid var(--block-border-color);
+    border-radius: var(--gap);
+}
 
 .info-page__footer {
     display: flex;
     flex-direction: column;
+    gap: var(--gap-half);
+}
+.info-page__manage {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
     gap: var(--gap-half);
 }
 

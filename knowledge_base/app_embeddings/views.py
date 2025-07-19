@@ -11,7 +11,7 @@ from app_core.models import KnowledgeBase
 from app_embeddings.models import EmbeddingEngine, EmbeddingsReport
 from app_sources.storage_models import WebSite, CloudStorage, LocalStorage, URLBatch
 from app_sources.storage_views import StoragePermissionMixin
-from app_embeddings.tasks import create_vectors_task, universal_create_vectors_task
+from app_embeddings.tasks import create_vectors_task, universal_create_vectors_task, test_task
 from utils.setup_logger import setup_logger
 
 logger = setup_logger(name=__file__, log_dir="logs/embeddings", log_file="embeddings.log")
@@ -326,3 +326,20 @@ class VectorizeStorageView(LoginRequiredMixin, StoragePermissionMixin, View):
                 'result': {'error': f"Ошибка получения файлов: {e}"},
                 'cloud_storage': cloud_storage
             })
+
+
+class EngineTestTask(View):
+
+    def get(self, request):
+        task = test_task.delay(steps=60, sleep_per_step=60.0)
+        context = {
+                "task_id": task.id,
+                "task_name": f"Тестовая задача",
+                "task_object_url": reverse_lazy("embeddings:engine_list"),  # TODO Поменять на вывод отчета
+                "task_object_name": "Отчет о векторизации",
+                "next_step_url": reverse_lazy("embeddings:engine_list")  # TODO Поменять на вывод отчета
+            }
+        return render(request=request,
+                      template_name="celery_task_progress.html",
+                      context=context
+                      )

@@ -123,11 +123,12 @@
             <div class="info-page__body">
                 <h3 class="info-page__heading"></h3>
                 {% if knowledgebase.cloud_storages|length > 0 %}
-                    <table class="elastic-table elastic-table_3-auto">
+                    <table class="elastic-table elastic-table_4-auto">
                         <thead class="elastic-table__thead">
                             <tr class="elastic-table__tr">
                                 <th class="elastic-table__th">Название</th>
                                 <th class="elastic-table__th">Кол-во источников</th>
+                                <th class="elastic-table__th">Кол-во векторов</th>
                                 <th class="elastic-table__th"></th>
                             </tr>
                         </thead>
@@ -146,9 +147,22 @@
                                                 <use xlink:href="{% static 'img/icons/sprite.svg' %}#cloud"></use>
                                             </svg>
                                         </a>
+                                        <div class="tags">
+                                            {% if storage.default_retriever %}
+                                            <div class="icon" title="Используется как ретривер по умолчанию в схеме MultiRetrievalQAChain">
+                                                <svg>
+                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#star"></use>
+                                                </svg>
+                                            </div>
+                                            {% endif %}
+                                            {% if storage.embeddings_counter > 0 %}<span class="tag tag--success">Используется в базе знаний</span>{% endif %}
+                                        </div>
                                     </td>
                                     <td class="elastic-table__td">
                                         {{ storage.networkdocuments_counter }}
+                                    </td>
+                                    <td class="elastic-table__td">
+                                        {{ storage.embeddings_counter }}
                                     </td>
                                     <td class="elastic-table__td _ai-fe">
                                         <div class="btns">
@@ -191,11 +205,12 @@
             <div class="info-page__body">
                 <h3 class="info-page__heading"></h3>
                 {% if knowledgebase.local_storages|length > 0 %}
-                    <table class="elastic-table elastic-table_3-auto">
+                    <table class="elastic-table elastic-table_4-auto">
                         <thead class="elastic-table__thead">
                             <tr class="elastic-table__tr">
                                 <th class="elastic-table__th">Название</th>
                                 <th class="elastic-table__th">Кол-во источников</th>
+                                <th class="elastic-table__th">Кол-во векторов</th>
                                 <th class="elastic-table__th"></th>
                             </tr>
                         </thead>
@@ -213,9 +228,22 @@
                                                 <use xlink:href="{% static 'img/icons/sprite.svg' %}#storage"></use>
                                             </svg>
                                         </a>
+                                        <div class="tags">
+                                            {% if storage.default_retriever %}
+                                            <div class="icon" title="Используется как ретривер по умолчанию в схеме MultiRetrievalQAChain">
+                                                <svg>
+                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#star"></use>
+                                                </svg>
+                                            </div>
+                                            {% endif %}
+                                            {% if storage.embeddings_counter > 0 %}<span class="tag tag--success">Используется в базе знаний</span>{% endif %}
+                                        </div>
                                     </td>
                                     <td class="elastic-table__td">
                                         {{ storage.localdocuments_counter }}
+                                    </td>
+                                    <td class="elastic-table__td">
+                                        {{ storage.embeddings_counter }}
                                     </td>
                                     <td class="elastic-table__td _ai-fe">
                                         <div class="btns">
@@ -258,11 +286,12 @@
             <div class="info-page__body">
                 <h3 class="info-page__heading"></h3>
                 {% if knowledgebase.websites|length > 0 %}
-                    <table class="elastic-table elastic-table_3-auto">
+                    <table class="elastic-table elastic-table_4-auto">
                         <thead class="elastic-table__thead">
                             <tr class="elastic-table__tr">
                                 <th class="elastic-table__th">Название</th>
                                 <th class="elastic-table__th">Кол-во источников</th>
+                                <th class="elastic-table__th">Кол-во векторов</th>
                                 <th class="elastic-table__th"></th>
                             </tr>
                         </thead>
@@ -281,9 +310,22 @@
                                                 <use xlink:href="{% static 'img/icons/sprite.svg' %}#cloud"></use>
                                             </svg>
                                         </a>
+                                        <div class="tags">
+                                            {% if site.default_retriever %}
+                                            <div class="icon" title="Используется как ретривер по умолчанию в схеме MultiRetrievalQAChain">
+                                                <svg>
+                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#star"></use>
+                                                </svg>
+                                            </div>
+                                            {% endif %}
+                                            {% if site.embeddings_counter > 0 %}<span class="tag tag--success">Используется в базе знаний</span>{% endif %}
+                                        </div>
                                     </td>
                                     <td class="elastic-table__td">
                                         {{ site.urls_counter }}
+                                    </td>
+                                    <td class="elastic-table__td">
+                                        {{ site.embeddings_counter }}
                                     </td>
                                     <td class="elastic-table__td _ai-fe">
                                         <div class="btns">

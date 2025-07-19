@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+import time
+from datetime import datetime
 
 from celery import shared_task
 from celery_progress.backend import ProgressRecorder
@@ -38,10 +40,10 @@ def universal_create_vectors_task(self, author_pk, report_pk):
               .get(pk=report_pk))
 
     storage = (
-        report.site or
-        report.batch or
-        report.cloud_storage or
-        report.local_storage
+            report.site or
+            report.batch or
+            report.cloud_storage or
+            report.local_storage
     )
 
     if not storage:
@@ -149,17 +151,17 @@ def universal_create_vectors_task(self, author_pk, report_pk):
 
         # Создаем записи Embedding
         for chunk_id, vector_id in zip(batch_chunk_ids, batch_vector_ids):
-            chunk = Chunk.objects.get(id=chunk_id)
-            if not Embedding.objects.filter(chunk=chunk, embedding_engine=embedding_engine).exists():
-                new_embeddings.append(
-                    Embedding(
-                        chunk=chunk,
-                        embedding_engine=embedding_engine,
-                        vector_id=vector_id,
-                        author_id=author_pk,
-                        report_id=report_pk,
-                    )
+            # chunk = Chunk.objects.get(id=chunk_id)
+            # if not Embedding.objects.filter(chunk=chunk, embedding_engine=embedding_engine).exists():
+            new_embeddings.append(
+                Embedding(
+                    chunk_id=chunk_id,
+                    embedding_engine=embedding_engine,
+                    vector_id=vector_id,
+                    author_id=author_pk,
+                    report_id=report_pk,
                 )
+            )
 
         # Обновляем прогресс
         processed_chunks += len(batch_texts)
@@ -261,13 +263,14 @@ def create_vectors_task(self, website_id, author_pk, report_pk):
     except Exception as e:
         raise ValueError(f"Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
 
-    chunks = (Chunk.objects
-              .filter(
-        url_content__url__site=website,
-        embedding__isnull=True
+    chunks = (
+        Chunk.objects
+        .filter(
+            url_content__url__site=website,
+            embedding__isnull=True
+        )
+        .exclude(status=ChunkStatus.ERROR.value)
     )
-              .exclude(status=ChunkStatus.ERROR.value)
-              )
 
     if not chunks.exists():
         raise ValueError("Чанки для обработки не найдены")
@@ -525,3 +528,40 @@ def test_model_answer(self,
         json.dump(results, f, ensure_ascii=False, indent=4)
 
     return "Обработка завершена"
+
+
+@shared_task(bind=True, soft_time_limit=3700, time_limit=3800)
+def test_task(self, steps=60, sleep_per_step=60.0):
+    """
+    Тестовая Celery-задача, работающая ~1 час.
+
+    Параметры:
+    - steps (int): количество этапов.
+    - sleep_per_step (float): продолжительность "работы" на каждом этапе (в секундах).
+
+    Логирует время начала и окончания каждого этапа.
+    """
+    progress_recorder = ProgressRecorder(self)
+
+    logger.info(f"[test_task] Задача стартовала: steps={steps}, sleep_per_step={sleep_per_step:.2f}s")
+
+    for step in range(1, steps + 1):
+        start_time = datetime.now()
+        logger.info(f"[test_task] Этап {step}/{steps} стартовал в {start_time.strftime('%H:%M:%S')}")
+
+        try:
+            # Имитация работы
+            time.sleep(sleep_per_step)
+        except Exception as e:
+            logger.exception(f"[test_task] Ошибка на этапе {step}: {e}")
+            raise
+
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
+        logger.info(
+            f"[test_task] Этап {step} завершён в {end_time.strftime('%H:%M:%S')} (длительность: {duration:.2f} сек)")
+
+        # Обновление прогресса
+        progress_recorder.set_progress(step, steps)
+
+    logger.info("[test_task] Задача завершена успешно.")

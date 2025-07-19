@@ -1,10 +1,12 @@
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.db.models import Prefetch, Count, Subquery, OuterRef, IntegerField
+from django.db.models import Prefetch, Count, Subquery, OuterRef, IntegerField, Q, F
+from django.db.models.functions import Coalesce
 from django.views import View
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy
 from django.shortcuts import redirect, get_object_or_404, render
 
+from app_embeddings.models import Embedding
 from app_sources.source_models import NetworkDocument, LocalDocument, URL
 from app_sources.storage_models import CloudStorage, WebSite, LocalStorage, URLBatch
 from .forms import KnowledgeBaseForm
@@ -41,127 +43,156 @@ class KnowledgeBaseListView(LoginRequiredMixin, ListView):
 class KnowledgeBaseDetailView(LoginRequiredMixin, KBPermissionMixin, DetailView):
     """Детальная информация о базе знаний"""
     model = KnowledgeBase
-    # cloud_storages = Prefetch(
-    #     "cloudstorage_set",
-    #     queryset=CloudStorage.objects.select_related("author").annotate(
-    #         networkdocuments_counter=Count("documents", distinct=True)
-    #     ),
-    #     to_attr="cloud_storages"
-    # )
-    # local_storages = Prefetch(
-    #     "localstorage_set",
-    #     queryset=LocalStorage.objects.select_related("author").annotate(
-    #         localdocuments_counter=Count("documents", distinct=True)
-    #     ),
-    #     to_attr="local_storages"
-    # )
-    # websites = Prefetch(
-    #     "website_set",
-    #     queryset=WebSite.objects.select_related("author").annotate(
-    #         urls_counter=Count("url", distinct=True)
-    #     ),
-    #     to_attr="websites"
-    # )
-    # urlbatches = Prefetch(
-    #     "urlbatch_set",
-    #     queryset=URLBatch.objects.select_related("author").annotate(
-    #         urls_counter=Count("url", distinct=True)
-    #     ),
-    #     to_attr="urlbatches"
-    # )
-    #
-    # queryset = (KnowledgeBase.objects.select_related("engine")
-    #             .prefetch_related(cloud_storages, local_storages, websites, urlbatches))
-    #
-    cloud_docs_subquery = Subquery(
-        NetworkDocument.objects
-        .filter(storage=OuterRef("pk"))  # ← используем "storage"
-        .order_by()
-        .values("storage")  # ← группируем по "storage"
-        .annotate(cnt=Count("id"))
-        .values("cnt")[:1],
-        output_field=IntegerField()
-    )
 
-    cloud_storages = Prefetch(
-        "cloudstorage_set",
-        queryset=CloudStorage.objects
-            .select_related("author", )
-            .annotate(networkdocuments_counter=cloud_docs_subquery),
-            to_attr="cloud_storages"
-    )
-
-    # Local storage
-    local_docs_subquery = Subquery(
-        LocalDocument.objects
+    def get_queryset(self):
+        cloud_docs_subquery = Subquery(
+            NetworkDocument.objects
             .filter(storage=OuterRef("pk"))
             .order_by()
             .values("storage")
             .annotate(cnt=Count("id"))
             .values("cnt")[:1],
             output_field=IntegerField()
-    )
+        )
+        cloud_embeddings_subquery = Subquery(
+            Embedding.objects
+            .filter(
+                Q(chunk__raw_content__network_document__storage=OuterRef("pk")) |
+                Q(chunk__cleaned_content__network_document__storage=OuterRef("pk"))
+            )
+            .annotate(storage_id=Coalesce(
+                F("chunk__raw_content__network_document__storage"),
+                F("chunk__cleaned_content__network_document__storage"),
+            ))
+            .values("storage_id")  # группировка по вычисленному storage
+            .annotate(cnt=Count("id"))
+            .values("cnt")[:1],
+            output_field=IntegerField()
+        )
 
-    local_storages = Prefetch(
-        "localstorage_set",
-        queryset=LocalStorage.objects
+        cloud_storages = Prefetch(
+            "cloudstorage_set",
+            queryset=CloudStorage.objects
+            .select_related("author", )
+            .annotate(
+                networkdocuments_counter=cloud_docs_subquery,
+                embeddings_counter=cloud_embeddings_subquery,
+            ),
+            to_attr="cloud_storages"
+        )
+
+
+        # Local storage
+        local_docs_subquery = Subquery(
+            LocalDocument.objects
+            .filter(storage=OuterRef("pk"))
+            .order_by()
+            .values("storage")
+            .annotate(cnt=Count("id"))
+            .values("cnt")[:1],
+            output_field=IntegerField()
+        )
+        local_embeddings_subquery = Subquery(
+            Embedding.objects
+            .filter(
+                Q(chunk__raw_content__local_document__storage=OuterRef("pk")) |
+                Q(chunk__cleaned_content__local_document__storage=OuterRef("pk"))
+            )
+            .annotate(storage_id=Coalesce(
+                F("chunk__raw_content__local_document__storage"),
+                F("chunk__cleaned_content__local_document__storage"),
+            ))
+            .values("storage_id")  # группировка по вычисленному storage
+            .annotate(cnt=Count("id"))
+            .values("cnt")[:1],
+            output_field=IntegerField()
+        )
+
+        local_storages = Prefetch(
+            "localstorage_set",
+            queryset=LocalStorage.objects
             .select_related("author")
-            .annotate(localdocuments_counter=local_docs_subquery),
+            .annotate(
+                localdocuments_counter=local_docs_subquery,
+                embeddings_counter=cloud_embeddings_subquery,
+            ),
             to_attr="local_storages"
-    )
+        )
 
-    # Websites
-    site_urls_subquery = Subquery(
-        URL.objects
+        # Websites
+        site_urls_subquery = Subquery(
+            URL.objects
             .filter(site=OuterRef("pk"))
             .order_by()
             .values("site")
             .annotate(cnt=Count("id"))
             .values("cnt")[:1],
             output_field=IntegerField()
-    )
+        )
 
-    websites = Prefetch(
-        "website_set",
+        site_embeddings_subquery = Subquery(
+            Embedding.objects
+            .filter(chunk__url_content__url__site=OuterRef("pk"))
+            .values("chunk__url_content__url__site")  # группировка по сайту
+            .annotate(cnt=Count("id"))
+            .values("cnt")[:1],
+            output_field=IntegerField()
+        )
+
+        websites = Prefetch(
+            "website_set",
             queryset=WebSite.objects
             .select_related("author")
-            .annotate(urls_counter=site_urls_subquery),
+            .annotate(
+                urls_counter=site_urls_subquery,
+                embeddings_counter=site_embeddings_subquery,
+            ),
             to_attr="websites"
-    )
+        )
 
-    # URLBatch
-    batch_urls_subquery = Subquery(
-        URL.objects
+        # URLBatch
+        batch_urls_subquery = Subquery(
+            URL.objects
             .filter(batch=OuterRef("pk"))
             .order_by()
             .values("batch")
             .annotate(cnt=Count("id"))
             .values("cnt")[:1],
             output_field=IntegerField()
-    )
-
-    urlbatches = Prefetch(
-        "urlbatch_set",
-        queryset=URLBatch.objects
-            .select_related("author")
-            .annotate(urls_counter=batch_urls_subquery),
-            to_attr="urlbatches"
-    )
-
-
-
-    queryset = (
-        KnowledgeBase.objects
-        .select_related("engine")
-        .prefetch_related(
-            cloud_storages,
-            local_storages,
-            websites,
-            urlbatches,
         )
-    )
 
+        batch_embeddings_subquery = Subquery(
+            Embedding.objects
+            .filter(chunk__url_content__url__batch=OuterRef("pk"))
+            .values("chunk__url_content__url__site")  # группировка по сайту
+            .annotate(cnt=Count("id"))
+            .values("cnt")[:1],
+            output_field=IntegerField()
+        )
 
+        urlbatches = Prefetch(
+            "urlbatch_set",
+            queryset=URLBatch.objects
+            .select_related("author")
+            .annotate(
+                urls_counter=batch_urls_subquery,
+                embeddings_counter=batch_embeddings_subquery,
+
+            ),
+            to_attr="urlbatches"
+        )
+
+        queryset = (
+            KnowledgeBase.objects
+            .select_related("engine")
+            .prefetch_related(
+                cloud_storages,
+                local_storages,
+                websites,
+                urlbatches,
+            )
+        )
+        return queryset
 
 
 class KnowledgeBaseCreateView(LoginRequiredMixin, CreateView):

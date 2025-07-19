@@ -22,7 +22,6 @@ class KnowledgeBase(TrackableModel):
     logo = models.FileField(verbose_name="логотип", blank=True, null=True, upload_to=logo_upload_path)
     system_instruction = models.CharField(verbose_name="системная инструкция", max_length=10000, blank=True, null=True)
 
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

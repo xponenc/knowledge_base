@@ -9,7 +9,7 @@ import markdown
 
 from collections import Counter
 
-
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404, render, redirect
 from django.http import JsonResponse
 from django.views import View
@@ -24,10 +24,9 @@ from app_embeddings.forms import ModelScoreTestForm
 # from app_embeddings.services.embedding_config import system_instruction, system_instruction_metadata
 from app_embeddings.services.embedding_store import get_vectorstore, load_embedding
 from app_embeddings.services.retrieval_engine import answer_index, answer_index_with_metadata, get_cached_multi_chain, \
-    get_cached_ensemble_chain, trigram_similarity_answer_index
+    get_cached_ensemble_chain, trigram_similarity_answer_index, reformulate_question
 from app_embeddings.tasks import test_model_answer
 from knowledge_base.settings import BASE_DIR
-
 
 from threading import Lock
 
@@ -254,12 +253,17 @@ class SystemChatView(View):
         return render(request, self.template_name, context)
 
     def post(self, request, kb_pk, *args, **kwargs):
+        user_message_text = request.POST.get('message', '').strip()
+        if not user_message_text:
+            return JsonResponse({"error": "Empty message"}, status=400)
+
         kb = get_object_or_404(KnowledgeBase.objects.select_related("engine"), pk=kb_pk)
         embedding_engine = kb.engine
         embeddings_model_name = embedding_engine.model_name
         is_multichain = request.POST.get("is_multichain") == "true"
         is_ensemble = request.POST.get("is_ensemble") == "true"
-        is_trigram = request.POST.get("is_trigram") == "true"
+        is_reformulate_question = request.POST.get("is_reformulate_question") == "true"
+        history_deep = request.POST.get("history_deep", None)
 
         system_instruction_form = SystemInstructionForm(request.POST)
         if system_instruction_form.is_valid():
@@ -270,16 +274,33 @@ class SystemChatView(View):
         if not system_instruction:
             return JsonResponse({"error": "Пустая системная инструкция"}, status=400)
 
+        if history_deep:
+            try:
+                history_deep = int(history_deep)
+                if history_deep > 5:
+                    history_deep = 5
+            except ValueError:
+                history_deep = 1
+        else:
+            history_deep = 1
+
         session_key = request.session.session_key
         if not session_key:
             request.session.create()
             session_key = request.session.session_key
 
-        chat_session, _ = ChatSession.objects.get_or_create(session_key=session_key, kb=kb)
-
-        user_message_text = request.POST.get('message', '').strip()
-        if not user_message_text:
-            return JsonResponse({"error": "Empty message"}, status=400)
+        limited_chat_history = Prefetch(
+            "messages",
+            queryset=(
+                ChatMessage.objects
+                .prefetch_related("answer")
+                .filter(is_user=True).order_by("-created_at")[:history_deep]
+            ),
+            to_attr="limited_chat_history",
+        )
+        chat_session, _ = (
+            ChatSession.objects.prefetch_related(limited_chat_history).get_or_create(session_key=session_key, kb=kb)
+        )
 
         # Сохраняем сообщение пользователя
         user_message = ChatMessage.objects.create(
@@ -288,6 +309,17 @@ class SystemChatView(View):
             text=user_message_text,
             created_at=timezone.now()
         )
+
+        if is_reformulate_question:
+            chat_history = chat_session.limited_chat_history
+            if chat_history:
+                history = [(msg.text, getattr(msg, "answer", None).text if getattr(msg, "answer", None) else "") for msg
+                           in chat_history]
+                user_message_text = reformulate_question(
+                    current_question=user_message_text,
+                    chat_history=history,
+                )
+                print(f"{user_message_text=}")
 
         # try:
         #     # embeddings_model = load_embedding(embeddings_model_name)
@@ -367,7 +399,7 @@ class SystemChatView(View):
             docs = result.get("context", [])
         else:
             result = trigram_similarity_answer_index(kb.pk,
-                                                     system =  system_instruction or kb.system_instruction,
+                                                     system=system_instruction or kb.system_instruction,
                                                      query=user_message_text,
                                                      verbose=False)
             docs, ai_message_text = result
@@ -418,6 +450,7 @@ class SystemChatView(View):
 
         return render(request, self.template_name, {'chat_history': chat_history})
 
+
 class MessageScoreView(View):
     """Установка оценки ответа AI"""
 
@@ -441,7 +474,6 @@ class MessageScoreView(View):
 
 class ClearChatView(LoginRequiredMixin, View):
     def post(self, request, kb_pk, *args, **kwargs):
-
         kb = get_object_or_404(KnowledgeBase, pk=kb_pk)
 
         session_key = request.session.session_key
@@ -547,3 +579,4 @@ class TestModelScoreReportView(LoginRequiredMixin, View):
                                                                      "url")))
 
         return render(self.request, 'app_chunks/test_model_results.html', {'tests': test_report})
+

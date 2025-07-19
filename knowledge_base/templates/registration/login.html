@@ -24,6 +24,21 @@
           <div class="auth__body">
               <form method="post" class="auth__form">
                   {% csrf_token %}
+                  {% if form.errors %}
+                    <ul class="form__errors" id="errors">
+                        <li class="form__error">Форма заполнена некорректно. Пожалуйста, исправьте:</li>
+                        {% for error in form.non_field_errors %}
+                            <li class="form__error">{{ error|striptags }}</li>
+                        {% endfor %}
+                        {% for field in form %}
+                            {% if field.errors %}   
+                                {% for error in field.errors %}
+                                <li class="form__error">{{ field.label }}: {{ error|striptags }}</li>
+                                {% endfor %}
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                  {% endif %}
                   <div class="field-container just-validate-tooltip-container  field-container_wide">
                     <label class="custom-field">
                         <span class="custom-field__label">Имя пользователя</span>
