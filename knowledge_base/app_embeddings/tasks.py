@@ -19,13 +19,14 @@ from app_sources.content_models import URLContent, ContentStatus, CleanedContent
 from app_sources.source_models import URL, SourceStatus, NetworkDocument
 from app_sources.storage_models import WebSite, CloudStorage, LocalStorage, URLBatch
 from knowledge_base.settings import BASE_DIR
+from utils.setup_logger import setup_logger
 from .models import Embedding, EmbeddingsReport
 from .services.embedding_config import system_instruction
 from .services.embedding_store import load_embedding, get_vectorstore
 from .services.retrieval_engine import answer_index
 
 User = get_user_model()
-logger = logging.getLogger(__name__)
+logger = setup_logger(name=__file__, log_dir="logs/embeddings", log_file="embeddings.log")
 
 
 @shared_task(bind=True)
