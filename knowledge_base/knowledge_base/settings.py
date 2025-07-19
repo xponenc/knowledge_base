@@ -259,6 +259,11 @@ LOGGING = {
         'handlers': ['general_file'] if PRODUCTION else ['console', 'general_file'],
         'level': 'INFO',
     },
+    '': {
+        'handlers': ['general_file'] if PRODUCTION else ['console', 'general_file'],
+        'level': 'INFO',
+        'propagate': True,
+    },
 }
 
 
