@@ -9,7 +9,7 @@ import markdown
 
 from collections import Counter
 
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404, render, redirect
 from django.http import JsonResponse
 from django.views import View
@@ -289,6 +289,8 @@ class SystemChatView(View):
             request.session.create()
             session_key = request.session.session_key
 
+
+
         limited_chat_history = Prefetch(
             "messages",
             queryset=(
@@ -302,14 +304,6 @@ class SystemChatView(View):
             ChatSession.objects.prefetch_related(limited_chat_history).get_or_create(session_key=session_key, kb=kb)
         )
 
-        # Сохраняем сообщение пользователя
-        user_message = ChatMessage.objects.create(
-            session=chat_session,
-            is_user=True,
-            text=user_message_text,
-            created_at=timezone.now()
-        )
-
         if is_reformulate_question:
             chat_history = chat_session.limited_chat_history
             if chat_history:
@@ -319,7 +313,14 @@ class SystemChatView(View):
                     current_question=user_message_text,
                     chat_history=history,
                 )
-                print(f"{user_message_text=}")
+
+        # Сохраняем сообщение пользователя
+        user_message = ChatMessage.objects.create(
+            session=chat_session,
+            is_user=True,
+            text=user_message_text,
+            created_at=timezone.now()
+        )
 
         # try:
         #     # embeddings_model = load_embedding(embeddings_model_name)
@@ -495,9 +496,9 @@ class ChatReportView(LoginRequiredMixin, View):
         kb = get_object_or_404(KnowledgeBase, pk=kb_pk)
         if not kb.is_owner_or_superuser(request.user):
             raise 404
-        messages = (ChatMessage.objects.select_related("session").prefetch_related("answer")
-                    .filter(session__kb=kb, is_user=True)
-                    .order_by("-created_at", "session"))
+        messages = (ChatMessage.objects.select_related("web_session", "t_session").prefetch_related("answer")
+                    .filter(Q(web_session__kb=kb) | Q(t_session__kb=kb), is_user=True)
+                    .order_by("-created_at", "web_session", "t_session"))
         context = {
             "kb": kb,
             "chat_messages": messages,

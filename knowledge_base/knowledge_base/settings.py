@@ -26,6 +26,8 @@ INSTALLED_APPS = [
     'debug_toolbar',
     'rest_framework',
     # 'app_parsers',
+    'app_users',
+    'app_api',
     'app_core',
     'app_sources',
     'app_parsers',

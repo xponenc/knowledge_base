@@ -25,6 +25,9 @@ class KnowledgeBase(TrackableModel):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return self.name
+
     def get_absolute_url(self):
         return reverse('core:knowledgebase_detail', args=[str(self.id)])
 

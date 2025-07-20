@@ -73,12 +73,21 @@
                                 <tr class="elastic-table__tr">
                                     <td class="elastic-table__td">
                                         <div class="elastic-table__cell">
-                                            <a href="{% url 'chat:chat_report' kb.id %}?session_id=message.session.session_key" class="link-marker">
-                                                <span>{{ message.session.session_key }}</span>
-                                                <svg class="link-marker__marker">
-                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#cloud"></use>
-                                                </svg>
-                                            </a>
+                                            {% if message.web_session %}
+                                                <a href="{% url 'chat:chat_report' kb.id %}?session_id=message.web_session.session_key" class="link-marker">
+                                                    <span>web {{ message.web_session.session_key }}</span>
+                                                    <svg class="link-marker__marker">
+                                                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#cloud"></use>
+                                                    </svg>
+                                                </a>
+                                            {% elif message.t_session %}
+                                                <a href="{% url 'chat:chat_report' kb.id %}?session_id=message.t_session.telegram_id" class="link-marker">
+                                                    <span>telegram {{ message.t_session.telegram_id }}</span>
+                                                    <svg class="link-marker__marker">
+                                                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#cloud"></use>
+                                                    </svg>
+                                                </a>
+                                            {% endif %}
                                             <span>{{ message.created_at }}</span>
                                         </div>
                                     </td>
