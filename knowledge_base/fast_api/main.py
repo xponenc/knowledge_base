@@ -25,7 +25,8 @@ app = FastAPI(
     description="API для взаимодействия с Telegram-ботом. Поддерживает обработку сообщений пользователей, генерацию ответов AI и управление профилями пользователей. Все эндпоинты доступны под префиксом `/api`.",
     version="1.0.0",
     docs_url="/docs",  # Swagger UI
-    redoc_url="/redoc"  # ReDoc
+    redoc_url="/redoc",  # ReDoc
+    redirect_slashes=False
 )
 
 
