@@ -85,7 +85,7 @@ class CustomRetriever(BaseRetriever):
         # print(f"[*** CustomRetriever] {docs_with_scores=}")
 
         top_docs = rerank_documents(query, docs_with_scores, threshold=1.5)
-        print(f"[*** CustomRetriever] {top_docs=}")
+        # print(f"[*** CustomRetriever] {top_docs=}")
 
         if not top_docs:
             return [Document(page_content="Пожалуйста, задайте вопрос иначе или уточните его.")]
@@ -297,7 +297,7 @@ def init_ensemble_retriever_chain(kb_id: int, *, k: int = 5):
         query = input.get("input", input) if isinstance(input, dict) else input
         # Получаем все документы от EnsembleRetriever
         docs = ensemble_retriever.invoke(query)
-        print(f"rerank_and_enrich_documents {docs=}")
+        # print(f"rerank_and_enrich_documents {docs=}")
 
         # Собираем документы с их исходными score для реранкинга
         docs_and_scores = [(doc, doc.metadata.get("retriever_score", 0.0)) for doc in docs]
@@ -475,14 +475,14 @@ def reformulate_question(
             
             Вопрос пользователя: {question}
             
-            1. Связан ли этот вопрос с историей диалога? Ответь "да" или "нет".
-            2. Если "да", переформулируй вопрос так, чтобы он стал самостоятельным и включал важный контекст из истории.
-            3. Если "нет", верни исходный вопрос без изменений.
+            1. Самодостаточен ли этот вопрос для поиска в RAG исходя из контекста истории? Ответь "да" или "нет".
+            2. Если "нет", переформулируй вопрос так, чтобы он стал самостоятельным и включал важный контекст из истории.
+            3. Если "да", верни исходный вопрос без изменений.
             
-            Ответ:
+            Ответ: Только новый или исходный вопрос, без комментариев
         """,
     )
-
+    # 1. Связан ли этот вопрос с историей диалога? Ответь "да" или "нет".
     # Инициализируем модель
     llm = ChatOpenAI(temperature=0, model=openai_model)
     llm_chain = LLMChain(llm=llm, prompt=reformulate_prompt)
@@ -493,14 +493,16 @@ def reformulate_question(
         "question": current_question.strip()
     }).strip()
 
+    print(response)
+    return response
     # Попытка найти переформулированный текст после "2." или просто вернуть оригинальный
-    lines = response.split("\n")
-    reformulated = None
-    for line in lines:
-        if line.strip().startswith("2."):
-            reformulated = line.strip()[2:].strip(":").strip()
-            break
-    return reformulated if reformulated else current_question
+    # lines = response.split("\n")
+    # reformulated = None
+    # for line in lines:
+    #     if line.strip().startswith("2."):
+    #         reformulated = line.strip()[2:].strip(":").strip()
+    #         break
+    # return reformulated if reformulated else current_question
 
 
 # def answer_index(system, query, verbose=False):

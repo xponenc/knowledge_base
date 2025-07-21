@@ -289,8 +289,6 @@ class SystemChatView(View):
             request.session.create()
             session_key = request.session.session_key
 
-
-
         limited_chat_history = Prefetch(
             "messages",
             queryset=(
@@ -304,6 +302,14 @@ class SystemChatView(View):
             ChatSession.objects.prefetch_related(limited_chat_history).get_or_create(session_key=session_key, kb=kb)
         )
 
+        # Сохраняем сообщение пользователя
+        user_message = ChatMessage.objects.create(
+            web_session=chat_session,
+            is_user=True,
+            text=user_message_text,
+            created_at=timezone.now()
+        )
+
         if is_reformulate_question:
             chat_history = chat_session.limited_chat_history
             if chat_history:
@@ -314,13 +320,7 @@ class SystemChatView(View):
                     chat_history=history,
                 )
 
-        # Сохраняем сообщение пользователя
-        user_message = ChatMessage.objects.create(
-            web_session=chat_session,
-            is_user=True,
-            text=user_message_text,
-            created_at=timezone.now()
-        )
+
 
         # try:
         #     # embeddings_model = load_embedding(embeddings_model_name)
@@ -390,6 +390,7 @@ class SystemChatView(View):
                 "system_prompt": system_instruction or kb.system_instruction})
             docs = result.get("source_documents", [])
             ai_message_text = result["result"]
+            print(result)
         elif is_ensemble:
             qa_chain = get_cached_ensemble_chain(kb.pk)
             result = qa_chain.invoke({
