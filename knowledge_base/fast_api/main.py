@@ -26,7 +26,6 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",  # Swagger UI
     redoc_url="/redoc",  # ReDoc
-    redirect_slashes=False
 )
 
 
