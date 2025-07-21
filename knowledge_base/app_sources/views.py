@@ -780,6 +780,7 @@ class WebSiteTestParseView(LoginRequiredMixin, StoragePermissionMixin, View):
         # return redirect(reverse_lazy("parsers:testparser_detail", kwargs={"pk": test_parser.pk}))
 
         return render(request, "celery_task_progress.html", {
+            "kb": kb,
             "task_id": task.id,
             "task_name": f"Тестовый парсинг страницы {url}",
             "task_object_url": reverse_lazy("sources:website_detail", kwargs={"pk": website.pk}),
@@ -866,6 +867,7 @@ class WebSiteBulkParseView(LoginRequiredMixin, StoragePermissionMixin, View):
         )
 
         return render(request, "celery_task_progress.html", {
+            "kb": kb,
             "task_id": task.id,
             "task_name": f"Массовый парсинг страниц сайта {website.name}",
             "task_object_url": reverse_lazy("sources:website_detail", kwargs={"pk": website.pk}),
@@ -892,6 +894,7 @@ class WebSiteSynchronizationView(LoginRequiredMixin, StoragePermissionMixin, Vie
 
     def post(self, request, pk):
         website = get_object_or_404(WebSite, id=pk)
+        kb = website.kb
         mode = request.GET.get("mode", "test")
 
         if mode == "bulk":
@@ -963,6 +966,7 @@ class WebSiteSynchronizationView(LoginRequiredMixin, StoragePermissionMixin, Vie
             )
 
             return render(request, "celery_task_progress.html", {
+                "kb": kb,
                 "task_id": task.id,
                 "task_name": f"Массовый парсинг страниц сайта {website.name}",
                 "task_object_url": reverse_lazy("sources:website_detail", kwargs={"pk": website.pk}),
@@ -1017,6 +1021,7 @@ class WebSiteSynchronizationView(LoginRequiredMixin, StoragePermissionMixin, Vie
             # return redirect(reverse_lazy("parsers:testparser_detail", kwargs={"pk": test_parser.pk}))
 
             return render(request, "celery_task_progress.html", {
+                "kb": kb,
                 "task_id": task.id,
                 "task_name": f"Тестовый парсинг страницы {url}",
                 "task_object_url": reverse_lazy("sources:website_detail", kwargs={"pk": website.pk}),

@@ -1,0 +1,20 @@
+[program:telegram_bot]
+command=/home/bo/projects/knowledge_base/.venv/bin/python telegram_bot/bot_v4_main.py
+directory=/home/bo/projects/knowledge_base/knowledge_base/
+user=bo
+numprocs=1
+
+stdout_logfile=/home/bo/projects/knowledge_base/knowledge_base/logs/telegram_bot_supervisor_bot_stdout.log
+stderr_logfile=/home/bo/projects/knowledge_base/knowledge_base/logs/telegram_bot_supervisor_bot_stderr.log
+redirect_stderr=false
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=10
+stderr_logfile_maxbytes=10MB
+stderr_logfile_backups=10
+
+autostart=true
+autorestart=true
+startsecs=10
+stopwaitsecs=600
+killasgroup=true
+priority=998

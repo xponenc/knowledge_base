@@ -1,48 +1,71 @@
-{% extends 'base.html' %}
+{% extends 'clear_base.html' %}
 {% load static %}
+
+
+{% block extra_css %}
+{% endblock extra_css %}
+
+
 {% block title %}
-    renet.DOCS Статус обработки фоновой задачи
+    kb.AI Статус обработки фоновой задачи
 {% endblock title %}
 
-{% block css %}
-    {% comment %} <link href="{% static 'css/system.css' %}" rel="stylesheet"> {% endcomment %}
-{% endblock css %}
+
+{% block nav %}
+    {% include "include/nav.html" %}
+{% endblock nav %}
+
 
 {% block content %}
 
-<div class="system">
-    <section class="system__upload">
-        <div class="system__container container">
-            <div class="container__wrapper">
-                <div class="container__header">
-                    <div class="container__logo"></div>
-                    <h2 class="container__heading container__heading_fat">
-                        <span>МОДУЛЬ ЗАГРУЗКИ</span>
-                        <span>Административный модуль</span>
-                    </h2>
-                </div>
-                <div class="container__control">
-                    <div class="container__btns">
-                    </div>
-                    <div class="container__sorter"></div>
-                </div>
-                <div class="container__content">
-                    <div class="system__wrapper">
-                        <div class="system__progress">
-                            <h4 class="system__subheader">Статус обработки фоновой задачи {{ task_name }}</h4>
-                            <p>Задача выполняется в рамках обработки <a href="{{ task_object_url }}">{{ task_object_name }}</a></p>
-                            <div class='progress-wrapper'>
-                            <div id='progress-bar' class='progress-bar' style="width: 0%;">&nbsp;</div>
-                            </div>
-                            <div class="progress-bar-message" id="progress-bar-message">Ожидайте начало обработки...</div>
-                            <div id="celery-result"></div>
-                        </div>
-                    </div>
-                </div>
+<div class="page page--kb">
+    <div class="page__top page__grid">
+        <div class="page__info info-page info-page--logo">
+            {% if  kb.logo.url %}
+                <img src="{{ kb.logo.url }}" alt="Логотип базы знаний {{ kb.name }}" class="info-page__logo">
+            {% endif %}
+        </div>
+        <div class="page__info info-page">
+            <span class="info-page__banner">База знаний</span>
+            <div class="info-page__header">
+                <h2 class="page__heading page__heading--accent _ta-e">{{ kb.name }}</h2>
             </div>
-        </section>
+            <div class="info-page__body">
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
     </div>
+    <div class="page__content">
+        <div class="page__info info-page info-page--kb _mb" id="details">
+            <span class="info-page__banner info-page__banner--medium">фоновая задача</span>
+            <div class="info-page__header">
+                <h3 class="info-page__heading _ta-e"></h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading">{{ task_name }}</h3>
+                <div class="progress">
+                    <h4 class="progress__heading">Статус обработки фоновой задачи {{ task_name }}</h4>
+                    <p class="progress__text">Задача выполняется в рамках обработки <a href="{{ task_object_url }}">{{ task_object_name }}</a></p>
+                    <div class='progress__wrapper progress-wrapper'>
+                        <div id='progress-bar' class='progress-bar' style="width: 0%;  background-image: linear-gradient(
+                            -45deg,
+                            #8b8c8d 25%,
+                            #e7e2de 25%,
+                            #e7e2de 50%,
+                            #8b8c8d 50%,
+                            #8b8c8d 75%,
+                            #e7e2de 75%,
+                            #e7e2de 100%
+                        );
+                        background-size: 40px 40px;
+                        animation: moveStripes 2s linear infinite;">&nbsp;</div>
+                    </div>
+                    <div class="progress-bar-message" id="progress-bar-message">Ожидайте начало обработки...</div>
+                    <div id="celery-result"></div>
+                </div>
 {% endblock content %}
+
 
 {% block script %}
     <script src="{% static 'libs/jquery/jquery-3.6.0.min.js' %}"></script>
@@ -84,16 +107,22 @@
         }
         document.addEventListener("DOMContentLoaded", function () {
             var progressUrl = "{% url 'celery_progress:task_status' task_id %}";
-            CeleryProgressBar.initProgressBar(progressUrl, {
+            var bar = CeleryProgressBar.initProgressBar(progressUrl, {
                 onProgress: onProgressMy,
                 onSuccess: onSuccessMy,
                 barColors: {
-                success:	"#76ce60",
-                error:	"#e6324c",
-                progress:	"#a74c00",
-                ignored:	"#7a7a7a",
+                    success:	"#76ce60",
+                    error:	"#e6324c",
+                    progress:	"#a74c00",
+                    ignored:	"#7a7a7a",
                 },
+                pollInterval: 2000,
             });
+            // Переопределение pollInterval вручную
+            if (bar && bar.options) {
+                bar.options.pollInterval = 5000; // в миллисекундах
+            }
         });
+
     </script> 
 {% endblock script %}

@@ -493,6 +493,7 @@ class CloudStorageSyncView(LoginRequiredMixin, StoragePermissionMixin, View):
     def post(self, request, pk):
 
         cloud_storage = get_object_or_404(CloudStorage, pk=pk)
+        kb = cloud_storage.kb
         scan_params_form = StorageScanParamForm(request.POST)
         if scan_params_form.is_valid():
             print(f"{scan_params_form.cleaned_data}")
@@ -516,11 +517,19 @@ class CloudStorageSyncView(LoginRequiredMixin, StoragePermissionMixin, View):
             storage_update_report.running_background_tasks[task.id] = "Синхронизация файлов"
             storage_update_report.save(update_fields=["running_background_tasks", ])
 
-            return render(request, 'app_sources/cloudstorage_progress_report.html', {
-                'task_id': task.task_id,
-                'cloudstorage': cloud_storage,
-                "next_step_url": storage_update_report.get_absolute_url()
-            })
+            context = {
+                "kb": kb,
+                "task_id": task.id,
+                "task_name": f"Синхронизация хранилища {cloud_storage._meta.verbose_name} {cloud_storage.name}",
+                "task_object_url": storage_update_report.get_absolute_url(),
+                "task_object_name": "Отчет о векторизации",
+                "next_step_url": storage_update_report.get_absolute_url(),
+            }
+            return render(request=request,
+                          template_name="celery_task_progress.html",
+                          context=context
+                          )
+
 
         except Exception as e:
             logger.exception(f"Ошибка синхронизации хранилища: {cloud_storage.name}, запущена {request.user},"

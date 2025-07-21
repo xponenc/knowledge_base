@@ -3,8 +3,7 @@
 
 
 {% block extra_css %}
-
-{% endblock %}
+{% endblock extra_css %}
 
 
 {% block title %}База знаний{{ object.name }}{% endblock %}
@@ -103,6 +102,46 @@
                         {{ object.system_instruction|linebreaks }}
                     </dd> 
                 </dl>
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+        <div class="page__info info-page info-page--kb _mb" id="api">
+            <span class="info-page__banner info-page__banner--medium">API</span>
+            <div class="info-page__header">
+                <h3 class="info-page__heading _ta-e"></h3>
+                <p class="text text--label">Настройка API клиентов выполняется через административную панель</p>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                {% if knowledgebase.apiclient_set.all|length > 0 %}
+                    <table class="elastic-table elastic-table_3-auto">
+                        <thead class="elastic-table__thead">
+                            <tr class="elastic-table__tr">
+                                <th class="elastic-table__th">Название</th>
+                                <th class="elastic-table__th">Статус</th>
+                                <th class="elastic-table__th">Создан</th>
+                            </tr>
+                        </thead>
+                        <tbody class="elastic-table__tbody">
+                            {% for api in knowledgebase.apiclient_set.all %}
+                                <tr class="elastic-table__tr">
+                                    <td class="elastic-table__td">
+                                        <span>{{ api.name }}</span>
+                                    </td>
+                                    <td class="elastic-table__td">
+                                        <span>{{ api.is_active|yesno:"Активен,Отключен" }}</span>
+                                    </td>
+                                    <td class="elastic-table__td">
+                                        <span>{{ api.created_at|date:"d.m.Y H:i" }}</span>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="text text--muted _ta-c">Нет API клиентов</p>
+                {% endif %}
             </div>
             <div class="info-page__footer">
             </div>

@@ -616,6 +616,7 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
             storage.save(update_fields=["configs", ])
 
             context = {
+                "kb": kb,
                 "task_id": task.id,
                 "task_name": f"Чанкинг веб-страниц сайта {storage.name}",
                 "task_object_url": reverse_lazy("chunks:test_model_report"),
@@ -981,6 +982,7 @@ class ChunkCreateFromStorageView(LoginRequiredMixin, View):
         storage.save(update_fields=["configs", ])
 
         context = {
+            "kb": kb,
             "task_id": task.id,
             "task_name": f"Чанкинг хранилища {storage_cls._meta.verbose_name}",
             "task_object_url": storage.get_absolute_url(),  # TODO Поменять на вывод отчета

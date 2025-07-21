@@ -17,5 +17,5 @@ urlpatterns = [
     path("storage/<str:storage_type>/<int:pk>/vectorize", VectorizeStorageView.as_view(), name="storage_vectorize"),
 
     path('chunks/show-current/', CurrentTestChunksView.as_view(), name='current_chuncks'),
-    path('test_task', EngineTestTask.as_view(), name="test_task")
+    path('<int:pk>/test_task', EngineTestTask.as_view(), name="test_task")
 ]

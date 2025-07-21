@@ -16,7 +16,7 @@ except ImportError:
 bot_name = 'DPO Assistant'
 
 # DPO_Assistant_bot
-bot_credentials = os.getenv('dpo_bot_bot_credentials')
+bot_credentials = os.getenv('DPO_BOT_CREDENTIALS')
 
 KB_AI_API_URL = "http://127.0.0.1:8001/api"
 KB_AI_API_KEY = os.getenv('KB_AI_API_KEY')

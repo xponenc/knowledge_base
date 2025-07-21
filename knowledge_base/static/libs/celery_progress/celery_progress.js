@@ -20,7 +20,7 @@ class CeleryProgressBar {
         // HTTP options
         this.onNetworkError = options.onNetworkError || this.onError;
         this.onHttpError = options.onHttpError || this.onError;
-        this.pollInterval = options.pollInterval || 500;
+        this.pollInterval = options.pollInterval || 2000;
         // Other options
         let barColorsDefault = {
             success: '#76ce60',

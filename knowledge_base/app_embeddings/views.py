@@ -204,6 +204,7 @@ class VectorizeWebsiteView(LoginRequiredMixin, StoragePermissionMixin, View):
             embeddings_report.save(update_fields=["running_background_tasks", ])
 
             context = {
+                "kb": kb,
                 "task_id": task.id,
                 "task_name": f"Векторизация хранилища {storage._meta.verbose_name} {storage.name}",
                 "task_object_url": storage.get_absolute_url(),  # TODO Поменять на вывод отчета
@@ -306,6 +307,7 @@ class VectorizeStorageView(LoginRequiredMixin, StoragePermissionMixin, View):
             embeddings_report.save(update_fields=["running_background_tasks", ])
 
             context = {
+                "kb": kb,
                 "task_id": task.id,
                 "task_name": f"Векторизация хранилища {storage._meta.verbose_name} {storage.name}",
                 "task_object_url": storage.get_absolute_url(),  # TODO Поменять на вывод отчета
@@ -330,9 +332,11 @@ class VectorizeStorageView(LoginRequiredMixin, StoragePermissionMixin, View):
 
 class EngineTestTask(View):
 
-    def get(self, request):
+    def get(self, request, pk):
+        kb = get_object_or_404(KnowledgeBase, pk=pk)
         task = test_task.delay(steps=60, sleep_per_step=60.0)
         context = {
+                "kb": kb,
                 "task_id": task.id,
                 "task_name": f"Тестовая задача",
                 "task_object_url": reverse_lazy("embeddings:engine_list"),  # TODO Поменять на вывод отчета
