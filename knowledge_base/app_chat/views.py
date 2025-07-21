@@ -104,7 +104,7 @@ class ChatView(View):
 
         # Сохраняем сообщение пользователя
         user_message = ChatMessage.objects.create(
-            session=chat_session,
+            web_session=chat_session,
             is_user=True,
             text=user_message_text,
             created_at=timezone.now()
@@ -182,7 +182,7 @@ class ChatView(View):
 
         # Сохраняем ответ AI
         ai_message = ChatMessage.objects.create(
-            session=chat_session,
+            web_session=chat_session,
             answer_for=user_message,
             is_user=False,
             text=ai_message_text,
@@ -316,7 +316,7 @@ class SystemChatView(View):
 
         # Сохраняем сообщение пользователя
         user_message = ChatMessage.objects.create(
-            session=chat_session,
+            web_session=chat_session,
             is_user=True,
             text=user_message_text,
             created_at=timezone.now()
@@ -418,7 +418,7 @@ class SystemChatView(View):
 
         # Сохраняем ответ AI
         ai_message = ChatMessage.objects.create(
-            session=chat_session,
+            web_session=chat_session,
             answer_for=user_message,
             is_user=False,
             text=ai_message_text,
