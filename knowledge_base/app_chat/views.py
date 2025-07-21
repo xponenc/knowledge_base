@@ -294,6 +294,25 @@ class SystemChatView(View):
             queryset=(
                 ChatMessage.objects
                 .prefetch_related("answer")
+                .filter(is_user=True)
+                .order_by("-created_at")[:history_deep]
+            ),
+            to_attr="limited_chat_history",
+        )
+
+        # Вывод SQL для queryset в Prefetch
+        print(str(limited_chat_history.queryset.query))
+
+        # Вывод SQL для основного запроса
+        queryset = ChatSession.objects.prefetch_related(limited_chat_history).filter(session_key=session_key)
+        print(str(queryset.query))
+
+
+        limited_chat_history = Prefetch(
+            "messages",
+            queryset=(
+                ChatMessage.objects
+                .prefetch_related("answer")
                 .filter(is_user=True).order_by("-created_at")[:history_deep]
             ),
             to_attr="limited_chat_history",
@@ -310,16 +329,35 @@ class SystemChatView(View):
             created_at=timezone.now()
         )
 
-        if is_reformulate_question:
+        if is_reformulate_question and chat_session.limited_chat_history:
             chat_history = chat_session.limited_chat_history
             if chat_history:
                 history = [(msg.text, getattr(msg, "answer", None).text if getattr(msg, "answer", None) else "") for msg
                            in chat_history]
-                user_message_text = reformulate_question(
+                chat_str = ""
+                for user_q, ai_a in history:
+                    chat_str += f"Пользователь: {user_q}\nАссистент: {ai_a}\n"
+                # user_message_text = reformulate_question(
+                #     current_question=user_message_text,
+                #     chat_history=history,
+                # )
+                reformulated_question, user_message_was_changed = reformulate_question(
                     current_question=user_message_text,
-                    chat_history=history,
+                    chat_history=chat_str,
                 )
-
+                if user_message_was_changed:
+                    system_instruction = system_instruction or kb.system_instruction
+                    system_instruction += f"""\n
+                    Документы ниже были найдены по переформулированному запросу:
+                    "{reformulated_question}"
+                    
+                    Однако пользователь изначально спросил:
+                    "{user_message_text}"
+                    
+                    История диалога:
+                    {chat_str}
+                    
+                    Ответь как можно точнее на ИСХОДНЫЙ вопрос, опираясь на документы."""
 
 
         # try:
@@ -390,7 +428,7 @@ class SystemChatView(View):
                 "system_prompt": system_instruction or kb.system_instruction})
             docs = result.get("source_documents", [])
             ai_message_text = result["result"]
-            print(result)
+            # print(result)
         elif is_ensemble:
             qa_chain = get_cached_ensemble_chain(kb.pk)
             result = qa_chain.invoke({

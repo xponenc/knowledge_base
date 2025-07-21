@@ -437,36 +437,13 @@ def rerank_documents(query, docs_with_scores, reranker=RERANKER, threshold=FAISS
 
 def reformulate_question(
     current_question: str,
-    chat_history: List[Tuple[str, str]],
-    openai_model: str = "gpt-4o-mini",
-) -> str:
+    chat_history: str,
+    model: str = "gpt-4o-mini",
+) -> Tuple[str, bool]:
     """
-    Переформулирует текущий вопрос с учётом истории диалога,
-    только если он логически связан с предыдущими репликами.
-
-    Если вопрос самостоятельный и тема изменилась, возвращает оригинальный вопрос.
-
-    Args:
-        current_question (str): Новый вопрос пользователя.
-        chat_history (List[Tuple[str, str]]): История диалога как список пар (вопрос, ответ).
-        openai_model (str): Название модели OpenAI (по умолчанию "gpt-4o-mini").
-
-    Returns:
-        str: Переформулированный вопрос (если связан с историей) или оригинальный вопрос.
-
-    Пример:
-        chat_history = [
-            ("Кто у вас генеральный директор?", "Иванов Иван Иванович"),
-        ]
-        current_question = "А есть приказ о его назначении?"
-        reformulated = reformulate_question(current_question, chat_history)
+    Возвращает переформулированный вопрос (если нужно) и флаг, указывающий на изменение.
     """
-    # Собираем историю диалога
-    chat_str = ""
-    for user_q, ai_a in chat_history:
-        chat_str += f"Пользователь: {user_q}\nАссистент: {ai_a}\n"
 
-    # Шаблон prompt-а
     reformulate_prompt = PromptTemplate(
         input_variables=["chat_history", "question"],
         template="""
@@ -475,34 +452,20 @@ def reformulate_question(
             
             Вопрос пользователя: {question}
             
-            1. Самодостаточен ли этот вопрос для поиска в RAG исходя из контекста истории? Ответь "да" или "нет".
-            2. Если "нет", переформулируй вопрос так, чтобы он стал самостоятельным и включал важный контекст из истории.
-            3. Если "да", верни исходный вопрос без изменений.
+            1. Самодостаточен ли этот вопрос для поиска в документах? Ответь "да" или "нет".
+            2. Если "нет", переформулируй его с учётом контекста.
+            3. Если "да", просто верни исходный вопрос.
             
-            Ответ: Только новый или исходный вопрос, без комментариев
-        """,
+            Ответ: Только переформулированный или оригинальный вопрос.
+            """,
     )
-    # 1. Связан ли этот вопрос с историей диалога? Ответь "да" или "нет".
-    # Инициализируем модель
-    llm = ChatOpenAI(temperature=0, model=openai_model)
-    llm_chain = LLMChain(llm=llm, prompt=reformulate_prompt)
 
-    # Выполняем запрос
-    response = llm_chain.run({
-        "chat_history": chat_str.strip(),
-        "question": current_question.strip()
-    }).strip()
+    llm = ChatOpenAI(model=model, temperature=0)
+    chain = LLMChain(llm=llm, prompt=reformulate_prompt)
+    result = chain.run({"chat_history": chat_history, "question": current_question.strip()}).strip()
 
-    print(response)
-    return response
-    # Попытка найти переформулированный текст после "2." или просто вернуть оригинальный
-    # lines = response.split("\n")
-    # reformulated = None
-    # for line in lines:
-    #     if line.strip().startswith("2."):
-    #         reformulated = line.strip()[2:].strip(":").strip()
-    #         break
-    # return reformulated if reformulated else current_question
+    was_rewritten = result.strip() != current_question.strip()
+    return result.strip(), was_rewritten
 
 
 # def answer_index(system, query, verbose=False):
