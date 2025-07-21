@@ -77,7 +77,7 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
 
     logger.debug(f"User message saved: ID={user_message.pk}")
 
-    if is_reformulate_question:
+    if is_reformulate_question and telegram_session.limited_chat_history:
         chat_history = telegram_session.limited_chat_history
         if chat_history:
             history = [(msg.text, getattr(msg, "answer", None).text if getattr(msg, "answer", None) else "") for msg
