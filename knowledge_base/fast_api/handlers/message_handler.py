@@ -50,7 +50,7 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
     ```
     """
     logger.info(f"Processing message for telegram_id={data.telegram_id}, text='{data.text}'")
-    history_deep = 1
+    history_deep = 3
     is_reformulate_question = True
     user_message_text = data.text
 
@@ -82,11 +82,30 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
         if chat_history:
             history = [(msg.text, getattr(msg, "answer", None).text if getattr(msg, "answer", None) else "") for msg
                        in chat_history]
-            user_message_text = reformulate_question(
+            chat_str = ""
+            for user_q, ai_a in history:
+                chat_str += f"Пользователь: {user_q}\nАссистент: {ai_a}\n"
+            # user_message_text = reformulate_question(
+            #     current_question=user_message_text,
+            #     chat_history=history,
+            # )
+            reformulated_question, user_message_was_changed = reformulate_question(
                 current_question=user_message_text,
-                chat_history=history,
+                chat_history=chat_str,
             )
-            logger.info(f"Message for telegram_id={data.telegram_id} reformulated to text='{user_message_text}'")
+            if user_message_was_changed:
+                system_instruction = client.knowledge_base.system_instruction or ""
+                system_instruction += f"""\n
+                Документы ниже были найдены по переформулированному запросу:
+                "{reformulated_question}"
+
+                Однако пользователь изначально спросил:
+                "{user_message_text}"
+
+                История диалога:
+                {chat_str}
+
+                Ответь как можно точнее на ИСХОДНЫЙ вопрос, опираясь на документы."""
 
     try:
         chain = await sync_to_async(get_cached_multi_chain)(client.knowledge_base.pk)

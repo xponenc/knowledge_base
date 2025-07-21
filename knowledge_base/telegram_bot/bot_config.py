@@ -83,7 +83,7 @@ TASK_COMMANDS = {
     "info": {
         "name": f"{STUDY_EMOJI} Мои курсы",
         "help_text": f"Информация по вашим курсам и учебным программам",
-        "callback_data": "INFO"
+        "callback_data": "STUDY"
     },
     "tasks": {
         "name": f"{TASK_EMOJI} Мои задания",

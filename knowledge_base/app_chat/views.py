@@ -280,33 +280,14 @@ class SystemChatView(View):
                 if history_deep > 5:
                     history_deep = 5
             except ValueError:
-                history_deep = 1
+                history_deep = 3
         else:
-            history_deep = 1
+            history_deep = 3
 
         session_key = request.session.session_key
         if not session_key:
             request.session.create()
             session_key = request.session.session_key
-
-        limited_chat_history = Prefetch(
-            "messages",
-            queryset=(
-                ChatMessage.objects
-                .prefetch_related("answer")
-                .filter(is_user=True)
-                .order_by("-created_at")[:history_deep]
-            ),
-            to_attr="limited_chat_history",
-        )
-
-        # Вывод SQL для queryset в Prefetch
-        print(str(limited_chat_history.queryset.query))
-
-        # Вывод SQL для основного запроса
-        queryset = ChatSession.objects.prefetch_related(limited_chat_history).filter(session_key=session_key)
-        print(str(queryset.query))
-
 
         limited_chat_history = Prefetch(
             "messages",
