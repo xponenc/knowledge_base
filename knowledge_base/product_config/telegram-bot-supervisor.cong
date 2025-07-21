@@ -4,8 +4,8 @@ directory=/home/bo/projects/knowledge_base/knowledge_base/
 user=bo
 numprocs=1
 
-stdout_logfile=/home/bo/projects/knowledge_base/knowledge_base/logs/telegram_bot_supervisor_bot_stdout.log
-stderr_logfile=/home/bo/projects/knowledge_base/knowledge_base/logs/telegram_bot_supervisor_bot_stderr.log
+stdout_logfile=/home/bo/projects/knowledge_base/knowledge_base/logs/telegram_bot_supervisor_stdout.log
+stderr_logfile=/home/bo/projects/knowledge_base/knowledge_base/logs/telegram_bot_supervisor_stderr.log
 redirect_stderr=false
 stdout_logfile_maxbytes=10MB
 stdout_logfile_backups=10
