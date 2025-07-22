@@ -6,7 +6,7 @@ from aiogram.types import BotCommand, Message, CallbackQuery, ReplyKeyboardRemov
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 
-from telegram_bot.bot_config import MAIN_COMMANDS, TASK_COMMANDS, START_EMOJI, CHECK_EMOJI
+from telegram_bot.bot_config import MAIN_COMMANDS, TASK_COMMANDS, START_EMOJI, CHECK_EMOJI, QUESTION_EMOJI
 from telegram_bot.bot_v4.keyboards import reply_start_keyboard
 from telegram_bot.bot_v4.api_process import check_user
 from telegram_bot.core import bot_logger
@@ -20,7 +20,7 @@ class AuthStates(StatesGroup):
 
 
 class MenuStates(StatesGroup):
-    consult = State()
+    ai = State()
     task = State()
     study = State()
     manager = State()
@@ -42,8 +42,8 @@ async def verify_user(message: Message, state: FSMContext):
     """Верификация пользователя при нулевом State, если пользователь неавторизован, то State остается пустым
     и остальные роутеры не сработают"""
     await state.set_state(None)
-    await state.update_data(user={})
-
+    await state.update_data(user_data={})
+    print(message)
     data = await state.get_data()
     last_message = data.get("last_message")
 
@@ -60,7 +60,8 @@ async def verify_user(message: Message, state: FSMContext):
         await state.set_state(AuthStates.authorized)
     else:
         bot_logger.info(f"Access Granted for user with telegram ID {user_id}: Anonymous")
-        await message.answer("Привет, Anonymous! Создаю новую сессию.")
+        msg = f"Привет, {message.chat.first_name or message.chat.username or message.chat.id or 'Anonymous'}"
+        await message.answer(msg)
         await state.set_state(AuthStates.guest)
 
     if last_message:  # Сброс клавиатуры последнего сообщения и отметка о выбранном варианте
@@ -92,12 +93,11 @@ async def verify_user(message: Message, state: FSMContext):
 @start_router.callback_query(F.data == MAIN_COMMANDS.get("start").get("callback_data"))
 async def verify_user(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
-    """Верификация пользователя при нулевом State, если пользователь неавторизован, то State остается пустым
-        и остальные роутеры не сработают"""
     await state.set_state(None)
-    await state.update_data(user={})
+    await state.update_data(user_data={})
 
     data = await state.get_data()
+
     last_message = data.get("last_message")
 
     user_id = callback.message.from_user.id
@@ -113,7 +113,8 @@ async def verify_user(callback: CallbackQuery, state: FSMContext):
         await state.set_state(AuthStates.authorized)
     else:
         bot_logger.info(f"Access Granted for user with telegram ID {user_id}: Anonymous")
-        await callback.message.answer("Привет, Anonymous! Создаю новую сессию.")
+        msg = f"Привет, {callback.message.chat.first_name or callback.message.chat.username or callback.message.chat.id or 'Anonymous'}"
+        await callback.message.answer(msg)
         await state.set_state(AuthStates.guest)
 
     if last_message:  # Сброс клавиатуры последнего сообщения и отметка о выбранном варианте
@@ -140,36 +141,33 @@ async def verify_user(callback: CallbackQuery, state: FSMContext):
         "keyboard": answer_keyboard.model_dump_json()
     })
 
-#
-# # Отлов неправильных команд в главном меню
-# @start_router.message(StartState.waiting_start_menu_selection,
-#                       ~F.text.in_([f"/{command}" for command in list(TASK_COMMANDS) + list(MAIN_COMMANDS)]))
-# async def incorrect_start_options_choice(message: Message, state: FSMContext):
-#     bot_logger.warning(f"The user {message.from_user.id} is trying to send an invalid "
-#                        f"command '{message.text}' in the main menu.")
-#
-#     data = await state.get_data()
-#     # print(data)
-#     last_message = data.get("last_message")
-#     if last_message:  # Сброс клавиатуры последнего сообщения и отметка о выбранном варианте
-#         message_id = last_message.get("id")
-#         text = last_message.get("text")
-#         text += f"\n\n{CHECK_EMOJI} Получена некорректная команда"
-#         try:
-#             await message.bot.edit_message_text(text=text, chat_id=message.chat.id,
-#                                                 message_id=message_id, reply_markup=None,
-#                                                 parse_mode=ParseMode.HTML)
-#         except TelegramBadRequest:
-#             pass
-#
-#     msg = "Я не знаю такую команду, выберите из:"
-#     answer_keyboard = await reply_start_keyboard(
-#         items=list(value for value in TASK_COMMANDS.values()))
-#     answer_message = await message.answer(text=msg,
-#                                           parse_mode=ParseMode.HTML,
-#                                           reply_markup=answer_keyboard)
-#     await state.update_data(last_message={
-#         "id": answer_message.message_id,
-#         "text": msg,
-#         "keyboard": answer_keyboard.model_dump_json()
-#     })
+
+@start_router.message(StateFilter(AuthStates.guest, AuthStates.authorized))
+async def incorrect_start_options_choice(message: Message, state: FSMContext):
+    bot_logger.warning(f"The user {message.from_user.id} is trying to send an invalid "
+                       f"message '{message.text}' in the main menu.")
+
+    data = await state.get_data()
+    last_message = data.get("last_message")
+    if last_message:  # Сброс клавиатуры последнего сообщения и отметка о выбранном варианте
+        message_id = last_message.get("id")
+        text = last_message.get("text")
+        text += f"\n\n{QUESTION_EMOJI}\tне понял"
+        try:
+            await message.bot.edit_message_text(text=text, chat_id=message.chat.id,
+                                                message_id=message_id, reply_markup=None,
+                                                parse_mode=ParseMode.HTML)
+        except TelegramBadRequest:
+            pass
+
+    msg = "Выберите раздел:"
+    answer_keyboard = await reply_start_keyboard(
+        items=list(value for value in TASK_COMMANDS.values()))
+    answer_message = await message.answer(text=msg,
+                                          parse_mode=ParseMode.HTML,
+                                          reply_markup=answer_keyboard)
+    await state.update_data(last_message={
+        "id": answer_message.message_id,
+        "text": msg,
+        "keyboard": answer_keyboard.model_dump_json()
+    })

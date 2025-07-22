@@ -6,6 +6,8 @@ from fast_api.auth import get_api_client
 from fast_api.schemas.user_schemas import ProfileResponse, CustomerProfileSchema
 from utils.setup_logger import setup_logger
 
+from transliterate import translit
+
 # Настройка логгирования
 logger = setup_logger(name=__file__, log_dir="logs/fast_api", log_file="fast_api.log")
 
@@ -24,7 +26,7 @@ def get_customer_profile(telegram_id: int):
         CustomerProfile: Объект профиля пользователя или None, если профиль не найден.
     """
     logger.debug(f"Fetching profile for telegram_id={telegram_id}")
-    profile = CustomerProfile.objects.filter(telegram_id=telegram_id).first()
+    profile = CustomerProfile.objects.select_related("user").filter(telegram_id=telegram_id).first()
     logger.debug(f"Profile found: {profile is not None}")
     return profile
 
@@ -72,22 +74,22 @@ async def get_profile(telegram_id: int, client: ApiClient = Depends(get_api_clie
     logger.info(f"Fetching user profile for telegram_id={telegram_id}")
     profile = await get_customer_profile(telegram_id)
 
-    if profile:
+    if profile and profile.is_active:
         user_name = f"{profile.last_name or ''} {profile.first_name or ''} {profile.middle_name or ''}".strip() or "Unknown"
-        user_name_eng = profile.user_name_eng.replace(" ", "_") if profile.user_name_eng else ""
+        user_name_eng = translit(user_name, 'ru', reversed=True)
         return ProfileResponse(
             profile=CustomerProfileSchema(
                 user_name=user_name,
-                catalog_user_id=profile.catalog_user_id,
+                profile_id=profile.id,
                 user_name_eng=user_name_eng,
-                email=profile.email,
-                phone=profile.phone,
-                last_name=profile.last_name,
-                first_name=profile.first_name,
-                middle_name=profile.middle_name,
-                address=profile.address,
-                date_of_birth=profile.date_of_birth,
-                consent=profile.consent
+                # email=profile.email,
+                # phone=profile.phone,
+                # last_name=profile.last_name,
+                # first_name=profile.first_name,
+                # middle_name=profile.middle_name,
+                # address=profile.address,
+                # date_of_birth=profile.date_of_birth,
+                # consent=profile.consent
             )
         )
 
