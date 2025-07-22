@@ -56,6 +56,10 @@
                     <dd class="description__defination">
                         <pre class="text">{{ website.pk }}</pre> 
                     </dd>
+                    <dt class="description__term">описание</dt>
+                    <dd class="description__defination">
+                        <pre class="text">{{ website.description|default:"" }}</pre> 
+                    </dd>
                     <dt class="description__term">облако тегов</dt>
                     <dd class="description__defination description__defination--clamp3">
                         <div class="tags">
