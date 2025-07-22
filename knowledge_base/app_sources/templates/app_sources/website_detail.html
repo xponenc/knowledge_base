@@ -54,11 +54,11 @@
                     </dd>
                     <dt class="description__term">ID</dt>
                     <dd class="description__defination">
-                        <pre class="text">{{ website.pk }}</pre> 
+                        {{ website.pk }}
                     </dd>
                     <dt class="description__term">описание</dt>
                     <dd class="description__defination">
-                        <pre class="text">{{ website.description|default:"" }}</pre> 
+                        {{ website.description|linebreaks|default:"" }}
                     </dd>
                     <dt class="description__term">облако тегов</dt>
                     <dd class="description__defination description__defination--clamp3">
