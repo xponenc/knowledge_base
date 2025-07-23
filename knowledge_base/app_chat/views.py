@@ -511,7 +511,7 @@ class SystemChatView(View):
         }
         scheme = request.scheme
         host = request.get_host()
-        ai_message_text = result["result"].replace("http://127.0.0.1:8000", f"{scheme}://{host}")
+        ai_message_text =ai_message_text.replace("http://127.0.0.1:8000", f"{scheme}://{host}")
 
         ai_message = ChatMessage.objects.create(
             web_session=chat_session,
