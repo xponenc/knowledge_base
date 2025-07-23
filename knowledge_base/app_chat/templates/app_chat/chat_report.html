@@ -78,6 +78,7 @@
                                         <div class="elastic-table__cell">
                                             <div class="text text--break">{{ message.answer.text|linebreaks }}</div>
                                             <span class="text text--break">Оценка {{ message.answer.score|default:"-" }}</span>
+                                            <span class="text text--break">Время обработки {{ message.answer.extended_log.processing_time|floatformat:4|default:"-" }} с.</span>
                                         </div>
                                     </td>
                                     <td class="elastic-table__td">

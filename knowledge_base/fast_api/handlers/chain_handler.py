@@ -13,7 +13,7 @@ class ChainRequest(BaseModel):
     kb_id: int
     query: str
     system_prompt: Optional[str] = None
-    model: str = "gpt-4"
+    model: str = "gpt-4o-mini"
 
 class SourceDocument(BaseModel):
     metadata: dict

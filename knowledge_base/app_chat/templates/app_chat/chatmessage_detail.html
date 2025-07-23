@@ -84,6 +84,10 @@
                             <dd class="description__defination">
                                 {{ object.answer.score|default:"-" }}
                             </dd>
+                            <dt class="description__term">время обработки</dt>
+                            <dd class="description__defination">
+                                {{ object.answer.extended_log.processing_time|floatformat:4|default:"-" }} с.
+                            </dd>
                             <dt class="description__term">использованная llm</dt>
                             <dd class="description__defination">
                                 {{ object.answer.extended_log.llm|default:"-" }}
@@ -107,6 +111,7 @@
             </div>
             <div class="source__footer"></div>
         </div>
+
         {% if object.answer.extended_log.source_documents %}
             <div>
                 <h3 class="page__subheading">Чанки ({{ object.answer.extended_log.source_documents|length }})</h3>

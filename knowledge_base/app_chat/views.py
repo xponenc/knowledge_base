@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import pickle
+import time
 from datetime import datetime
 from pprint import pprint
 
@@ -290,6 +291,7 @@ class SystemChatView(View):
         return render(request, self.template_name, context)
 
     def post(self, request, kb_pk, *args, **kwargs):
+        start_time = time.monotonic()
         user_message_text = request.POST.get('message', '').strip()
         if not user_message_text:
             return JsonResponse({"error": "Empty message"}, status=400)
@@ -463,7 +465,7 @@ class SystemChatView(View):
 
             docs = result.get("source_documents", [])
             ai_message_text = result["result"]
-            print(result)
+            # print(result)
             # docs = [
             #     {"metadata": doc.metadata, "content": doc.page_content, }
             #     for doc in docs]
@@ -499,11 +501,12 @@ class SystemChatView(View):
         # docs_serialized = [
         #     {"metadata": doc.metadata, "content": doc.page_content, }
         #     for doc in docs]
-
+        end = time.monotonic()
+        duration = end - start_time
         # Сохраняем ответ AI
         extended_log = {
             "llm": llm_name,
-            "system_prompt": result.get("system_prompt"),
+            "system_prompt": system_instruction,
             "retriever_scheme": retriever_scheme,
             # "source_documents": [
             #     {
@@ -513,10 +516,12 @@ class SystemChatView(View):
             #     for doc in result.get("source_documents", [])
             # ]
             "source_documents": docs,
+            "processing_time": duration,
         }
         scheme = request.scheme
         host = request.get_host()
         ai_message_text =ai_message_text.replace("http://127.0.0.1:8000", f"{scheme}://{host}")
+
 
         ai_message = ChatMessage.objects.create(
             web_session=chat_session,
