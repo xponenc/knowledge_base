@@ -1,4 +1,6 @@
+import logging
 import os
+import sys
 from typing import Dict, Optional, Any, List
 from threading import Lock
 
@@ -15,6 +17,7 @@ from langchain.chains.retrieval_qa.base import RetrievalQA
 from langchain.chains.router.multi_retrieval_prompt import MULTI_RETRIEVAL_ROUTER_TEMPLATE
 from langchain_core.callbacks import CallbackManagerForChainRun
 from langchain.chains.router.llm_router import RouterOutputParser, LLMRouterChain
+from sympy.codegen.cnodes import sizeof
 
 from app_core.models import KnowledgeBase
 from app_embeddings.services.embedding_store import load_embedding, get_vectorstore
@@ -193,12 +196,15 @@ class CustomMultiRetrievalQAChain(MultiRetrievalQAChain):
         # Выполняем выбранную цепочку с модифицированными входными данными
         return destination_chain.invoke(next_inputs, run_manager=run_manager)
 
+logger = logging.getLogger(__name__)
 
 def get_cached_retrievers(kb_id: int) -> Dict[str, Any]:
     """
     Возвращает кэшированные ретриверы для базы знаний.
     Загружаются и кэшируются один раз для каждого kb_id.
     """
+    logger.info(f"current _retriever_cache {_retriever_cache} ")
+    logger.info(f"current _retriever_cache size {sys.getsizeof(_retriever_cache)} ")
     key = f"kb_retrievers_{kb_id}"
     with _lock:
         if key not in _retriever_cache:

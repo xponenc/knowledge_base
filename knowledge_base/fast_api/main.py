@@ -3,6 +3,7 @@ import sys
 import logging
 from fastapi import FastAPI, Request
 
+
 from utils.setup_logger import setup_logger
 
 logger = setup_logger(name=__file__, log_dir="logs/fast_api", log_file="fast_api.log")
@@ -18,6 +19,7 @@ django.setup()
 
 from fast_api.handlers.message_handler import message_router
 from fast_api.handlers.user_handler import user_router
+from fast_api.handlers.chain_handler import multi_chain_router
 
 # Инициализация FastAPI с метаданными
 app = FastAPI(
@@ -51,6 +53,7 @@ async def log_requests(request: Request, call_next):
 # Подключение маршрутов FastAPI с префиксом /api
 app.include_router(user_router, tags=["Пользователи"], prefix="/api/user")
 app.include_router(message_router, tags=["Сообщения"], prefix="/api/message")
+app.include_router(multi_chain_router, tags=["MultiChain"], prefix="/api/multi-chain")
 
 
 @app.get("/", tags=["Общее"])

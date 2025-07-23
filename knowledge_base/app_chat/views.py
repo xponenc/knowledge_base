@@ -9,6 +9,7 @@ import markdown
 
 from collections import Counter
 
+import requests
 from django.db.models import Prefetch, Q, Func, F, Value, CharField
 from django.shortcuts import get_object_or_404, render, redirect
 from django.http import JsonResponse, Http404
@@ -31,6 +32,8 @@ from app_embeddings.services.retrieval_engine import answer_index, answer_index_
 from app_embeddings.tasks import test_model_answer
 
 from threading import Lock
+
+from telegram_bot.bot_config import KB_AI_API_KEY
 
 logger = logging.getLogger(__file__)
 
@@ -432,16 +435,33 @@ class SystemChatView(View):
         # docs_serialized = [
         #     {"score": float(doc_score), "metadata": doc.metadata, "content": doc.page_content, }
         #     for doc, doc_score in docs]
-        llm = ChatOpenAI(model=llm_name or "gpt-4", temperature=0)
+        llm = ChatOpenAI(model=llm_name, temperature=0)
 
         if is_multichain:
             retriever_scheme = "MultiRetrievalQAChain"
             # multi_chain = get_cached_multi_chain(kb.pk)
-            multi_chain = build_multi_chain(kb.pk, llm)
+            # multi_chain = build_multi_chain(kb.pk, llm)
+            #
+            # result = multi_chain.invoke({
+            #     "input": user_message_text,
+            #     "system_prompt": system_instruction or kb.system_instruction})
+            response = requests.post(
+                "http://localhost:8001/api/multi-chain/invoke",
+                json={
+                    "kb_id": kb.pk,
+                    "query": user_message_text,
+                    "system_prompt": system_instruction or kb.system_instruction,
+                    "model": llm_name,
+                },
+                headers={
+                    "Authorization": f"Bearer {KB_AI_API_KEY}",  # тот же Bearer токен
+                },
+                timeout=60,
+            )
 
-            result = multi_chain.invoke({
-                "input": user_message_text,
-                "system_prompt": system_instruction or kb.system_instruction})
+            response.raise_for_status()
+            result = response.json()
+
             docs = result.get("source_documents", [])
             ai_message_text = result["result"]
             print(result)
@@ -471,23 +491,23 @@ class SystemChatView(View):
                 pprint(doc)
             print("Answer:", ai_message_text)
 
-        docs_serialized = [
-            {"metadata": doc.metadata, "content": doc.page_content, }
-            for doc in docs]
+        # docs_serialized = [
+        #     {"metadata": doc.metadata, "content": doc.page_content, }
+        #     for doc in docs]
 
         # Сохраняем ответ AI
         extended_log = {
             "llm": llm_name,
             "system_prompt": result.get("system_prompt"),
             "retriever_scheme": retriever_scheme,
-            "source_documents": [
-                {
-                    "metadata": doc.metadata,
-                    "retriever_score": doc.metadata.get("retriever_score"),
-                    "page_content": doc.page_content,
-                }
-                for doc in result.get("source_documents", [])
-            ]
+            # "source_documents": [
+            #     {
+            #         "metadata": doc.metadata,
+            #         "page_content": doc.page_content,
+            #     }
+            #     for doc in result.get("source_documents", [])
+            # ]
+            "source_documents": docs,
         }
         scheme = request.scheme
         host = request.get_host()
@@ -513,7 +533,7 @@ class SystemChatView(View):
                     "request_url": reverse_lazy("chat:message_score", kwargs={"message_pk": ai_message.pk}),
                     "text": ai_message_text,
                 },
-                'current_docs': docs_serialized,
+                'current_docs': docs,
             })
         chat_history = ChatMessage.objects.filter(session=chat_session,
                                                   is_user_deleted__isnull=True).order_by("created_at")
