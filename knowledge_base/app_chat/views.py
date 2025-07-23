@@ -441,7 +441,6 @@ class SystemChatView(View):
             retriever_scheme = "MultiRetrievalQAChain"
             # multi_chain = get_cached_multi_chain(kb.pk)
             # multi_chain = build_multi_chain(kb.pk, llm)
-            #
             # result = multi_chain.invoke({
             #     "input": user_message_text,
             #     "system_prompt": system_instruction or kb.system_instruction})
@@ -465,6 +464,9 @@ class SystemChatView(View):
             docs = result.get("source_documents", [])
             ai_message_text = result["result"]
             print(result)
+            # docs = [
+            #     {"metadata": doc.metadata, "content": doc.page_content, }
+            #     for doc in docs]
         elif is_ensemble:
             retriever_scheme = "EnsembleRetriever"
 
@@ -475,6 +477,9 @@ class SystemChatView(View):
             })
             ai_message_text = result["answer"]
             docs = result.get("context", [])
+            docs = [
+                {"metadata": doc.metadata, "content": doc.page_content, }
+                for doc in docs]
         else:
             retriever_scheme = "PostgreSQL TrigramSimilarity"
 

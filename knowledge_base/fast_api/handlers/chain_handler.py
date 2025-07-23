@@ -30,7 +30,7 @@ def invoke_chain(request: ChainRequest, client: ApiClient = Depends(get_api_clie
 
     result = chain.invoke({
         "input": request.query,
-        "system_prompt": request.system_prompt or "",
+        "system_prompt": request.system_prompt,
     })
 
     docs = result.get("source_documents", [])

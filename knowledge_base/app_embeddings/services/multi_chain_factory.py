@@ -177,21 +177,26 @@ class CustomMultiRetrievalQAChain(MultiRetrievalQAChain):
         """
         # Извлекаем system_prompt из входных данных, если он есть
         system_prompt = inputs.get("system_prompt", "")
-
+        print(f"[CustomMultiRetrievalQAChain]  ***** {inputs=}")
         # Запускаем маршрутизатор, чтобы определить, какую цепочку использовать
         router_output = self.router_chain.invoke(inputs, run_manager=run_manager)
+        print(f"[CustomMultiRetrievalQAChain]  ***** {router_output=}")
+
 
         # Получаем имя целевой цепочки (если не задана — используется "DEFAULT")
         destination_name = router_output.get("destination", "DEFAULT")
+        print(f"[CustomMultiRetrievalQAChain]  ***** {destination_name=}")
 
         # Получаем изменённые входные данные для следующей цепочки
         next_inputs = router_output.get("next_inputs", {})
+        print(f"[CustomMultiRetrievalQAChain]  ***** {next_inputs=}")
 
         # Добавляем system_prompt к следующему запросу
         next_inputs["system_prompt"] = system_prompt
 
         # Выбираем подходящую цепочку: либо найденную, либо дефолтную
         destination_chain = self.destination_chains.get(destination_name, self.default_chain)
+        print(f"[CustomMultiRetrievalQAChain]  ***** {destination_chain=}")
 
         # Выполняем выбранную цепочку с модифицированными входными данными
         return destination_chain.invoke(next_inputs, run_manager=run_manager)
