@@ -97,6 +97,10 @@
                             {{ object.fine_tuning_params|default:"—" }}
                         </dd>
                     {% endif %}
+                    <dt class="description__term">llm</dt>
+                    <dd class="description__defination">
+                        {{ object.get_llm_display }}
+                    </dd> 
                     <dt class="description__term">системная инструкция</dt>
                     <dd class="description__defination">
                         {{ object.system_instruction|linebreaks }}

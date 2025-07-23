@@ -59,47 +59,59 @@
             </div>
             <div class="info-page__body">
                 {% if chat_messages|length > 0 %}
-                    <table class="elastic-table elastic-table_4-auto">
+                    <table class="elastic-table elastic-table_3-auto">
                         <thead class="elastic-table__thead">
                             <tr class="elastic-table__tr">
-                                <th class="elastic-table__th">дата</th>
                                 <th class="elastic-table__th">вопрос</th>
                                 <th class="elastic-table__th">ответ</th>
-                                <th class="elastic-table__th">оценка</th>
+                                <th class="elastic-table__th">дата</th>
                             </tr>
                         </thead>
                         <tbody class="elastic-table__tbody">
                             {% for message in chat_messages %}
                                 <tr class="elastic-table__tr">
                                     <td class="elastic-table__td">
-                                        <div class="elastic-table__cell">
-                                            {% if message.web_session %}
-                                                <a href="{% url 'chat:chat_report' kb.id %}?session_id=message.web_session.session_key" class="link-marker">
-                                                    <span>web {{ message.web_session.session_key }}</span>
-                                                    <svg class="link-marker__marker">
-                                                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#cloud"></use>
-                                                    </svg>
-                                                </a>
-                                            {% elif message.t_session %}
-                                                <a href="{% url 'chat:chat_report' kb.id %}?session_id=message.t_session.telegram_id" class="link-marker">
-                                                    <span>telegram {{ message.t_session.telegram_id }}</span>
-                                                    <svg class="link-marker__marker">
-                                                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#cloud"></use>
-                                                    </svg>
-                                                </a>
-                                            {% endif %}
-                                            <span>{{ message.created_at }}</span>
-                                        </div>
-                                    </td>
-                                    <td class="elastic-table__td">
                                         <span class="text text--break">{{ message.text|linebreaks }}</span>
                                         
                                     </td>
                                     <td class="elastic-table__td">
-                                        <span class="text text--break">{{ message.answer.text|linebreaks }}</span>
+                                        <div class="elastic-table__cell">
+                                            <div class="text text--break">{{ message.answer.text|linebreaks }}</div>
+                                            <span class="text text--break">Оценка {{ message.answer.score|default:"-" }}</span>
+                                        </div>
                                     </td>
                                     <td class="elastic-table__td">
-                                        {{ message.answer.score|default:"-" }}
+                                        <div class="elastic-table__cell">
+                                            {% if message.web_session %}
+                                                <a href="{% url 'chat:chat-message_detail' message.id %}" class="link-marker">
+                                                    <span>web {{ message.web_session.session_key }}</span>
+                                                    <svg class="link-marker__marker">
+                                                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                                                    </svg>
+                                                </a>
+                                            {% elif message.t_session %}
+                                                <a href="{% url 'chat:chat-message_detail' message.id %}" class="link-marker">
+                                                    <span>telegram {{ message.t_session.telegram_id }}</span>
+                                                    <svg class="link-marker__marker">
+                                                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                                                    </svg>
+                                                </a>
+                                            {% endif %}
+                                            <dl class="description">
+                                                <dt class="description__term">дата</dt>
+                                                <dd class="description__defination">
+                                                    {{ message.created_at|date:"d.m.Y H:i" }}  
+                                                </dd>
+                                                <dt class="description__term">llm</dt>
+                                                <dd class="description__defination">
+                                                    {{ message.answer.llm|default:"-" }}
+                                                </dd>
+                                                <dt class="description__term">схема</dt>
+                                                <dd class="description__defination">
+                                                    {{ message.answer.retriever_scheme|default:"-" }}
+                                                </dd>
+                                            </dl>
+                                        </div>
                                     </td>
                                 </tr>
                             {% endfor %}

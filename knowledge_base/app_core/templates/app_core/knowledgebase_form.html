@@ -88,6 +88,19 @@
             removeItemButton: true,
             noResultsText: 'Ничего не найдено',
         })
+        // Инициализация choice.js для #id_llm
+        let llmSelect = new Choices("#id_llm", {
+            allowHTML: true,
+            classNames: {
+                containerOuter: 'choices custom-choices custom-choices_transparent',
+            },
+            position: 'down',
+            itemSelectText: 'Выберите llm',
+            searchEnabled: true,
+            searchPlaceholderValue: 'поиск',
+            maxItemText: 'Выбрано максимально допустимое количество',
+            noResultsText: 'Ничего не найдено',
+        })
         // Инициализация choice.js для #id_owners
         let ownersSelect = new Choices("#id_owners", {
             allowHTML: true,

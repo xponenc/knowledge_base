@@ -9,24 +9,26 @@ import markdown
 
 from collections import Counter
 
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch, Q, Func, F, Value, CharField
 from django.shortcuts import get_object_or_404, render, redirect
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404
 from django.views import View
 from django.utils import timezone
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
+from django.views.generic import DetailView
+from langchain_community.chat_models import ChatOpenAI
+from rest_framework.exceptions import PermissionDenied
 
-from app_chat.forms import SystemInstructionForm
+from app_chat.forms import SystemChatInstructionForm
 from app_chat.models import ChatSession, ChatMessage
 from app_core.models import KnowledgeBase
 from app_embeddings.forms import ModelScoreTestForm
-# from app_embeddings.services.embedding_config import system_instruction, system_instruction_metadata
-from app_embeddings.services.embedding_store import get_vectorstore, load_embedding
+from app_embeddings.services.multi_chain_factory import build_multi_chain
+
 from app_embeddings.services.retrieval_engine import answer_index, answer_index_with_metadata, get_cached_multi_chain, \
     get_cached_ensemble_chain, trigram_similarity_answer_index, reformulate_question
 from app_embeddings.tasks import test_model_answer
-from knowledge_base.settings import BASE_DIR
 
 from threading import Lock
 
@@ -54,6 +56,40 @@ def get_cached_index(index_path: str, model_name: str, loader_func, model_obj):
         return _index_cache[key]
 
 
+class ChatMessageDetailView(LoginRequiredMixin, DetailView):
+    model = ChatMessage
+
+    queryset = ChatMessage.objects.select_related(
+            "web_session__kb",
+            "t_session__kb",
+            "answer"
+        )
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset)
+
+        # Получаем связанную сессию (web или telegram)
+        session = obj.web_session or obj.t_session
+        if not session:
+            raise Http404("Нет сессии у сообщения")
+
+        # Получаем KnowledgeBase
+        kb = session.kb
+        self.kb = kb
+
+        # Проверка: текущий пользователь должен быть владельцем KB
+        if not kb.owners.filter(id=self.request.user.id).exists():
+            raise PermissionDenied("Вы не имеете доступа к этой базе знаний")
+
+        return obj
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["kb"] = getattr(self, "kb", None)
+        return context
+
+
 class ChatView(View):
     """Базовый чат с AI"""
     template_name = "app_chat/ai_chat.html"
@@ -68,7 +104,7 @@ class ChatView(View):
 
         chat_session, _ = ChatSession.objects.get_or_create(session_key=session_key, kb=kb)
 
-        chat_history = chat_session.messages.filter(is_user_deleted__isnull=True).order_by("created_at")
+        chat_history = chat_session.messages.filter(is_user_deleted__isnull=True).order_by("created_at").defer("extended_log")
 
         messages = []
         for message in chat_history:
@@ -229,12 +265,10 @@ class SystemChatView(View):
 
         chat_session, _ = ChatSession.objects.get_or_create(session_key=session_key, kb=kb)
 
-        system_instruction_form = SystemInstructionForm(
-            initial={
-                "system_instruction": kb.system_instruction,
-            })
+        system_instruction_form = SystemChatInstructionForm(instance=kb)
 
-        chat_history = chat_session.messages.filter(is_user_deleted__isnull=True).order_by("created_at")
+        chat_history = (chat_session.messages.filter(is_user_deleted__isnull=True)
+                        .order_by("created_at").defer("extended_log"))
 
         messages = []
         for message in chat_history:
@@ -258,17 +292,19 @@ class SystemChatView(View):
             return JsonResponse({"error": "Empty message"}, status=400)
 
         kb = get_object_or_404(KnowledgeBase.objects.select_related("engine"), pk=kb_pk)
-        embedding_engine = kb.engine
-        embeddings_model_name = embedding_engine.model_name
+
+
         is_multichain = request.POST.get("is_multichain") == "true"
         is_ensemble = request.POST.get("is_ensemble") == "true"
         is_reformulate_question = request.POST.get("is_reformulate_question") == "true"
         history_deep = request.POST.get("history_deep", None)
 
-        system_instruction_form = SystemInstructionForm(request.POST)
+        system_instruction_form = SystemChatInstructionForm(request.POST, instance=kb)
         if system_instruction_form.is_valid():
+            llm_name = system_instruction_form.cleaned_data.get("llm")
             system_instruction = system_instruction_form.cleaned_data.get("system_instruction")
         else:
+            llm_name = kb.llm
             system_instruction = kb.system_instruction
 
         if not system_instruction:
@@ -318,10 +354,6 @@ class SystemChatView(View):
                 chat_str = ""
                 for user_q, ai_a in history:
                     chat_str += f"Пользователь: {user_q}\nАссистент: {ai_a}\n"
-                # user_message_text = reformulate_question(
-                #     current_question=user_message_text,
-                #     chat_history=history,
-                # )
                 reformulated_question, user_message_was_changed = reformulate_question(
                     current_question=user_message_text,
                     chat_history=chat_str,
@@ -332,15 +364,16 @@ class SystemChatView(View):
                     Документы ниже были найдены по переформулированному запросу:
                     "{reformulated_question}"
                     
-                    Однако пользователь изначально спросил:
+                    Однако пользователь ИЗНАЧАЛЬНО спросил:
                     "{user_message_text}"
                     
                     История диалога:
                     {chat_str}
                     
-                    Ответь как можно точнее на ИСХОДНЫЙ вопрос, опираясь на документы."""
+                    Ответь на ИЗНАЧАЛЬНЫЙ вопрос согласно данной инструкции"""
 
-
+        # embedding_engine = kb.engine
+        # embeddings_model_name = embedding_engine.model_name
         # try:
         #     # embeddings_model = load_embedding(embeddings_model_name)
         #     embeddings_model = get_cached_model(
@@ -399,18 +432,22 @@ class SystemChatView(View):
         # docs_serialized = [
         #     {"score": float(doc_score), "metadata": doc.metadata, "content": doc.page_content, }
         #     for doc, doc_score in docs]
+        llm = ChatOpenAI(model=llm_name or "gpt-4", temperature=0)
 
         if is_multichain:
-
-            multi_chain = get_cached_multi_chain(kb.pk)
+            retriever_scheme = "MultiRetrievalQAChain"
+            # multi_chain = get_cached_multi_chain(kb.pk)
+            multi_chain = build_multi_chain(kb.pk, llm)
 
             result = multi_chain.invoke({
                 "input": user_message_text,
                 "system_prompt": system_instruction or kb.system_instruction})
             docs = result.get("source_documents", [])
             ai_message_text = result["result"]
-            # print(result)
+            print(result)
         elif is_ensemble:
+            retriever_scheme = "EnsembleRetriever"
+
             qa_chain = get_cached_ensemble_chain(kb.pk)
             result = qa_chain.invoke({
                 "input": user_message_text,
@@ -419,6 +456,8 @@ class SystemChatView(View):
             ai_message_text = result["answer"]
             docs = result.get("context", [])
         else:
+            retriever_scheme = "PostgreSQL TrigramSimilarity"
+
             result = trigram_similarity_answer_index(kb.pk,
                                                      system=system_instruction or kb.system_instruction,
                                                      query=user_message_text,
@@ -437,11 +476,29 @@ class SystemChatView(View):
             for doc in docs]
 
         # Сохраняем ответ AI
+        extended_log = {
+            "llm": llm_name,
+            "system_prompt": result.get("system_prompt"),
+            "retriever_scheme": retriever_scheme,
+            "source_documents": [
+                {
+                    "metadata": doc.metadata,
+                    "retriever_score": doc.metadata.get("retriever_score"),
+                    "page_content": doc.page_content,
+                }
+                for doc in result.get("source_documents", [])
+            ]
+        }
+        scheme = request.scheme
+        host = request.get_host()
+        ai_message_text = result["result"].replace("http://127.0.0.1:8000", f"{scheme}://{host}")
+
         ai_message = ChatMessage.objects.create(
             web_session=chat_session,
             answer_for=user_message,
             is_user=False,
             text=ai_message_text,
+            extended_log=extended_log,
             created_at=timezone.now()
         )
         ai_message_text = markdown.markdown(ai_message_text)
@@ -516,9 +573,33 @@ class ChatReportView(LoginRequiredMixin, View):
         kb = get_object_or_404(KnowledgeBase, pk=kb_pk)
         if not kb.is_owner_or_superuser(request.user):
             raise 404
-        messages = (ChatMessage.objects.select_related("web_session", "t_session").prefetch_related("answer")
-                    .filter(Q(web_session__kb=kb) | Q(t_session__kb=kb), is_user=True)
-                    .order_by("-created_at", "web_session", "t_session"))
+        answer_prefetch = Prefetch(
+            "answer",
+            queryset=ChatMessage.objects.annotate(
+                llm=Func(
+                    F("extended_log"),
+                    Value("llm"),
+                    function="jsonb_extract_path_text",
+                    output_field=CharField(),
+                ),
+                retriever_scheme=Func(
+                    F("extended_log"),
+                    Value("retriever_scheme"),
+                    function="jsonb_extract_path_text",
+                    output_field=CharField(),
+                ),
+            ).defer("extended_log"),
+        )
+
+        messages = (
+            ChatMessage.objects
+            .select_related("web_session", "t_session")
+            .prefetch_related(answer_prefetch)
+            .filter(Q(web_session__kb=kb) | Q(t_session__kb=kb), is_user=True)
+            .order_by("-created_at", "web_session", "t_session")
+            .defer("extended_log")
+        )
+        print(messages)
         context = {
             "kb": kb,
             "chat_messages": messages,

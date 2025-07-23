@@ -4,6 +4,8 @@
 
 
 {% block extra_css %}
+    <link href="{% static 'libs/choices/choices.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/custom_choices.css' %}" rel="stylesheet">
     <link href="{% static 'css/chat.css' %}" rel="stylesheet">
 {% endblock %}
 
@@ -127,7 +129,7 @@
                         <label class="switch" title="При формировании ответа использовать историю с корректировкой запроса">
                             <span class="switch__label">reformulate question</span>
                             <div class="switch__wrapper">
-                                <input class="switch__input visually-hidden" type="checkbox" name="reformulate_question" data-validate-field="reformulate_question" id="id_reformulate_question" checked="">
+                                <input class="switch__input visually-hidden" type="checkbox" name="reformulate_question" data-validate-field="reformulate_question" id="id_reformulate_question">
                                 <svg class="switch__icon switch__icon_off" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M16 8C16 12.4183 12.4183 16 8 16C3.58172 16 0 12.4183 0 8C0 3.58172 3.58172 0 8 0C12.4183 0 16 3.58172 16 8ZM2 8C2 11.3137 4.68629 14 8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8Z"></path>
                                 </svg>
@@ -165,6 +167,7 @@
 
 
 {% block script %}
+<script src="{% static 'libs/choices/choices.min.js' %}"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const chatForm = document.querySelector("#chat-form");
@@ -175,6 +178,25 @@ document.addEventListener("DOMContentLoaded", function () {
     const loader = document.getElementById("loader");
 
     const systemInstructionStandard = document.querySelector("#id_system_instruction");
+    const llm = document.querySelector("#id_llm");
+
+
+    // Инициализация choice.js для #id_llm
+    if (llm) {
+        const llmSelect = new Choices(llm, {
+            allowHTML: true,
+            classNames: {
+                containerOuter: 'choices custom-choices custom-choices_transparent',
+            },
+            position: 'down',
+            itemSelectText: 'Выберите llm',
+            searchEnabled: true,
+            searchPlaceholderValue: 'поиск',
+            maxItemText: 'Выбрано максимально допустимое количество',
+            // removeItemButton: true,
+            noResultsText: 'Ничего не найдено',
+        });
+    }
 
     if (chatHistory) {
         chatHistory.scrollTop = chatHistory.scrollHeight;

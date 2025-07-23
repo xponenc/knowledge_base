@@ -44,9 +44,11 @@ class ChatMessage(models.Model):
                                      validators=[MinValueValidator(-2), MinValueValidator(2)])
 
     is_user_deleted = models.DateTimeField(verbose_name="удалено пользователем", blank=True, null=True)
+    extended_log = models.JSONField(verbose_name="расширенный лог", default=dict)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         author = "User" if self.is_user else "AI"
-        return f"{author} message {self.id} in session {self.session_id}"
+        session = f"web {self.web_session_id}" if self.web_session else f"telegram {self.t_session_id}"
+        return f"{author} message {self.id} in session {session}"

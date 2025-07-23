@@ -1,0 +1,148 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+
+
+
+{% block extra_css %}
+    <link href="{% static 'css/source.css' %}" rel="stylesheet">
+    <link href="{% static 'css/storage.css' %}" rel="stylesheet">
+{% endblock %}
+
+
+{% block title %}Сообщение{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        {% comment %} база знаний {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ kb.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">База знаний {{ kb.name }}</span>
+            </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">Сообщение</span>
+            <meta itemprop="position" content="2" />
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+
+<div class="page page--content">
+    <div class="page__top">
+        <div class="page__info info-page info-page--content _jc-fs">
+            <span class="info-page__banner info-page__banner--medium">сообщение</span>
+            <div class="info-page__header">
+                <h2 class="page__heading _ta-e"></h2>
+                <h3 class="info-page__heading"></h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                <dl class="source__description--info description">
+                    <dt class="description__term"></dt>
+                    <dd class="description__defination"></dd>
+                </dl>
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+    </div>
+    <article class="page__content _mb">
+        <div class="source _mb">
+            <div class="source__header">
+                <h3 class="source__heading">
+                </h3>
+                <div class="source__wrapper">
+                    <div class="source__manage">
+                        <dl class="description">
+                            <dt class="description__term">отправитель</dt>
+                            <dd class="description__defination">
+                                <span class="tag tag--fat tag--success">
+                                    {{ object.is_user|yesno:"Клиент,AI-ассистент" }}
+                                </span>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+            <div class="source__body">
+                <div class="source__wrapper">
+                    <div class="source__raw-content">
+                        <dl class="description">
+                            <dt class="description__term">сообщение</dt>
+                            <dd class="description__defination">
+                                {{ object.text }}
+                            </dd>
+                            <dt class="description__term">ответ</dt>
+                            <dd class="description__defination">
+                                {{ object.answer.text|linebreaks|default:"-" }}
+                            </dd>
+                            <dt class="description__term">оценка</dt>
+                            <dd class="description__defination">
+                                {{ object.answer.score|default:"-" }}
+                            </dd>
+                            <dt class="description__term">использованная llm</dt>
+                            <dd class="description__defination">
+                                {{ object.answer.extended_log.llm|default:"-" }}
+                            </dd>
+                            <dt class="description__term">использованная схема</dt>
+                            <dd class="description__defination">
+                                {{ object.answer.extended_log.retriever_scheme|default:"-" }}
+                            </dd>
+                            <dt class="description__term">использованный system_prompt</dt>
+                            <dd class="description__defination">
+                                {{ object.answer.extended_log.system_prompt|linebreaks|default:"-" }}
+                            </dd>
+                            <dt class="description__term">сессия</dt>
+                            <dd class="description__defination">
+                                {{ object.t_session|default:"" }}
+                                {{ object.web_session|default:"" }}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+            <div class="source__footer"></div>
+        </div>
+        {% if object.answer.extended_log.source_documents %}
+            <div>
+                <h3 class="page__subheading">Чанки ({{ object.answer.extended_log.source_documents|length }})</h3>
+                <div class="source">
+                    {% for chunk in object.answer.extended_log.source_documents %}
+                        <div class="source__wrapper">
+                            <div class="source__header">
+                            </div>
+                            <div class="source__body">
+                                <h5 class="source__heading">
+                                    metadata
+                                </h5>
+                                <div class="source__manage json">
+                                    <div class="json-container">
+                                        {% include 'widgets/_json_recursive.html' with data=chunk.metadata level=0 %}
+                                    </div>
+                                </div>
+                                <div class="source__wrapper">
+                                    <h5 class="source__heading">
+                                        контент
+                                    </h5>
+                                    <div class="source__manage json">
+                                        {{ chunk.page_content }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+    </article>
+</div>
+{% endblock %}
+
+
+{% block script %}
+    
+{% endblock script%}

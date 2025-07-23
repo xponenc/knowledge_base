@@ -1,11 +1,14 @@
 from django.urls import path
 
 from app_chat.views import (ChatView, TestModelScoreView, TestModelScoreReportView,
-                            ClearChatView, CurrentTestChunksView, MessageScoreView, SystemChatView, ChatReportView)
+                            ClearChatView, CurrentTestChunksView, MessageScoreView, SystemChatView, ChatReportView,
+                            ChatMessageDetailView)
 
 app_name = "chat"
 
 urlpatterns = [
+    path("message/<int:pk>", ChatMessageDetailView.as_view(), name="chat-message_detail"),
+
     path("<int:kb_pk>", ChatView.as_view(), name="chat"),
     path("system/<int:kb_pk>", SystemChatView.as_view(), name="system_chat"),
     path("chat_report/<int:kb_pk>", ChatReportView.as_view(), name="chat_report"),
