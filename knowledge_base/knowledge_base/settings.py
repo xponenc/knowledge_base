@@ -244,17 +244,17 @@ LOGGING = {
         'django': {
             'handlers': ['console', 'general_file'] if PRODUCTION else ['console', 'general_file'],
             'level': 'INFO',
-            'propagate': False,
+            'propagate': True,
         },
         'celery': {
             'handlers': ['console', 'celery_file'] if PRODUCTION else ['console', 'celery_file'],
             'level': 'INFO',
-            'propagate': False,
+            'propagate': True,
         },
         'urllib3': {
             'handlers': ['console', 'general_file'] if PRODUCTION else ['console', 'general_file'],
             'level': 'WARNING',
-            'propagate': False,
+            'propagate': True,
         },
     },
     'root': {
