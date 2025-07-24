@@ -376,7 +376,8 @@ def fetch_storage_files(files, cloud_storage_api, storage_update_report):
         synchronization_type = "all"
         storage_update_report.content["type"] = "all"
         db_documents = NetworkDocument.objects.filter(storage=cloud_storage)
-        storage_files = cloud_storage_api.list_directory(path=cloud_storage_api.root_path)
+        # storage_files = cloud_storage_api.list_directory(path=cloud_storage_api.root_path)
+        storage_files = cloud_storage_api.list_files_recursive(path=cloud_storage_api.root_path)
     storage_update_report.save(update_fields=["content"])
     return synchronization_type, db_documents, storage_files
 

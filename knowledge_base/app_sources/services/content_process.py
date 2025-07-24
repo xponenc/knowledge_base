@@ -5,6 +5,7 @@ from django.core.files.base import ContentFile
 from app_sources.content_models import RawContent, CleanedContent
 from app_sources.services.summary import summarize_text
 from recognizers.dispatcher import ContentRecognizerDispatcher
+from utils.summarize_text import generate_summary
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +38,11 @@ def recognize_raw_content(raw_content: RawContent) -> dict:
 
 
 def summarize_and_save_to_document(text: str, document, mode: str = "summary big"):
-    """Самаризация текста"""
-    summary = summarize_text(text[:4000], mode=mode)
+    """Резюме текста"""
+    # summary = summarize_text(text[:4000], mode=mode)
+    summary = generate_summary(text[:10000])
+    print(document)
+    print(summary)
     if summary and summary.strip():
         document.description = summary
         document.save(update_fields=["description"])

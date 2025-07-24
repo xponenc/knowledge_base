@@ -496,7 +496,6 @@ class CloudStorageSyncView(LoginRequiredMixin, StoragePermissionMixin, View):
         kb = cloud_storage.kb
         scan_params_form = StorageScanParamForm(request.POST)
         if scan_params_form.is_valid():
-            print(f"{scan_params_form.cleaned_data}")
             recognize_content = scan_params_form.cleaned_data.get("recognize_content", False)
             do_summarization =  scan_params_form.cleaned_data.get("do_summarization", False)
         else:

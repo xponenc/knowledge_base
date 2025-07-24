@@ -109,8 +109,17 @@ class WebDavStorage(BaseNetworkStorage):
             logger.error(f"Ошибка подключения к WebDAV: {e}")
             raise ValueError(f"Ошибка подключения: {e}")
 
-    # Остальные методы без изменений
     def list_directory(self, path):
+        """
+         Выполняет PROPFIND-запрос к указанной директории на WebDAV-сервере и возвращает
+         список файлов в этой директории с их метаданными.
+
+         Args:
+             path (str): Относительный путь к директории на сервере.
+
+         Returns:
+             List[dict]: Список словарей с информацией о каждом найденном файле.
+         """
         url = urljoin(self.base_url, path.lstrip('/'))
         headers = {"Depth": "1", "Content-Type": "application/xml"}
         xml = """<?xml version="1.0" encoding="utf-8" ?>
@@ -172,6 +181,15 @@ class WebDavStorage(BaseNetworkStorage):
         return items
 
     def propfind(self, path):
+        """
+        Выполняет прямой PROPFIND-запрос к WebDAV-серверу и возвращает XML-ответ как строку.
+
+        Args:
+            path (str): Относительный путь к файлу или директории.
+
+        Returns:
+            str: XML-ответ от сервера.
+        """
         url = urljoin(self.base_url, path)
         headers = {"Depth": "1", "Content-Type": "application/xml"}
         xml = """<?xml version="1.0" encoding="utf-8" ?>
@@ -194,12 +212,21 @@ class WebDavStorage(BaseNetworkStorage):
         return response.text
 
     def parse_propfind(self, xml_response, base_url):
+        """
+        Парсит XML-ответ от WebDAV-сервера, извлекая информацию о файлах и папках.
+
+        Args:
+            xml_response (str): XML-ответ от `propfind`.
+            base_url (str): Абсолютный базовый URL (для фильтрации самих себя).
+
+        Returns:
+            List[dict]: Список файлов и директорий с метаданными.
+        """
         ns = {'d': 'DAV:'}
         root = ET.fromstring(xml_response)
         items = []
 
         for resp in root.findall('d:response', ns):
-            print(resp)
             href_elem = resp.find('d:href', ns)
             if href_elem is None:
                 continue
@@ -229,7 +256,7 @@ class WebDavStorage(BaseNetworkStorage):
                 'size': int(
                     resp.findtext('d:propstat/d:prop/d:getcontentlength', default="0",
                                   namespaces=ns)) if not is_dir else 0,
-                'etag': resp.findtext('d:propstat/d:prop/d:getetag', default=None, namespaces=ns),
+                'file_id': resp.findtext('d:propstat/d:prop/d:getetag', default=None, namespaces=ns),
                 'url': urljoin(self.base_url, rel_path.lstrip('/'))
             }
 
@@ -237,12 +264,21 @@ class WebDavStorage(BaseNetworkStorage):
                 logger.info(f"Найдена папка: {file_name}")
             else:
                 logger.info(
-                    f"Найден файл: {file_name}, размер: {item['size']} байт, изменен {item['last_modified']}, ETag: {item['etag']}")
+                    f"Найден файл: {file_name}, размер: {item['size']} байт, изменен {item['last_modified']}, file_id: {item['file_id']}")
 
             items.append(item)
         return items
 
     def list_files_recursive(self, path):
+        """
+           Рекурсивно обходит директорию на WebDAV и возвращает список всех файлов с метаданными.
+
+           Args:
+               path (str): Относительный путь к стартовой директории.
+
+           Returns:
+               List[dict]: Список всех найденных файлов (включая вложенные).
+           """
         xml_response = self.propfind(path)
         base_url = urljoin(self.base_url, path)
         items = self.parse_propfind(xml_response, base_url)
