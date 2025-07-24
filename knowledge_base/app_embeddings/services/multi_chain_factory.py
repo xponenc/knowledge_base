@@ -177,7 +177,9 @@ class CustomMultiRetrievalQAChain(MultiRetrievalQAChain):
         """
         # Извлекаем system_prompt из входных данных, если он есть
         system_prompt = inputs.get("system_prompt", "")
-        # print(f"[CustomMultiRetrievalQAChain]  ***** {inputs=}")
+        print(f"[CustomMultiRetrievalQAChain]  ***** {inputs=}")
+        print(f"[CustomMultiRetrievalQAChain]  ***** {self.destination_chains=}")
+        print(f"[CustomMultiRetrievalQAChain]  ***** {self.default_chain=}")
         # Запускаем маршрутизатор, чтобы определить, какую цепочку использовать
         router_output = self.router_chain.invoke(inputs, run_manager=run_manager)
         # print(f"[CustomMultiRetrievalQAChain]  ***** {router_output=}")
