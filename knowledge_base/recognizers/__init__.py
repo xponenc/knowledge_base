@@ -1,6 +1,7 @@
 from recognizers.recognizer_classes.docx_recognizer import DOCXRecognizer
 from recognizers.recognizer_classes.excel_recognizer import ExcelRecognizer
 from recognizers.recognizer_classes.image_recognizer import ImageRecognizer
+from recognizers.recognizer_classes.ocr_pdf_recognizer import OCRPDFRecognizer
 from recognizers.recognizer_classes.pdf_recognizer import PDFRecognizer
 from recognizers.recognizer_classes.pypdf_recognizer import PyPDFRecognizer
 from recognizers.register import register_recognizer
@@ -10,3 +11,4 @@ register_recognizer(ExcelRecognizer)
 register_recognizer(ImageRecognizer)
 register_recognizer(PDFRecognizer)
 register_recognizer(PyPDFRecognizer)
+register_recognizer(OCRPDFRecognizer)

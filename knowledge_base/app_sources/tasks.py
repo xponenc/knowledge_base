@@ -20,6 +20,7 @@ from app_sources.source_models import NetworkDocument, SourceStatus
 from app_sources.storage_models import CloudStorage
 from app_tasks.models import ContentComparison, TaskForSource
 from utils.process_files import compute_sha512
+from utils.summarize_text import generate_summary
 
 logger = logging.getLogger(__name__)
 document_logger = logging.getLogger("document_processing")
@@ -880,7 +881,8 @@ def process_raw_content_task(self, recognizer_class, raw_content_id, user_id=Non
 
         # Суммаризация
         # summary = summarize_with_sber(recognized_text)
-        summary = summarize_text(recognized_text, mode='summary big')
+        # summary = summarize_text(recognized_text, mode='summary big')
+        summary = generate_summary(recognized_text)
         if summary is not None:
             document = raw_content.network_document
             document.description = summary
