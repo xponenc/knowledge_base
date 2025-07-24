@@ -216,7 +216,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     chatHistory.addEventListener("change", function (event) {
         const target = event.target;
-        console.log(event.target)
         if (!target.classList.contains("rating__input")) return;
         const star = target;
         const container = star.closest(".message");
@@ -262,6 +261,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
         
         const systemStandard = systemInstructionStandard.value;
+        const llm_name = llm.value;
         const multichainScheme = document.querySelector("#id_multichain").checked;
         const ensembleScheme = document.querySelector("#id_ensemble").checked;
         const trigramScheme = document.querySelector("#id_trigram").checked;
@@ -293,6 +293,7 @@ document.addEventListener("DOMContentLoaded", function () {
             body: new URLSearchParams({
                 message,
                 system_instruction: systemStandard,
+                llm: llm_name,
                 is_multichain: multichainScheme.toString(),
                 is_ensemble: ensembleScheme.toString(),
                 is_trigram: trigramScheme.toString(),

@@ -248,6 +248,7 @@
 
 .info-page__body {
     margin-bottom: var(--gap-half);
+    background-color: inherit;
 }
 .info-page__block {
     display: flex;

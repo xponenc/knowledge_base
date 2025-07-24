@@ -9,8 +9,8 @@ class KnowledgeBase(TrackableModel):
     """Модель Базы Знаний"""
 
     llm_models = (
-        ("GPT 4o-mini", "gpt-4o-mini"),
-        ("GPT 4o", "gpt-4o"),
+        ("gpt-4o-mini", "GPT 4o-mini" ),
+        ("gpt-4o", "GPT 4o"),
     )
 
     def logo_upload_path(instance, filename):

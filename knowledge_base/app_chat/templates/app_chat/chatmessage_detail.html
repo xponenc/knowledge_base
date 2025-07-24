@@ -102,8 +102,8 @@
                             </dd>
                             <dt class="description__term">сессия</dt>
                             <dd class="description__defination">
-                                {{ object.t_session|default:"" }}
-                                {{ object.web_session|default:"" }}
+                                {{ object.t_session.telegram_id|default:"" }}
+                                {{ object.web_session.session_key|default:"" }}
                             </dd>
                         </dl>
                     </div>

@@ -11,7 +11,7 @@ import markdown
 from collections import Counter
 
 import requests
-from django.db.models import Prefetch, Q, Func, F, Value, CharField
+from django.db.models import Prefetch, Q, Func, F, Value, CharField, FloatField
 from django.shortcuts import get_object_or_404, render, redirect
 from django.http import JsonResponse, Http404
 from django.views import View
@@ -63,11 +63,20 @@ def get_cached_index(index_path: str, model_name: str, loader_func, model_obj):
 class ChatMessageDetailView(LoginRequiredMixin, DetailView):
     model = ChatMessage
 
-    queryset = ChatMessage.objects.select_related(
-            "web_session__kb",
-            "t_session__kb",
-            "answer"
-        )
+    # queryset = ChatMessage.objects.select_related(
+    #         "web_session__kb",
+    #         "t_session__kb",
+    #         "answer"
+    #     )
+    queryset = (
+        ChatMessage.objects
+            .select_related(
+                "web_session__kb",
+                "t_session__kb",
+            ).prefetch_related(
+                "answer"
+            )
+    )
 
     def get_object(self, queryset=None):
         obj = super().get_object(queryset)
@@ -306,6 +315,7 @@ class SystemChatView(View):
 
         system_instruction_form = SystemChatInstructionForm(request.POST, instance=kb)
         if system_instruction_form.is_valid():
+            print(system_instruction_form.cleaned_data)
             llm_name = system_instruction_form.cleaned_data.get("llm")
             system_instruction = system_instruction_form.cleaned_data.get("system_instruction")
         else:
@@ -618,6 +628,12 @@ class ChatReportView(LoginRequiredMixin, View):
                     function="jsonb_extract_path_text",
                     output_field=CharField(),
                 ),
+                processing_time=Func(
+                    F("extended_log"),
+                    Value("processing_time"),
+                    function="jsonb_extract_path_text",
+                    output_field=FloatField(),
+                ),
             ).defer("extended_log"),
         )
 
@@ -629,7 +645,6 @@ class ChatReportView(LoginRequiredMixin, View):
             .order_by("-created_at", "web_session", "t_session")
             .defer("extended_log")
         )
-        print(messages)
         context = {
             "kb": kb,
             "chat_messages": messages,
