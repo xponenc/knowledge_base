@@ -242,27 +242,27 @@ LOGGING = {
     },
     'loggers': {
         'django': {
-            'handlers': ['general_file'] if PRODUCTION else ['console', 'general_file'],
+            'handlers': ['console', 'general_file'] if PRODUCTION else ['console', 'general_file'],
             'level': 'INFO',
             'propagate': False,
         },
         'celery': {
-            'handlers': ['celery_file'] if PRODUCTION else ['console', 'celery_file'],
-            'level': 'INFO' if PRODUCTION else 'DEBUG',
+            'handlers': ['console', 'celery_file'] if PRODUCTION else ['console', 'celery_file'],
+            'level': 'INFO',
             'propagate': False,
         },
         'urllib3': {
-            'handlers': ['general_file'] if PRODUCTION else ['console', 'general_file'],
+            'handlers': ['console', 'general_file'] if PRODUCTION else ['console', 'general_file'],
             'level': 'WARNING',
             'propagate': False,
         },
     },
     'root': {
-        'handlers': ['general_file'] if PRODUCTION else ['console', 'general_file'],
+        'handlers': ['console', 'general_file'] if PRODUCTION else ['console', 'general_file'],
         'level': 'INFO',
     },
     '': {
-        'handlers': ['general_file'] if PRODUCTION else ['console', 'general_file'],
+        'handlers': ['console', 'general_file'] if PRODUCTION else ['console', 'general_file'],
         'level': 'INFO',
         'propagate': True,
     },
