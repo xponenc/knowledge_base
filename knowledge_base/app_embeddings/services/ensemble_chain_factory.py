@@ -1,80 +1,134 @@
-from typing import Dict, List, Any
-from threading import Lock
-
-from langchain.chains import create_retrieval_chain, create_stuff_documents_chain
-from langchain_core.documents import Document
-from langchain_core.runnables import RunnableLambda
-from langchain.prompts import ChatPromptTemplate
-
-from core.embedding import load_embedding, get_vectorstore
-from core.rerank import rerank_documents, append_links_to_documents
-from models.kb import KnowledgeBase
-from retrievers.ensemble import EnsembleRetriever
-from retrievers.utils import create_custom_retriever
-
-from langchain.chat_models import ChatOpenAI
-
 import os
+import sys
+import logging
+from threading import Lock
+from typing import Dict, Any, Optional
 
-_ensemble_chain_cache: Dict[str, Any] = {}
+from django.conf import settings
+from langchain.chains.combine_documents.stuff import create_stuff_documents_chain
+from langchain_core.runnables import Runnable, RunnableLambda
+from langchain.chains.retrieval import create_retrieval_chain
+from langchain.prompts import ChatPromptTemplate
+from langchain.prompts.chat import SystemMessagePromptTemplate, HumanMessagePromptTemplate
+from langchain.schema import Document
+from langchain_community.chat_models import ChatOpenAI
+from langchain.retrievers.ensemble import EnsembleRetriever
+
+from app_embeddings.services.embedding_store import get_vectorstore, load_embedding
+from app_embeddings.services.retrieval_engine import rerank_documents, append_links_to_documents
+from app_core.models import KnowledgeBase
+
+logger = logging.getLogger(__name__)
+
+BASE_DIR = settings.BASE_DIR
 _lock = Lock()
 
+# Кеш для retriever'ов, тяжелая часть (FAISS, Embeddings)
+_ensemble_retriever_cache: Dict[str, Runnable] = {}
 
-def get_cached_ensemble_chain(kb_id: int, *, llm: ChatOpenAI | None = None) -> Any:
-    """
-    Получает (и кэширует) цепочку EnsembleRetriever для указанной базы знаний.
-    Позволяет указать кастомную LLM на вызове, но не кэширует для каждой LLM отдельно.
+#
+# def build_ensemble_chain(kb_id: int, llm: ChatOpenAI) -> Runnable:
+#     """
+#     Собирает цепочку на лету: prompt + LLM + chain.
+#     Использует предварительно закешированный EnsembleRetriever.
+#
+#     Args:
+#         kb_id (int): ID базы знаний.
+#         llm (ChatOpenAI): Инстанс LLM (например, GPT-4o).
+#
+#     Returns:
+#         Runnable: Готовая к вызову цепочка.
+#     """
+#     retriever = get_cached_ensemble_retriever(kb_id)
+#
+#     prompt = ChatPromptTemplate.from_messages([
+#         SystemMessagePromptTemplate.from_template("{system_prompt}"),
+#         HumanMessagePromptTemplate.from_template("CONTEXT: {context}\n\nQuestion: {input}")
+#     ])
+#     document_chain = create_stuff_documents_chain(llm, prompt)
+#
+#     class CustomRetrievalQA(Runnable):
+#         def invoke(self, inputs: Dict[str, Any], config=None):
+#             query = inputs.get("input")
+#             system_prompt = inputs.get("system_prompt", "")
+#             docs = retriever.invoke(query)
+#
+#             return document_chain.invoke({
+#                 "input": query,
+#                 "context": docs,
+#                 "system_prompt": system_prompt
+#             })
+#
+#     return CustomRetrievalQA()
 
-    :param kb_id: ID базы знаний
-    :param llm: (опционально) кастомная LLM
-    :return: Цепочка LangChain, готовая к запуску
+def build_ensemble_chain(kb_id: int, llm: ChatOpenAI) -> Runnable:
     """
-    key = f"kb_{kb_id}"
+    Собирает цепочку на лету: prompt + LLM + retrieval chain.
+    Использует предварительно закешированный EnsembleRetriever.
+
+    Args:
+        kb_id (int): ID базы знаний.
+        llm (ChatOpenAI): Инстанс LLM (например, GPT-4o).
+
+    Returns:
+        Runnable: Готовая к вызову цепочка, возвращающая стандартный словарь.
+    """
+    retriever = get_cached_ensemble_retriever(kb_id)
+
+    prompt = ChatPromptTemplate.from_messages([
+        SystemMessagePromptTemplate.from_template("{system_prompt}"),
+        HumanMessagePromptTemplate.from_template("CONTEXT: {context}\n\nQuestion: {input}")
+    ])
+
+    # Создаем retrieval chain, которая возвращает словарь с ключами "input", "context", "answer"
+    retrieval_chain = create_retrieval_chain(retriever, create_stuff_documents_chain(llm, prompt))
+
+    return retrieval_chain
+
+
+def get_cached_ensemble_retriever(kb_id: int) -> Runnable:
+    """
+    Возвращает кешированный EnsembleRetriever с реранкингом и enrichment.
+
+    Args:
+        kb_id (int): ID базы знаний.
+
+    Returns:
+        Runnable: Обёртка вокруг retriever с enrichment.
+    """
+    key = f"ensemble_retriever_{kb_id}"
     with _lock:
-        if key not in _ensemble_chain_cache:
-            retriever, system_prompt = build_ensemble_retriever(kb_id)
-            _ensemble_chain_cache[key] = (retriever, system_prompt)
-
-        retriever, system_prompt = _ensemble_chain_cache[key]
-        llm = llm or ChatOpenAI(model="gpt-4o-mini", temperature=0)
-
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", "{system_prompt}"),
-            ("human", "CONTEXT: {context}\n\nQuestion: {input}")
-        ])
-        document_chain = create_stuff_documents_chain(llm, prompt)
-        chain = create_retrieval_chain(retriever, document_chain)
-
-        return chain
+        if key not in _ensemble_retriever_cache:
+            _ensemble_retriever_cache[key] = init_cached_ensemble_retriever(kb_id)
+        return _ensemble_retriever_cache[key]
 
 
-def build_ensemble_retriever(kb_id: int, *, k: int = 5) -> tuple[RunnableLambda, str]:
+def init_cached_ensemble_retriever(kb_id: int, *, k: int = 5) -> Runnable:
     """
-    Строит EnsembleRetriever на базе всех хранилищ указанной базы знаний,
-    объединяя их с весами, реранкингом и enrich-документами.
+    Инициализирует EnsembleRetriever, объединяя все доступные FAISS-индексы для базы знаний.
+    Добавляет реранкинг и enrichment документов.
 
-    :param kb_id: ID базы знаний
-    :param k: количество ближайших документов для каждого ретривера
-    :return: Tuple из финального ретривера и системной инструкции
+    Args:
+        kb_id (int): ID базы знаний.
+        k (int): Кол-во ближайших соседей в каждом индексе.
+
+    Returns:
+        Runnable: Обёртка вокруг EnsembleRetriever с enrichment.
     """
     kb = (
         KnowledgeBase.objects
         .select_related("engine")
-        .prefetch_related(
-            "website_set", "cloudstorage_set", "localstorage_set", "urlbatch_set"
-        )
+        .prefetch_related("website_set", "cloudstorage_set", "localstorage_set", "urlbatch_set")
         .get(pk=kb_id)
     )
-
     embedding_engine = kb.engine
     embeddings_model_name = embedding_engine.model_name
 
     try:
         embeddings_model = load_embedding(embeddings_model_name)
     except Exception as e:
-        raise ValueError(f"Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
+        raise ValueError(f"Ошибка загрузки модели эмбеддинга {embeddings_model_name}: {str(e)}")
 
-    # Сбор всех хранилищ
     storage_sets = [
         kb.website_set,
         kb.cloudstorage_set,
@@ -83,58 +137,72 @@ def build_ensemble_retriever(kb_id: int, *, k: int = 5) -> tuple[RunnableLambda,
     ]
 
     retrievers = []
-
     for storage_set in storage_sets:
         for storage in storage_set.all():
             faiss_dir = os.path.join(
-                "media", "kb", str(kb.pk), "embedding_stores",
+                BASE_DIR, "media", "kb", str(kb.pk), "embedding_stores",
                 f"{storage.__class__.__name__}_id_{storage.pk}_embedding_store",
                 f"{embedding_engine.name}_faiss_index_db"
             )
-
             try:
                 db_index = get_vectorstore(path=faiss_dir, embeddings=embeddings_model)
             except Exception as e:
-                print(
-                    f"Ошибка загрузки векторного хранилища для {storage.__class__.__name__} id {storage.pk}: {str(e)}")
+                logger.warning(f"FAISS загрузка не удалась для {storage}: {e}")
                 continue
 
-            retriever = create_custom_retriever(db_index, k=2)
+            retriever = create_custom_retriever(db_index, k=k)
             retrievers.append(retriever)
 
     if not retrievers:
-        raise ValueError("Не удалось создать EnsembleRetriever — нет доступных ретриверов.")
+        raise ValueError("Не удалось создать EnsembleRetriever: нет доступных векторных индексов.")
 
-    ensemble_retriever = EnsembleRetriever(
-        retrievers=retrievers,
-        weights=[1.0] * len(retrievers)
-    )
+    ensemble_retriever = EnsembleRetriever(retrievers=retrievers, weights=[1.0] * len(retrievers))
 
-    def rerank_and_enrich_documents(input: str | Dict[str, Any]) -> List[Document]:
-        """
-        Оборачивает EnsembleRetriever:
-        - получает документы
-        - реранжирует
-        - добавляет score и полезные ссылки
-        """
+    def rerank_and_enrich_documents(input):
         query = input.get("input", input) if isinstance(input, dict) else input
         docs = ensemble_retriever.invoke(query)
         docs_and_scores = [(doc, doc.metadata.get("retriever_score", 0.0)) for doc in docs]
-        top_docs = rerank_documents(query, docs_and_scores, threshold=1.5)
 
+        top_docs = rerank_documents(query, docs_and_scores, threshold=1.5)
         if not top_docs:
             return [Document(page_content="Пожалуйста, задайте вопрос иначе или уточните его.")]
 
-        enriched_docs = []
+        enriched = []
         for doc, score in top_docs:
             doc.metadata["retriever_score"] = float(score)
-            enriched_docs.append(doc)
+            enriched.append(doc)
 
-        return append_links_to_documents(enriched_docs)
+        return append_links_to_documents(enriched)
 
-    final_retriever = RunnableLambda(rerank_and_enrich_documents)
+    return RunnableLambda(rerank_and_enrich_documents)
 
-    if not kb.system_instruction:
-        raise ValueError("Не указана системная инструкция в базе знаний")
 
-    return final_retriever, kb.system_instruction
+def create_custom_retriever(vectorstore, k: int = 2):
+    """
+    Создаёт retriever с поддержкой извлечения score и enrichment ссылками.
+
+    Args:
+        vectorstore: FAISS-индекс
+        k (int): Кол-во ближайших соседей
+
+    Returns:
+        Runnable: Обёртка вокруг vectorstore с обогащением.
+    """
+
+    class CustomRetriever(Runnable):
+        def __init__(self, vectorstore, k):
+            self.vectorstore = vectorstore
+            self.k = k
+
+        def invoke(self, input, config=None, **kwargs):
+            docs_and_scores = self.vectorstore.similarity_search_with_score(input, k=self.k)
+            updated_docs = []
+            for doc, score in docs_and_scores:
+                doc.metadata["retriever_score"] = float(score)
+                updated_docs.append(doc)
+            return append_links_to_documents(updated_docs)
+
+        def get_relevant_documents(self, query: str):
+            return self.invoke(query)
+
+    return CustomRetriever(vectorstore, k)

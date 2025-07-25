@@ -1,6 +1,5 @@
 import os
 import sys
-import logging
 from fastapi import FastAPI, Request
 
 
@@ -19,7 +18,8 @@ django.setup()
 
 from fast_api.handlers.message_handler import message_router
 from fast_api.handlers.user_handler import user_router
-from fast_api.handlers.chain_handler import multi_chain_router
+from fast_api.handlers.multi_chain_handler import multi_chain_router
+from fast_api.handlers.ensemble_chain_handler import ensemble_chain_router
 
 # Инициализация FastAPI с метаданными
 app = FastAPI(
@@ -54,6 +54,7 @@ async def log_requests(request: Request, call_next):
 app.include_router(user_router, tags=["Пользователи"], prefix="/api/user")
 app.include_router(message_router, tags=["Сообщения"], prefix="/api/message")
 app.include_router(multi_chain_router, tags=["MultiChain"], prefix="/api/multi-chain")
+app.include_router(ensemble_chain_router, tags=["EnsembleChain"], prefix="/api/ensemble-chain")
 
 
 @app.get("/", tags=["Общее"])

@@ -26,6 +26,7 @@ from app_chat.forms import SystemChatInstructionForm
 from app_chat.models import ChatSession, ChatMessage
 from app_core.models import KnowledgeBase
 from app_embeddings.forms import ModelScoreTestForm
+from app_embeddings.services.ensemble_chain_factory import build_ensemble_chain
 from app_embeddings.services.multi_chain_factory import build_multi_chain
 
 from app_embeddings.services.retrieval_engine import answer_index, answer_index_with_metadata, get_cached_multi_chain, \
@@ -482,16 +483,44 @@ class SystemChatView(View):
         elif is_ensemble:
             retriever_scheme = "EnsembleRetriever"
 
-            qa_chain = get_cached_ensemble_chain(kb.pk)
-            result = qa_chain.invoke({
-                "input": user_message_text,
-                "system_prompt": system_instruction or kb.system_instruction,
-            })
-            ai_message_text = result["answer"]
-            docs = result.get("context", [])
-            docs = [
-                {"metadata": doc.metadata, "content": doc.page_content, }
-                for doc in docs]
+            # qa_chain = get_cached_ensemble_chain(kb.pk)
+            # result = qa_chain.invoke({
+            #     "input": user_message_text,
+            #     "system_prompt": system_instruction or kb.system_instruction,
+            # })
+            # ensemble_chain = build_ensemble_chain(kb.pk, llm)
+            #
+            # result = ensemble_chain.invoke({
+            #     "input": user_message_text,
+            #     "system_prompt": system_instruction or kb.system_instruction
+            # })
+
+            response = requests.post(
+                "http://localhost:8001/api/ensemble-chain/invoke",
+                json={
+                    "kb_id": kb.pk,
+                    "query": user_message_text,
+                    "system_prompt": system_instruction or kb.system_instruction,
+                    "model": llm_name,
+                },
+                headers={
+                    "Authorization": f"Bearer {KB_AI_API_KEY}",  # тот же Bearer токен
+                },
+                timeout=60,
+            )
+
+            response.raise_for_status()
+            result = response.json()
+
+            # ai_message_text = result["answer"]
+            # docs = result.get("context", [])
+
+            docs = result.get("source_documents", [])
+            ai_message_text = result["result"]
+
+            # docs = [
+            #     {"metadata": doc.metadata, "content": doc.page_content, }
+            #     for doc in docs]
         else:
             retriever_scheme = "PostgreSQL TrigramSimilarity"
 
@@ -691,7 +720,7 @@ class TestModelScoreView(LoginRequiredMixin, View):
         form = ModelScoreTestForm(self.request.POST, all_urls=all_urls)
         if form.is_valid():
             test_urls = form.cleaned_data.get("urls")
-            task = test_model_answer.delay(test_urls=test_urls)
+            task = test_model_answer.delay(test_urls=test_urls, kb=kb)
             return render(self.request, "celery_task_progress.html", {
                 "task_id": task.id,
                 "task_name": f"Тестирование ответов модели",

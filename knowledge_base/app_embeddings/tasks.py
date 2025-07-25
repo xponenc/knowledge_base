@@ -21,7 +21,7 @@ from app_sources.storage_models import WebSite, CloudStorage, LocalStorage, URLB
 from knowledge_base.settings import BASE_DIR
 from utils.setup_logger import setup_logger
 from .models import Embedding, EmbeddingsReport
-from .services.embedding_config import system_instruction
+# from .services.embedding_config import system_instruction
 from .services.embedding_store import load_embedding, get_vectorstore
 from .services.retrieval_engine import answer_index
 
