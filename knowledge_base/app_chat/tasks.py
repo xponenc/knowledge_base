@@ -126,6 +126,7 @@ def test_model_answer(self,
     logger.info(f"Используется сессия: {chat_session.session_key}")
 
     total_counter = sum(len(item.get("test_data", [])) for item in test_data)
+    logger.info(f"Поступили данные для {total_counter} тестов")
     if total_counter == 0:
         logger.warning("Нет тестовых данных для обработки.")
         return "Обработка завершена: документы не найдены"

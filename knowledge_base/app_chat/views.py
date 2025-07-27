@@ -804,8 +804,6 @@ class KBRandomTestView(LoginRequiredMixin, View):
                 network_document_ids = list(NetworkDocument.objects
                                             .filter(storage=storage, status=SourceStatus.ACTIVE.value)
                                             .values_list("id", flat=True))
-                print(network_document_ids)
-                print(len(network_document_ids))
 
                 if len(network_document_ids) < counter:
                     raise ValueError(
@@ -813,12 +811,9 @@ class KBRandomTestView(LoginRequiredMixin, View):
 
                 tested_nd_ids = random.sample(network_document_ids, counter)
                 tested_network_documents = NetworkDocument.objects.filter(id__in=tested_nd_ids)
-                print(tested_network_documents)
 
                 storage_test_data = []
                 for doc in tested_network_documents:
-                    print(doc)
-                    print(doc.output_format)
                     if doc.output_format == OutputDataType.file.value:
                         raw_content = RawContent.objects.filter(network_document=doc,
                                                                 status=ContentStatus.ACTIVE.value).order_by(
@@ -835,7 +830,6 @@ class KBRandomTestView(LoginRequiredMixin, View):
                                 network_document=doc,
                                 status=ContentStatus.ACTIVE.value)
                             .order_by("-created_at").first())
-                        print(cleaned_content)
                         if cleaned_content and cleaned_content.file:
                             try:
                                 with cleaned_content.file.open("rb") as f:
@@ -856,12 +850,14 @@ class KBRandomTestView(LoginRequiredMixin, View):
                             }
                         )
 
-                    test_data.append({
-                        "storage": storage,
-                        "test_data": storage_test_data
-                    })
+                test_data.append({
+                    "storage": storage,
+                    "test_data": storage_test_data
+                })
 
         pprint(test_data)
+        for item in test_data:
+            print(item.get("storage"), len(item.get("test_data")))
 
         task = test_model_answer.delay(
             test_data=test_data,
