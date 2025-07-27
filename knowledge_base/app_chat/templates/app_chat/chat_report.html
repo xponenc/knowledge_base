@@ -71,28 +71,40 @@
                             {% for message in chat_messages %}
                                 <tr class="elastic-table__tr">
                                     <td class="elastic-table__td">
-                                        <span class="text text--break">{{ message.text|linebreaks }}</span>
-                                        
+                                        {% if message.answer.extended_log.test %}
+                                        <div class="tags">
+                                            <span class="tag tag--simple" title="Вопрос и ответ сгененрированы в рамках теста {{ message.answer.extended_log.test }}" aria-label="Вопрос и ответ сгененрированы в рамках теста {{ message.answer.extended_log.test }}" >{{ message.answer.extended_log.test }}</span>
+                                        </div>
+                                        {% endif %}
+                                        <a href="{% url 'chat:chat-message_detail' message.id %}" class="link-marker">
+                                            <span class="text text--break">{{ message.text|linebreaks }}</span>
+                                            <svg class="link-marker__marker">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                                            </svg>
+                                        </a>
                                     </td>
                                     <td class="elastic-table__td">
                                         <div class="elastic-table__cell">
                                             <div class="text text--break">{{ message.answer.text|linebreaks }}</div>
-                                            <span class="text text--break">Оценка {{ message.answer.score|default:"-" }}</span>
+                                            <div class="tags">
+                                                <span class="text">Оценка {{ message.answer.score|default:"-" }}</span>
+                                                {% if message.answer.extended_log.ai_answer_resume %} <span class="tag tag--simple">Оценка выставлена AI</span>{% endif %}
+                                            </div>
                                             <span class="text text--break">Время обработки {{ message.answer.processing_time|floatformat:4|default:"-" }} с.</span>
                                         </div>
                                     </td>
                                     <td class="elastic-table__td">
                                         <div class="elastic-table__cell">
                                             {% if message.web_session %}
-                                                <a href="{% url 'chat:chat-message_detail' message.id %}" class="link-marker">
+                                                <a href="{% url 'chat:chat_report' kb.id %}?type=web_session&session_id={{ message.web_session.session_key}}" class="link-marker _mb">
                                                     <span>web {{ message.web_session.session_key }}</span>
                                                     <svg class="link-marker__marker">
                                                         <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
                                                     </svg>
                                                 </a>
                                             {% elif message.t_session %}
-                                                <a href="{% url 'chat:chat-message_detail' message.id %}" class="link-marker">
-                                                    <span>telegram {{ message.t_session.telegram_id }}</span>
+                                                <a href="{% url 'chat:chat_report' kb.id %}?type=t_session&session_id={{ message.t_session.session_key}}" class="link-marker _mb">
+                                                    <span>telegram {{ message.web_session.session_key }}</span>
                                                     <svg class="link-marker__marker">
                                                         <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
                                                     </svg>

@@ -103,9 +103,3 @@ class CleanedContentEditorForm(forms.Form):
     content = forms.CharField(widget=forms.HiddenInput())  # Поле для Markdown
 
 
-class NetworkDocumentStatusUpdateForm(forms.ModelForm):
-    """Форма обновления статуса NetworkDocument"""
-
-    class Meta:
-        model = NetworkDocument
-        fields = ['status', ]

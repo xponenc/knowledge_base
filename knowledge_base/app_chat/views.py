@@ -2,16 +2,19 @@ import json
 import logging
 import os
 import pickle
+import random
 import time
 from datetime import datetime
+from io import TextIOWrapper
 from pprint import pprint
+from urllib.parse import urlencode
 
 import markdown
 
 from collections import Counter
 
 import requests
-from django.db.models import Prefetch, Q, Func, F, Value, CharField, FloatField
+from django.db.models import Prefetch, Q, Func, F, Value, CharField, FloatField, OuterRef, Subquery
 from django.shortcuts import get_object_or_404, render, redirect
 from django.http import JsonResponse, Http404
 from django.views import View
@@ -22,7 +25,7 @@ from django.views.generic import DetailView
 from langchain_community.chat_models import ChatOpenAI
 from rest_framework.exceptions import PermissionDenied
 
-from app_chat.forms import SystemChatInstructionForm
+from app_chat.forms import SystemChatInstructionForm, KBRandomTestForm
 from app_chat.models import ChatSession, ChatMessage
 from app_core.models import KnowledgeBase
 from app_embeddings.forms import ModelScoreTestForm
@@ -31,10 +34,13 @@ from app_embeddings.services.multi_chain_factory import build_multi_chain
 
 from app_embeddings.services.retrieval_engine import answer_index, answer_index_with_metadata, get_cached_multi_chain, \
     get_cached_ensemble_chain, trigram_similarity_answer_index, reformulate_question
-from app_embeddings.tasks import test_model_answer
+from app_chat.tasks import test_model_answer
 
 from threading import Lock
 
+from app_sources.content_models import URLContent, RawContent, ContentStatus, CleanedContent
+from app_sources.source_models import URL, SourceStatus, NetworkDocument, OutputDataType
+from app_sources.storage_models import WebSite, CloudStorage
 from telegram_bot.bot_config import KB_AI_API_KEY
 
 logger = logging.getLogger(__file__)
@@ -71,12 +77,12 @@ class ChatMessageDetailView(LoginRequiredMixin, DetailView):
     #     )
     queryset = (
         ChatMessage.objects
-            .select_related(
-                "web_session__kb",
-                "t_session__kb",
-            ).prefetch_related(
-                "answer"
-            )
+        .select_related(
+            "web_session__kb",
+            "t_session__kb",
+        ).prefetch_related(
+            "answer"
+        )
     )
 
     def get_object(self, queryset=None):
@@ -118,7 +124,8 @@ class ChatView(View):
 
         chat_session, _ = ChatSession.objects.get_or_create(session_key=session_key, kb=kb)
 
-        chat_history = chat_session.messages.filter(is_user_deleted__isnull=True).order_by("created_at").defer("extended_log")
+        chat_history = chat_session.messages.filter(is_user_deleted__isnull=True).order_by("created_at").defer(
+            "extended_log")
 
         messages = []
         for message in chat_history:
@@ -308,7 +315,6 @@ class SystemChatView(View):
 
         kb = get_object_or_404(KnowledgeBase.objects.select_related("engine"), pk=kb_pk)
 
-
         is_multichain = request.POST.get("is_multichain") == "true"
         is_ensemble = request.POST.get("is_ensemble") == "true"
         is_reformulate_question = request.POST.get("is_reformulate_question") == "true"
@@ -316,7 +322,6 @@ class SystemChatView(View):
 
         system_instruction_form = SystemChatInstructionForm(request.POST, instance=kb)
         if system_instruction_form.is_valid():
-            print(system_instruction_form.cleaned_data)
             llm_name = system_instruction_form.cleaned_data.get("llm")
             system_instruction = system_instruction_form.cleaned_data.get("system_instruction")
         else:
@@ -359,7 +364,6 @@ class SystemChatView(View):
             web_session=chat_session,
             is_user=True,
             text=user_message_text,
-            created_at=timezone.now()
         )
 
         if is_reformulate_question and chat_session.limited_chat_history:
@@ -559,8 +563,7 @@ class SystemChatView(View):
         }
         scheme = request.scheme
         host = request.get_host()
-        ai_message_text =ai_message_text.replace("http://127.0.0.1:8000", f"{scheme}://{host}")
-
+        ai_message_text = ai_message_text.replace("http://127.0.0.1:8000", f"{scheme}://{host}")
 
         ai_message = ChatMessage.objects.create(
             web_session=chat_session,
@@ -568,7 +571,6 @@ class SystemChatView(View):
             is_user=False,
             text=ai_message_text,
             extended_log=extended_log,
-            created_at=timezone.now()
         )
         ai_message_text = markdown.markdown(ai_message_text)
 
@@ -642,6 +644,11 @@ class ChatReportView(LoginRequiredMixin, View):
         kb = get_object_or_404(KnowledgeBase, pk=kb_pk)
         if not kb.is_owner_or_superuser(request.user):
             raise 404
+
+        session_type = request.GET.get("type")
+        session_id = request.GET.get("session_id")
+        print(session_type, session_id)
+
         answer_prefetch = Prefetch(
             "answer",
             queryset=ChatMessage.objects.annotate(
@@ -674,6 +681,13 @@ class ChatReportView(LoginRequiredMixin, View):
             .order_by("-created_at", "web_session", "t_session")
             .defer("extended_log")
         )
+
+        if session_type and session_type in ("web_session", "t_session") and session_id:
+            if session_type == "web_session":
+                messages = messages.filter(web_session__session_key=session_id)
+            elif session_type == "t_session":
+                messages = messages.filter(t_session__session_key=session_id)
+
         context = {
             "kb": kb,
             "chat_messages": messages,
@@ -694,45 +708,176 @@ class CurrentTestChunksView(LoginRequiredMixin, View):
         return render(request=self.request, template_name="app_chunks/current_documents.html", context=context)
 
 
-class TestModelScoreView(LoginRequiredMixin, View):
-    """тестирование ответов"""
+class KBRandomTestView(LoginRequiredMixin, View):
+    """Тестирование случайных вопрос-ответ для заданной базы знаний"""
 
-    def get(self, *args, **kwargs):
-        all_documents = None
-        chunk_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chunk.pickle")
-        with open(chunk_file, 'rb') as f:
-            # Загружаем (десериализуем) список документов из файла
-            all_documents = pickle.load(f)
-        all_urls = list(set(doc.metadata.get("url") for doc in all_documents))
-        form = ModelScoreTestForm(all_urls=all_urls, initial={'urls': all_urls[:5]})
-        context = {
-            "form": form
-        }
-        return render(request=self.request, template_name="app_chunks/test_model_answer.html", context=context)
+    def get(self, request, kb_pk, *args, **kwargs):
+        kb_query = (KnowledgeBase.objects
+                    .prefetch_related("website_set", "cloudstorage_set", "localstorage_set", "urlbatch_set"))
+        kb = get_object_or_404(kb_query, pk=kb_pk)
 
-    def post(self, *args, **kwargs):
-        all_documents = None
-        chunk_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chunk.pickle")
-        with open(chunk_file, 'rb') as f:
-            # Загружаем (десериализуем) список документов из файла
-            all_documents = pickle.load(f)
-        all_urls = list(set(doc.metadata.get("url") for doc in all_documents))
-        form = ModelScoreTestForm(self.request.POST, all_urls=all_urls)
-        if form.is_valid():
-            test_urls = form.cleaned_data.get("urls")
-            task = test_model_answer.delay(test_urls=test_urls, kb=kb)
-            return render(self.request, "celery_task_progress.html", {
-                "task_id": task.id,
-                "task_name": f"Тестирование ответов модели",
-                "task_object_url": reverse_lazy("chunks:test_model_report"),
-                "task_object_name": "FRIDA",
-                "next_step_url": reverse_lazy("chunks:test_model_report"),
+        test_form = KBRandomTestForm(kb=kb)
+        return render(request, "app_chat/kb_random_test_form.html", {
+            "form": test_form,
+            "kb": kb,
+        })
+
+    def post(self, request, kb_pk, *args, **kwargs):
+        kb_query = (KnowledgeBase.objects
+                    .prefetch_related("website_set", "cloudstorage_set", "localstorage_set", "urlbatch_set"))
+        kb = get_object_or_404(kb_query, pk=kb_pk)
+        test_form = KBRandomTestForm(request.POST, kb=kb)
+
+        if not test_form.is_valid():
+            return render(request, "app_chat/kb_random_test_form.html", {
+                "form": test_form,
+                "kb": kb,
             })
 
-        context = {
-            "form": form
-        }
-        return render(request=self.request, template_name="app_chunks/test_model_answer.html", context=context)
+        session_key = request.session.session_key
+        if not session_key:
+            request.session.create()
+            session_key = request.session.session_key
+
+        selected_storages = []  # сюда соберем активные источники с количеством
+
+        for model_name, related_name, group_label in [
+            ("website", "website_set", "Сайты"),
+            ("cloudstorage", "cloudstorage_set", "Облачные хранилища"),
+            ("localstorage", "localstorage_set", "Локальные хранилища"),
+            ("urlbatch", "urlbatch_set", "Пакеты ссылок"),
+        ]:
+            storages = getattr(kb, related_name).all()
+            for storage in storages:
+                checkbox_name = f"use_{model_name}_{storage.pk}"
+                count_name = f"count_{model_name}_{storage.pk}"
+
+                if test_form.cleaned_data.get(checkbox_name):
+                    count = test_form.cleaned_data.get(count_name)
+                    if count:
+                        selected_storages.append({
+                            "storage": storage,
+                            "count": count,
+                        })
+        test_data = []
+        print(selected_storages)
+        for item in selected_storages:
+            storage = item.get("storage")
+            counter = item.get("count")
+            print(storage)
+            if isinstance(storage, WebSite):
+                url_ids = list(URL.objects
+                               .filter(site=storage, status=SourceStatus.ACTIVE.value)
+                               .values_list("id", flat=True))
+
+                if len(url_ids) < counter:
+                    raise ValueError(
+                        f"Недостаточно URL для сайта {storage.name} (требуется {counter}, найдено {len(url_ids)})")
+
+                tested_url_ids = random.sample(url_ids, counter)
+
+                url_content_qs = URLContent.objects.filter(url_id=OuterRef("id")).order_by("-created_at")[:1]
+                related_url_contents = Prefetch(
+                    "urlcontent_set",
+                    queryset=URLContent.objects.filter(id__in=Subquery(url_content_qs.values("id"))),
+                    to_attr="related_urlcontents"
+                )
+
+                # Основной запрос
+                tested_urls = URL.objects.filter(id__in=tested_url_ids).prefetch_related(
+                    related_url_contents
+                )
+                # Назначаем active_urlcontent
+                for url in tested_urls:
+                    url.active_urlcontent = url.related_urlcontents[0] if url.related_urlcontents else None
+
+                storage_test_data = [{
+                    "source": url,
+                    "content": url.active_urlcontent.body
+                } for url in tested_urls if url.active_urlcontent]
+
+                test_data.append({
+                    "storage": storage,
+                    "test_data": storage_test_data
+                })
+            elif isinstance(storage, CloudStorage):
+                network_document_ids = list(NetworkDocument.objects
+                                            .filter(storage=storage, status=SourceStatus.ACTIVE.value)
+                                            .values_list("id", flat=True))
+                print(network_document_ids)
+                print(len(network_document_ids))
+
+                if len(network_document_ids) < counter:
+                    raise ValueError(
+                        f"Недостаточно URL для сайта {storage.name} (требуется {counter}, найдено {len(network_document_ids)})")
+
+                tested_nd_ids = random.sample(network_document_ids, counter)
+                tested_network_documents = NetworkDocument.objects.filter(id__in=tested_nd_ids)
+                print(tested_network_documents)
+
+                storage_test_data = []
+                for doc in tested_network_documents:
+                    print(doc)
+                    print(doc.output_format)
+                    if doc.output_format == OutputDataType.file.value:
+                        raw_content = RawContent.objects.filter(network_document=doc,
+                                                                status=ContentStatus.ACTIVE.value).order_by(
+                            "-created_at").first()
+                        storage_test_data.append(
+                            {
+                                "source": doc,
+                                "content": f"Документ: {raw_content.file.url}. Описание: {doc.description}"
+                            }
+                        )
+                    else:
+                        cleaned_content = (
+                            CleanedContent.objects.filter(
+                                network_document=doc,
+                                status=ContentStatus.ACTIVE.value)
+                            .order_by("-created_at").first())
+                        print(cleaned_content)
+                        if cleaned_content and cleaned_content.file:
+                            try:
+                                with cleaned_content.file.open("rb") as f:
+                                    # Обернуть бинарный поток в текстовый с нужной кодировкой
+                                    text_stream = TextIOWrapper(f, encoding="utf-8")
+                                    content = text_stream.read(15000)
+                            except UnicodeDecodeError:
+                                continue
+                            except Exception as e:
+                                print(e)
+                                continue
+                        else:
+                            continue
+                        storage_test_data.append(
+                            {
+                                "source": doc,
+                                "content": content
+                            }
+                        )
+
+                    test_data.append({
+                        "storage": storage,
+                        "test_data": storage_test_data
+                    })
+
+        pprint(test_data)
+
+        task = test_model_answer.delay(
+            test_data=test_data,
+            kb_id=kb.id,
+            session_id=f"random_test_{session_key}"
+        )
+        session_url = reverse_lazy("chat:chat_report", kwargs={"kb_pk": kb.id})
+        query = urlencode({"type": "web_session", "session_id": f"random_test_{session_key}"})
+
+        return render(self.request, "celery_task_progress.html", {
+            "task_id": task.id,
+            "task_name": f"Тестирование ответов модели",
+            "task_object_url": f"{session_url}?{query}",
+            "task_object_name": f" тестирования базы знаний {kb.name} случайными вопросами",
+            "next_step_url": f"{session_url}?{query}",
+        })
 
 
 class TestModelScoreReportView(LoginRequiredMixin, View):
@@ -755,4 +900,3 @@ class TestModelScoreReportView(LoginRequiredMixin, View):
                                                                      "url")))
 
         return render(self.request, 'app_chunks/test_model_results.html', {'tests': test_report})
-

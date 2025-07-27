@@ -1,0 +1,130 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+
+{% block extra_css %}
+    <link href="{% static 'libs/choices/choices.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/custom_choices.css' %}" rel="stylesheet">
+    <link href="{% static 'css/chat.css' %}" rel="stylesheet">
+{% endblock %}
+
+
+{% block nav %}
+    {% include "include/nav.html" %}
+{% endblock nav %}
+
+
+{% block title %}Тестирование базы знаний случайными вопросами{% endblock %}
+
+
+{% block content %}
+<div class="page page--kb">
+    <div class="page__top page__grid">
+        <div class="page__info info-page info-page--logo">
+            {% if  kb.logo.url %}
+                <img src="{{ kb.logo.url }}" alt="Логотип базы знаний {{ kb.name }}" class="info-page__logo">
+            {% endif %}
+        </div>
+        <div class="page__info info-page">
+            <span class="info-page__banner">База знаний</span>
+            <div class="info-page__header">
+                <h2 class="page__heading page__heading--accent _ta-e">{{ kb.name }}</h2>
+                <h3 class="info-page__heading">Детали базы знаний</h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                <dl class="description">
+                    <dt class="description__term">владельцы</dt>
+                    <dd class="description__defination tags">
+                        {% for user in kb.owners.all %}
+                            <span class="tag tag--simple">
+                                {{ user.get_full_name|default:user.username }}
+                            </span>
+                        {% endfor %}
+                    </dd>
+                    <dt class="description__term">описание</dt>
+                    <dd class="description__defination">
+                        {{ kb.description|default:"—" }}
+                    </dd>
+                    
+                </dl>
+            </div>
+            <div class="info-page__footer">
+                <div class="btns _jc-fe">
+                    <a href="{% url 'core:knowledgebase_update' kb.id %}" class="btn btn--reset btn--round" title="Редактировать информацию о базе знаний" aria-label="Редактировать информацию о базе знаний">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                        </svg>
+                    </a>
+                    {% if kb.engine %}
+                        <a href="{% url 'chat:chat' kb.pk %}" class="btn btn--reset btn--simple btn--primary">
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                            </svg>
+                            чат
+                        </a>
+                        <a href="{% url 'chat:system_chat' kb.pk %}" class="btn btn--reset btn--simple btn--primary">
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                            </svg>
+                            системный чат
+                        </a>
+                        <a href="{% url 'chat:kb_random_test' kb.pk %}" class="btn btn--reset btn--simple btn--primary">
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                            </svg>
+                            random test
+                        </a>
+                    
+                    {% endif %}
+                    <a href="{% url 'chat:chat_report' kb.pk %}" class="btn btn--reset btn--simple btn--accent">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                        </svg>
+                        отчет по чатам
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="page__content">
+        <div class="page__info info-page">
+            <span class="info-page__banner"></span>
+            <div class="info-page__header">
+                <h2 class="page__heading page__heading--accent _ta-e">Тестирование базы знаний</h2>
+            </div>
+            <div class="info-page__body">
+                <div class="_mb">
+                    <p class="text _mb">Будет выполнен тест базы знаний случайными вопросами</p>
+                    <p class="text _mb">Выберите тестируемые хранилища и задайте количество тестовых вопросов</p>
+                    <p class="text _mb">По заданным критериям будут выбраны случайные источнии данных, по ним будут сформированы тестовые пары вопрос-ответ с помощью gpt-4o-mini</p>
+                    <p class="text _mb">Далее будет выполнен тестовый прогон RAG выбранными вопросами</p>
+                    
+                </div>
+                <form method="POST" class="form" enctype="multipart/form-data">
+            {% csrf_token %}
+            {% include "widgets/_form_content_groups-widget.html" %}
+            <div class="form__btn-block">
+                <a href="{{ kb.get_absolute_url }}" class="btn btn--reset btn--simple">ОТМЕНИТЬ</a>
+                <button type="submit" class="btn btn--reset btn--simple btn--primary" id="submit-btn">
+                    <span>Запустить тест</span>
+                </button>
+            </div>
+        </form>
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+     
+        
+    </div>
+</div>
+{% endblock content %}
+
+
+{% block script %}
+
+
+{% endblock script %}
+

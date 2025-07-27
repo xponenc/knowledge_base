@@ -32,10 +32,10 @@ from app_parsers.models import TestParser, TestParseReport, MainParser
 from app_parsers.tasks import test_single_url, parse_urls_task
 from app_parsers.services.parsers.dispatcher import WebParserDispatcher
 from app_sources.content_models import URLContent, RawContent, CleanedContent, ContentStatus
-from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedContentEditorForm, \
-    NetworkDocumentStatusUpdateForm
+from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedContentEditorForm
 from app_sources.models import HierarchicalContextMixin
 from app_sources.report_models import CloudStorageUpdateReport, WebSiteUpdateReport, ReportStatus
+from app_sources.source_forms import NetworkDocumentStatusUpdateForm, NetworkDocumentForm
 from app_sources.source_models import NetworkDocument, URL, SourceStatus
 from app_sources.storage_models import CloudStorage, Storage, LocalStorage, WebSite, URLBatch
 from app_sources.storage_views import StoragePermissionMixin
@@ -268,13 +268,13 @@ class NetworkDocumentDetailView(LoginRequiredMixin, DocumentPermissionMixin, Hie
     )
 
     cleanedcontent = Prefetch("cleanedcontent",
-                                  queryset=CleanedContent.objects
-                                  .select_related("author")
-                                  .prefetch_related(chunk_preview_set)
-                                  .annotate(
-                                        chunks_counter=Count("chunks", distinct=True),
-                                    )
-                                  )
+                              queryset=CleanedContent.objects
+                              .select_related("author")
+                              .prefetch_related(chunk_preview_set)
+                              .annotate(
+                                  chunks_counter=Count("chunks", distinct=True),
+                              )
+                              )
 
     rawcontent_set = Prefetch(
         "rawcontent_set",
@@ -290,17 +290,38 @@ class NetworkDocumentDetailView(LoginRequiredMixin, DocumentPermissionMixin, Hie
                 .prefetch_related(rawcontent_set, "tasks"))
 
 
-class NetworkDocumentUpdateView(LoginRequiredMixin, DocumentPermissionMixin, UpdateView):
+class NetworkDocumentUpdateView(LoginRequiredMixin, DocumentPermissionMixin, HierarchicalContextMixin, UpdateView):
     """Редактирование объекта модели Сетевой документ NetworkDocument (с проверкой прав доступа)"""
     model = NetworkDocument
-    fields = ["title", "status", "output_format", "description"]
+    form_class = NetworkDocumentForm
+    # queryset = (NetworkDocument.objects.select_related("storage", "storage__kb", "report", ))
 
 
-class NetworkDocumentStatusUpdateView(LoginRequiredMixin, DocumentPermissionMixin, UpdateView):
+class NetworkDocumentStatusUpdateView(LoginRequiredMixin, DocumentPermissionMixin, HierarchicalContextMixin,
+                                      UpdateView):
     """Изменение статуса объекта модели Сетевой документ NetworkDocument (с проверкой прав доступа)"""
     model = NetworkDocument
     form_class = NetworkDocumentStatusUpdateForm
     template_name = "app_sources/networkdocument_status_update_form.html"
+    queryset = (
+        NetworkDocument.objects
+        .prefetch_related(
+            "rawcontent_set__chunks__embedding",
+            "cleanedcontent_set__chunks__embedding"
+        )
+        .annotate(
+            raw_embeddings_count=Count(
+                "rawcontent__chunks",
+                filter=Q(rawcontent__chunks__embedding__isnull=False),
+                distinct=True
+            ),
+            cleaned_embeddings_count=Count(
+                "cleanedcontent__chunks",
+                filter=Q(cleanedcontent__chunks__embedding__isnull=False),
+                distinct=True
+            ),
+        )
+    )
 
     def post(self, request, *args, **kwargs):
         pk = self.kwargs["pk"]
@@ -380,10 +401,10 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, Hierarchical
         # Распределение URL по статусу
         url_status_map = {s.value: s.display_name for s in SourceStatus}
         status_counts = (URL.objects.filter(site=website)
-            .values('status')
-            .annotate(count=Count('id'))
-            .order_by('status')
-        )
+                         .values('status')
+                         .annotate(count=Count('id'))
+                         .order_by('status')
+                         )
 
         url_distribution = [
             {
@@ -552,23 +573,20 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, Hierarchical
             urlcontent_total_count=Count("urlcontent")
         )
 
-        # 📄 Пагинация
         paginator = Paginator(urls, 3)
         page_number = request_get.get("page")
         page_obj = paginator.get_page(page_number)
 
-        # # 🎯 Назначаем active_urlcontent
+        # Назначаем active_urlcontent
         for url in page_obj.object_list:
             url.active_urlcontent = url.related_urlcontents[0] if url.related_urlcontents else None
 
-        # 🧩 Query string без page
         query_params = request_get.copy()
         query_params.pop("page", None)
         paginator_query = query_params.urlencode()
         if paginator_query:
             paginator_query += "&"
 
-        # 📦 Контекст
         context.update({
             "page_obj": page_obj,
             "paginator_query": paginator_query,
@@ -1086,17 +1104,17 @@ class URLDetailView(LoginRequiredMixin, DocumentPermissionMixin, DetailView):
     urlcontent_preview_set = Prefetch(
         "urlcontent_set",
         queryset=URLContent.objects
-            .select_related("report", "author")
-            .prefetch_related(chunk_preview_set)
-            .annotate(
-                body_length=Length("body"),
-                body_preview=Left("body", 200),
-                chunks_counter=Count("chunks", distinct=True),
-                embeddings_counter=Count("chunks__embedding", distinct=True)
-            ).defer("body"),
+        .select_related("report", "author")
+        .prefetch_related(chunk_preview_set)
+        .annotate(
+            body_length=Length("body"),
+            body_preview=Left("body", 200),
+            chunks_counter=Count("chunks", distinct=True),
+            embeddings_counter=Count("chunks__embedding", distinct=True)
+        ).defer("body"),
         to_attr="urlcontent_preview_set"
     )
-    queryset = (URL.objects.select_related("site", "site__kb", "report",)
+    queryset = (URL.objects.select_related("site", "site__kb", "report", )
                 .prefetch_related(urlcontent_preview_set, "tasks"))
 
 
@@ -1104,7 +1122,7 @@ class URLUpdateView(LoginRequiredMixin, DocumentPermissionMixin, DetailView):
     """Редактирование объекта модели Модель страницы сайта URL (с проверкой прав доступа)"""
     model = URL
 
-    def get(self,*args, **kwargs):
+    def get(self, *args, **kwargs):
         return HttpResponse("Заглушка")
 
 

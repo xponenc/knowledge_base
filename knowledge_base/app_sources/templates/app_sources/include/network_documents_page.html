@@ -17,10 +17,11 @@
                     <div class="source__manage">
                         <dl class="description">
                             <dt class="description__term">статус</dt>
-                            <dd class="description__defination">
+                            <dd class="description__defination tags">
                                 <span class="tag tag--fat{% if document.status == "active" %} tag--success{% elif document.status == "de" %} tag--deleted{% elif document.status == "ex" %} tag--disabled {% elif document.status == "er" %} tag--alarm{% else %} tag--warning{% endif %}">
                                     {{ document.get_status_display  }}
                                 </span>
+                                <span class="tag tag--simple" title="Формат вывода документа в базу знаний">{{ document.get_output_format_display }}</span>
                             </dd>
                             {% if document.description %}
                                 <dt class="description__term">Описание</dt>
@@ -72,7 +73,7 @@
                             <dt class="description__term">Формат документа в базе знаний</dt>
                             <dd class="description__defination"><span class="tag tag--simple">{{ document.get_output_format_display }}</span></dd>
                         </dl>
-                        <a class="btn btn--reset btn--round" href="" aria-label="Изменить формат использования источника в базе знаний" title="Изменить формат использования источника в базе знаний">
+                        <a class="btn btn--reset btn--round" href="{% url 'sources:networkdocument_update_status' document.pk %}" aria-label="Изменить формат использования источника в базе знаний" title="Изменить формат использования источника в базе знаний">
                             <svg class="btn__icon">
                                 <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
                             </svg>

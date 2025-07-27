@@ -147,6 +147,11 @@
     border: 1px solid var(--block-border-color) !important;
 }
 
+.info-page--warning {
+    --banner-color: var(--warning-color);
+    --header-color: var(--warning-color);
+    --accent-color: var(--warning-color);
+}
 .info-page--kb {
     --banner-color: var(--kb-accent-color);
     --header-color: var(--kb-accent-color);

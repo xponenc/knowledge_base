@@ -1,18 +1,189 @@
-{% extends 'base.html' %}
-{% block title %}Изменение статсус сетевого документа{% endblock %}
+{% extends 'clear_base.html' %}
+{% load static %}
+
+
+{% block extra_css %}
+    <link href="{% static 'libs/choices/choices.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/custom_choices.css' %}" rel="stylesheet">
+{% endblock %}
+
+
+{% block title %}
+    Изменение статуса сетевого документа
+{% endblock %}
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        {% comment %} база знаний {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ kb.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">База знаний {{ kb.name }}</span>
+            </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        {% comment %} хранилище {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <a href="{{ storage.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">{{ storage_type_ru }} {{ storage.name }}</span>
+            </a>
+            <meta itemprop="position" content="2" />
+        </li>
+        {% comment %} источник {% endcomment %}
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">{{ document_type_ru }} {{ document.title|default:"" }}</span>
+            <meta itemprop="position" content="3" />
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
 
 {% block content %}
-<h2>Изменение статуса сетевого документа</h2>
-Выводится анализ связки NetworkDocument - ACTIVE RawContent -> CleanedContent -> Chunks(Documens) -> Emdeddings
-Предупреждение об изменении активного конттента!!!!
+<div class="page page--cloud">
+    <div class="page__top page__grid">
+        <div class="page__info info-page info-page--logo">
+            {% if  object.logo.url %}
+                <img src="{{ object.logo.url }}" alt="Логотип базы знаний {{ object.name }}" class="info-page__logo">
+            {% endif %}
+        </div>
+        <div class="page__info info-page">
+            <span class="info-page__banner">источник</span>
+            <div class="info-page__header">
+                {% if object %}
+                    <h2 class="page__heading page__heading--accent _ta-e">{{ object.name }}</h2>
+                {% endif %}
+                <h3 class="info-page__heading _ta-e">Статусы источника</h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                {% if object %}
+                    <dl class="description">
+                        <dt class="description__term">Описание</dt>
+                        <dd class="description__defination">
+                            {{ object.description|default:"—" }}
+                        </dd>
+                        <dt class="description__term">Дата создания</dt>
+                        <dd class="description__defination">
+                            <pre class="text">{{ object.created_at|date:"d.m.Y H:i" }}</pre> 
+                        </dd>
+                    </dl>
+                {% endif %}
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+    </div>
+    <div class="page__content">
+        {% if object.status == "active" %}
+            <div class="page__info info-page info-page--warning">
+            <span class="info-page__banner info-page__banner--medium _ta-s">внимание</span>
+            <div class="info-page__header">
+                <h2 class="page__heading page__heading--accent">Изменение статуса активного источника</h2>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                <p class="text">
+                    Данный источни имеет вектора, используемые в базе данных. Изменение статуса источника или формата вывода запустит задачу на изменение векторов
+                </p>
+                {% if object.raw_embeddings_count %}
+                    {% for raw in networkdocument.rawcontent_set.all %}
+                        <div>
+                            <strong>Исходный контент(RawContent #{{ raw.id }})</strong>
+                            {% if raw.chunks.all %}
+                                <ul>
+                                {% for chunk in raw.chunks.all %}
+                                    <li>
+                                        Chunk #{{ chunk.id }}
+                                        {% if chunk.embedding %}
+                                            — Embedding ID: {{ chunk.embedding.vector_id }}
+                                        {% else %}
+                                            — <em>No embedding</em>
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                                </ul>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                
+                {% endif %}
+                {% if object.cleaned_embeddings_count %}
+                    {% for cleaned in networkdocument.cleanedcontent_set.all %}
+                        <div>
+                            <strong>CleanedContent #{{ cleaned.id }}</strong>
 
-На Сохранить запускается создание Задачи на изменение контента
+                            {% if cleaned.chunks.all %}
+                                <ul>
+                                {% for chunk in cleaned.chunks.all %}
+                                    <li>
+                                        Chunk #{{ chunk.id }}
+                                        {% if chunk.embedding %}
+                                            — Embedding ID: {{ chunk.embedding.vector_id }}
+                                        {% else %}
+                                            — <em>No embedding</em>
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p><em>No chunks</em></p>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+        {% endif %}
 
-<form method="post">
-    {% csrf_token %}
-    {{ form.errors }}
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-success">Сохранить</button>
-    <a href="{% url 'sources:networkdocument_detail' object.pk %}" class="btn btn-sm btn-outline-secondary">Отмена</a>
-</form>
+
+        <form method="POST" class="form" enctype="multipart/form-data">
+            {% csrf_token %}
+            {% include "widgets/_form_content-widget.html" %}
+            <div class="form__btn-block">
+                <a href="{{ object.get_absolute_url }}" class="btn btn--reset btn--simple">ОТМЕНИТЬ</a>
+                <button type="submit" class="btn btn--reset btn--simple btn--primary" id="submit-btn">
+                    {{ object|yesno:"Сохранить,Создать" }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
+
+
+{% block script %}
+    <script src="{% static 'libs/choices/choices.min.js' %}"></script>
+    <script>
+        // Инициализация choice.js для #id_status
+        let statusSelect = new Choices("#id_status", {
+            allowHTML: true,
+            classNames: {
+                containerOuter: 'choices custom-choices custom-choices_transparent',
+            },
+            position: 'down',
+            itemSelectText: 'Выберите статус',
+            searchEnabled: true,
+            searchPlaceholderValue: 'поиск',
+            maxItemText: 'Выбрано максимально допустимое количество',
+            // removeItemButton: true,
+            noResultsText: 'Ничего не найдено',
+        })
+        // Инициализация choice.js для #id_output_format
+        let formatSelect = new Choices("#id_output_format", {
+            allowHTML: true,
+            classNames: {
+                containerOuter: 'choices custom-choices custom-choices_transparent',
+            },
+            position: 'down',
+            itemSelectText: 'Выберите формат',
+            searchEnabled: true,
+            searchPlaceholderValue: 'поиск',
+            maxItemText: 'Выбрано максимально допустимое количество',
+            noResultsText: 'Ничего не найдено',
+        })
+        
+    </script>
+{% endblock script %}

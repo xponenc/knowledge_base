@@ -24,15 +24,9 @@
     display: -webkit-box;
     display: -ms-flexbox;
     display: flex;
-    -webkit-box-orient: horizontal;
-    -webkit-box-direction: normal;
-    -ms-flex-direction: row;
     flex-direction: row;
-    -webkit-box-pack: justify;
-    -ms-flex-pack: justify;
     justify-content: space-between;
-    align-items: flex-end;
-    -ms-flex-wrap: wrap;
+    align-items: flex-start;
     flex-wrap: wrap;
     width: 100%;
     background-color: inherit
@@ -43,6 +37,14 @@
     flex-direction: column;
     min-width: 100%;
     background-color: inherit;
+}
+.form__fieldset {
+    margin-bottom: var(--gap-half);
+}
+.form__legend {
+    margin-bottom: var(--gap-third);
+    color: var(--text-color-mute);
+    font-weight: 600;
 }
 
 .field-container {
@@ -397,6 +399,7 @@
     resize: none;
     line-height: 1.2;
 }
+
 .custom-field__input_textarea-extra-toll {
     height: 440px;
     resize: none;

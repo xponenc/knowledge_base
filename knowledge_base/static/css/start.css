@@ -548,6 +548,18 @@ fieldset {
   margin-bottom: var(--gap);
 }
 
+._as-fs {
+  align-items: flex-start !important;
+}
+
+._as-fe {
+  align-items: flex-end !important;
+}
+
+._as-c {
+  align-items: center !important;
+}
+
 ._ai-fs {
   align-items: flex-start !important;
 }

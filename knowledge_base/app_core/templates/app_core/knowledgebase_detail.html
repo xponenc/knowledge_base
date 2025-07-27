@@ -65,9 +65,15 @@
                             </svg>
                             системный чат
                         </a>
+                        <a href="{% url 'chat:kb_random_test' object.pk %}" class="btn btn--reset btn--simple btn--primary">
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                            </svg>
+                            random test
+                        </a>
                     
                     {% endif %}
-                    <a href="{% url 'chat:chat_report' object.pk %}" class="btn btn--reset btn--simple btn--primary">
+                    <a href="{% url 'chat:chat_report' object.pk %}" class="btn btn--reset btn--simple btn--accent">
                         <svg class="btn__icon">
                             <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
                         </svg>

@@ -101,7 +101,7 @@
             if (progressNextStepForm) {
                 document.querySelector(".progress__form").submit();
             } else {
-                window.open("{{ next_step_url }}","_self")
+                window.open("{{ next_step_url|safe }}","_self")
             };
             }, 2000);
         }

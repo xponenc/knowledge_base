@@ -9,7 +9,7 @@ User = get_user_model()
 
 class ChatSession(models.Model):
     session_key = models.CharField(verbose_name="ключ пользовательской сессии",
-                                   max_length=40, unique=True, db_index=True)
+                                   max_length=100, unique=True, db_index=True)
     kb = models.ForeignKey(KnowledgeBase, verbose_name="база знаний", on_delete=models.CASCADE,
                            related_name='chat_sessions')
     created_at = models.DateTimeField(auto_now_add=True)

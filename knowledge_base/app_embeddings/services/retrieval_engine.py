@@ -447,47 +447,16 @@ def reformulate_question(
     reformulate_prompt = PromptTemplate(
         input_variables=["chat_history", "question"],
         template="""
-            Ты — интеллектуальный ассистент, помогающий готовить поисковые запросы для поиска по базе документов (RAG).
+            Given a chat history and the latest user question
+            which might reference context in the chat history,
+            formulate a standalone question which can be understood
+            without the chat history. Do NOT answer the question,
+            just reformulate it if needed and otherwise return it as is. Answer in russian.
             
-            У тебя есть:
-            1. История диалога (вопросы и ответы).
-            2. Текущий вопрос пользователя.
-            
-            Твоя задача:
-            1. Определи, самодостаточен ли текущий вопрос исходя из истории диалога: можно ли по нему одному понять, что именно ищет пользователь?
-                - Если **да**, верни в ответе исходный вопрос.
-                - Если **нет**, используй контекст из истории, чтобы восстановить полный смысл вопроса, который поможет найти нужные документы.
-                 Учитывай что для корректного поиска в RAG новый вопрос должен быть максимально похож на вопрос к контексте которого был дан предыдуцщий ответ,
-                  что бы были найдены идентичные документы.
-            
-            ---
-            
-            Примеры:
-            
-            История:
-            Пользователь: Кто у вас генеральный директор?  
-            Ассистент: Иванов Иван Иванович  
-            Пользователь: Есть приказ?
-            
-            → Ответ: Есть приказ о назначении генерального директора Иванов Ивана Ивановича?
-            
-            ---
-            
-            История:
-            Пользователь: Какие есть курсы по эпидемиологии?  
-            Ассистент: Академия предлагает...  
-            Пользователь: Расскажи подробнее про первый пункт
-            
-            → Ответ: Расскажи подробнее про курс по эпидемиология профессиональная переподготовка
-            
-            ---
-            
-            Теперь выполни задание для этого ввода:
-            
-            История:
+            Chat history:
             {chat_history}
             
-            Текущий вопрос:
+            Current Questions:
             {question}
             
             Ответ:
@@ -497,7 +466,7 @@ def reformulate_question(
     llm = ChatOpenAI(model=model, temperature=0)
     chain = LLMChain(llm=llm, prompt=reformulate_prompt)
     result = chain.run({"chat_history": chat_history, "question": current_question.strip()}).strip()
-
+    print(f"Переформулировка {result=}")
     was_rewritten = result.strip() != current_question.strip()
     return result.strip(), was_rewritten
 

@@ -29,27 +29,14 @@
             <meta itemprop="position" content="2" />
         </li>
         {% comment %} источник {% endcomment %}
-        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
-            <span itemprop="name">{{ cloudstorage.name }}</span>
-            <a href="{{ document.get_absolute_url }}" itemprop="item">
-                <span itemprop="name">{{ document_type_ru }} {{ document.title|default:"" }}</span>
-            </a>
-            <meta itemprop="position" content="3" />
-        </li>
-        {% comment %} контент {% endcomment %}
-        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
-            <a href="{{ content.get_absolute_url }}" itemprop="item">
-                <span itemprop="name">Исходный контент</span>
-            </a>
-            <meta itemprop="position" content="4" />
-        </li>
         <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
-            <span itemprop="name">Распознавание</span>
-            <meta itemprop="position" content="5" />
+            <span itemprop="name">{{ document_type_ru }} {{ document.title|default:"" }}</span>
+            <meta itemprop="position" content="3" />
         </li>
     </ol>
 </nav>
 {% endblock %}
+
 
 {% block content %}
 <div class="page page--cloud">

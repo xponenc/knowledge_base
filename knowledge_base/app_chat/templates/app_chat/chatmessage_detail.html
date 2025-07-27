@@ -59,10 +59,11 @@
                     <div class="source__manage">
                         <dl class="description">
                             <dt class="description__term">отправитель</dt>
-                            <dd class="description__defination">
+                            <dd class="description__defination tags">
                                 <span class="tag tag--fat tag--success">
                                     {{ object.is_user|yesno:"Клиент,AI-ассистент" }}
                                 </span>
+                                {% if object.answer.extended_log.test %}<span class="tag tag--warning">{{ object.answer.extended_log.test }}</span>{% endif %}
                             </dd>
                         </dl>
                     </div>
@@ -72,6 +73,13 @@
                 <div class="source__wrapper">
                     <div class="source__raw-content">
                         <dl class="description">
+                            {% if object.answer.extended_log.test and object.answer.extended_log.source_url %}
+                                <dt class="description__term">тестируемый источник</dt>
+                                <dd class="description__defination">
+                                    <a href="{{ object.answer.extended_log.source_url }}">{{ request.get_host }}{{ object.answer.extended_log.source_url }}</a>
+                                    
+                                </dd>
+                            {% endif %}
                             <dt class="description__term">сообщение</dt>
                             <dd class="description__defination">
                                 {{ object.text }}
@@ -81,13 +89,38 @@
                                 {{ object.answer.text|linebreaks|default:"-" }}
                             </dd>
                             <dt class="description__term">оценка</dt>
-                            <dd class="description__defination">
+                            <dd class="description__defination tags">
                                 {{ object.answer.score|default:"-" }}
+                                {% if object.answer.extended_log.ai_answer_resume %} <span class="tag tag--warning">Оценка выставлена AI</span>{% endif %}
                             </dd>
                             <dt class="description__term">время обработки</dt>
                             <dd class="description__defination">
                                 {{ object.answer.extended_log.processing_time|floatformat:4|default:"-" }} с.
                             </dd>
+                            {% if object.answer.extended_log.ai_answer_resume %}
+                                <dt class="description__term">AI резюме по оценке ответа</dt>
+                                <dd class="description__defination">
+                                    {{ object.answer.extended_log.ai_answer_resume }}
+                                </dd>
+                            {% endif %}
+                            {% if object.answer.extended_log.benchmark_answer %}
+                                <dt class="description__term">Эталонный ответ</dt>
+                                <dd class="description__defination">
+                                    {{ object.answer.extended_log.benchmark_answer }}
+                                </dd>
+                            {% endif %}
+                            {% if object.answer.extended_log.ai_prompt_score %}
+                                <dt class="description__term">AI оценка соответстивия системному промпту</dt>
+                                <dd class="description__defination">
+                                    {{ object.answer.extended_log.ai_prompt_score }}
+                                </dd>
+                            {% endif %}
+                            {% if object.answer.extended_log.ai_prompt_resume %}
+                                <dt class="description__term">AI резюме по оценке соответстивия системной промпту</dt>
+                                <dd class="description__defination">
+                                    {{ object.answer.extended_log.ai_prompt_resume }}
+                                </dd>
+                            {% endif %}
                             <dt class="description__term">использованная llm</dt>
                             <dd class="description__defination">
                                 {{ object.answer.extended_log.llm|default:"-" }}
