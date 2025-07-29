@@ -17,11 +17,13 @@ from langchain.chains.retrieval_qa.base import RetrievalQA
 from langchain.chains.router.multi_retrieval_prompt import MULTI_RETRIEVAL_ROUTER_TEMPLATE
 from langchain_core.callbacks import CallbackManagerForChainRun
 from langchain.chains.router.llm_router import RouterOutputParser, LLMRouterChain
+from langchain_core.language_models import BaseChatModel
+from langchain_core.runnables import Runnable, RunnableLambda, RunnableParallel, RunnablePassthrough
 from sympy.codegen.cnodes import sizeof
 
 from app_core.models import KnowledgeBase
 from app_embeddings.services.embedding_store import load_embedding, get_vectorstore
-from app_embeddings.services.retrieval_engine import rerank_documents
+from app_embeddings.services.retrieval_engine import rerank_documents, reformulate_question
 
 BASE_DIR = settings.BASE_DIR
 
@@ -282,7 +284,10 @@ def init_cached_retrievers(kb_id: int) -> Dict[str, Any]:
     }
 
 
-def build_multi_chain(kb_id: int, llm: ChatOpenAI) -> CustomMultiRetrievalQAChain:
+def build_multi_chain(
+        kb_id: int,
+        llm: ChatOpenAI,
+) -> CustomMultiRetrievalQAChain:
     """
     Собирает CustomMultiRetrievalQAChain с заданным LLM,
     используя ранее закешированные ретриверы.

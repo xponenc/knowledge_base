@@ -466,7 +466,6 @@ def reformulate_question(
     llm = ChatOpenAI(model=model, temperature=0)
     chain = LLMChain(llm=llm, prompt=reformulate_prompt)
     result = chain.run({"chat_history": chat_history, "question": current_question.strip()}).strip()
-    print(f"Переформулировка {result=}")
     was_rewritten = result.strip() != current_question.strip()
     return result.strip(), was_rewritten
 

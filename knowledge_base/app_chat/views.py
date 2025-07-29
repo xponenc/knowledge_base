@@ -144,9 +144,10 @@ class ChatView(View):
 
     def post(self, request, kb_pk, *args, **kwargs):
 
+        is_multichain = False # Настройка работы чата через MultiChainQARetriever иначе через EnsembleRetriever
+        start_time = time.monotonic()
         kb = get_object_or_404(KnowledgeBase.objects.select_related("engine"), pk=kb_pk)
-        embedding_engine = kb.engine
-        embeddings_model_name = embedding_engine.model_name
+        llm_name = kb.llm
 
         session_key = request.session.session_key
         if not session_key:
@@ -166,84 +167,63 @@ class ChatView(View):
             text=user_message_text,
             created_at=timezone.now()
         )
+        if is_multichain:
 
-        #
-        # try:
-        #     # embeddings_model = load_embedding(embeddings_model_name)
-        #     embeddings_model = get_cached_model(
-        #         embeddings_model_name,
-        #         loader_func=load_embedding
-        #     )
-        # except Exception as e:
-        #     logger.error(f"Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
-        #     raise ValueError(f"Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
-        #
-        # # Инициализация или загрузка FAISS индекса
-        # faiss_dir = os.path.join(BASE_DIR, "media", "kb", str(kb.pk), "embedding_store",
-        #                          f"{embedding_engine.name}_faiss_index_db")
-        #
-        # try:
-        #     # db_index = get_vectorstore(
-        #     #     path=faiss_dir,
-        #     #     embeddings=embeddings_model
-        #     # )
-        #     db_index = get_cached_index(
-        #         index_path=faiss_dir,
-        #         model_name=embeddings_model_name,
-        #         loader_func=get_vectorstore,
-        #         model_obj=embeddings_model
-        #     )
-        # except Exception as e:
-        #     logger.error(f"Ошибка векторная база {embeddings_model_name}: {str(e)}")
-        #     context = {
-        #         'kb': kb,
-        #         'chat_history': [],
-        #         'message': 'Не найдена готовая векторная база, необходимо выполнить векторизацию'
-        #     }
-        #     # Возвращаем JSON-ответ для AJAX
-        #     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        #         return JsonResponse({
-        #             'user_message': user_message,
-        #             'ai_response': '<p class="text text--alarm text--bold">Не найдена готовая векторная база, необходимо выполнить векторизацию</p>',
-        #         })
-        #     return render(request, self.template_name, context)
+            retriever_scheme = "MultiRetrievalQAChain"
+            response = requests.post(
+                "http://localhost:8001/api/multi-chain/invoke",
+                json={
+                    "query": user_message_text,
+                    "model": llm_name,
+                },
+                headers={
+                    "Authorization": f"Bearer {KB_AI_API_KEY}",
+                },
+                timeout=60,
+            )
 
-        use_metadata = request.POST.get("use_metadata") == "on"
-        multi_chain = get_cached_multi_chain(kb.pk)
+            response.raise_for_status()
+            result = response.json()
+            ai_message_text = result["result"]
+        else:
+            retriever_scheme = "EnsembleRetriever"
 
-        result = multi_chain.invoke({"input": user_message_text, "system_prompt": kb.system_instruction})
-        docs = result.get("source_documents", [])
-        ai_message_text = result["result"]
-        verbose = True
-        if verbose:
-            print("Source Documents:", [doc for doc in docs])
-            print("Answer:", ai_message_text)
-        # if use_metadata:
-        #     system_metadata_instruction = kb.system_metadata_instruction
-        #     if not system_metadata_instruction:
-        #         return JsonResponse({"error": "Пустая системная инструкция (вариант с метаданными)"}, status=400)
-        #     docs, ai_message_text = answer_index_with_metadata(
-        #         db_index,
-        #         system_metadata_instruction,
-        #         user_message_text,
-        #         verbose=False
-        #     )
-        # else:
-        #     system_instruction = kb.system_instruction
-        #     if not system_instruction:
-        #         return JsonResponse({"error": "Пустая системная инструкция"}, status=400)
-        #     docs, ai_message_text = answer_index(db_index,
-        #                                          system_instruction,
-        #                                          user_message_text,
-        #                                          verbose=False)
+            response = requests.post(
+                "http://localhost:8001/api/ensemble-chain/invoke",
+                json={
+                    "query": user_message_text,
+                    "model": llm_name,
+                },
+                headers={
+                    "Authorization": f"Bearer {KB_AI_API_KEY}",  # тот же Bearer токен
+                },
+                timeout=60,
+            )
+
+            response.raise_for_status()
+            result = response.json()
+
+            ai_message_text = result["result"]
 
         # Сохраняем ответ AI
+        end_time = time.monotonic()
+        duration = end_time - start_time
+        extended_log = {
+            "llm": llm_name,
+            "retriever_scheme": retriever_scheme,
+            "processing_time": duration,
+        }
+
+        scheme = request.scheme
+        host = request.get_host()
+        ai_message_text = ai_message_text.replace("http://127.0.0.1:8000", f"{scheme}://{host}")
+
         ai_message = ChatMessage.objects.create(
             web_session=chat_session,
             answer_for=user_message,
             is_user=False,
             text=ai_message_text,
-            created_at=timezone.now()
+            extended_log=extended_log,
         )
         ai_message_text = markdown.markdown(ai_message_text)
 
@@ -464,7 +444,7 @@ class SystemChatView(View):
             response = requests.post(
                 "http://localhost:8001/api/multi-chain/invoke",
                 json={
-                    "kb_id": kb.pk,
+                    # "kb_id": kb.pk,
                     "query": user_message_text,
                     "system_prompt": system_instruction or kb.system_instruction,
                     "model": llm_name,

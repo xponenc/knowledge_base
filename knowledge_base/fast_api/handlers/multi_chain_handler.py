@@ -10,7 +10,7 @@ from fast_api.auth import get_api_client
 multi_chain_router = APIRouter()
 
 class ChainRequest(BaseModel):
-    kb_id: int
+    # kb_id: int
     query: str
     system_prompt: Optional[str] = None
     model: str = "gpt-4o-mini"
@@ -25,12 +25,19 @@ class ChainResponse(BaseModel):
 
 @multi_chain_router.post("/invoke", response_model=ChainResponse)
 def invoke_chain(request: ChainRequest, client: ApiClient = Depends(get_api_client)):
-    llm = ChatOpenAI(model=request.model, temperature=0)
-    chain = build_multi_chain(request.kb_id, llm)
+    kb = client.knowledge_base
+    model_name = request.model or kb.llm
+    llm = ChatOpenAI(model=model_name, temperature=0)
+    system_prompt = request.system_prompt or kb.system_instruction
+
+    chain = build_multi_chain(
+        kb_id=kb.pk,
+        llm=llm,
+    )
 
     result = chain.invoke({
         "input": request.query,
-        "system_prompt": request.system_prompt,
+        "system_prompt": system_prompt,
     })
 
     docs = result.get("source_documents", [])
