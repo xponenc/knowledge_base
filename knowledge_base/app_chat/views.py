@@ -3,6 +3,7 @@ import logging
 import os
 import pickle
 import random
+import re
 import time
 from datetime import datetime
 from io import TextIOWrapper
@@ -23,12 +24,14 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
 from django.views.generic import DetailView
 from langchain_community.chat_models import ChatOpenAI
+from openai import OpenAI
 from rest_framework.exceptions import PermissionDenied
 
 from app_chat.forms import SystemChatInstructionForm, KBRandomTestForm
 from app_chat.models import ChatSession, ChatMessage
 from app_core.models import KnowledgeBase
 from app_embeddings.forms import ModelScoreTestForm
+from app_embeddings.services.embedding_store import load_embedding, get_vectorstore
 from app_embeddings.services.ensemble_chain_factory import build_ensemble_chain
 from app_embeddings.services.multi_chain_factory import build_multi_chain
 
@@ -41,6 +44,7 @@ from threading import Lock
 from app_sources.content_models import URLContent, RawContent, ContentStatus, CleanedContent
 from app_sources.source_models import URL, SourceStatus, NetworkDocument, OutputDataType
 from app_sources.storage_models import WebSite, CloudStorage
+from knowledge_base.settings import BASE_DIR
 from telegram_bot.bot_config import KB_AI_API_KEY
 
 logger = logging.getLogger(__file__)
@@ -204,6 +208,163 @@ class ChatView(View):
             result = response.json()
 
             ai_message_text = result["result"]
+
+        # Сохраняем ответ AI
+        end_time = time.monotonic()
+        duration = end_time - start_time
+        extended_log = {
+            "llm": llm_name,
+            "retriever_scheme": retriever_scheme,
+            "processing_time": duration,
+        }
+
+        scheme = request.scheme
+        host = request.get_host()
+        ai_message_text = ai_message_text.replace("http://127.0.0.1:8000", f"{scheme}://{host}")
+
+        ai_message = ChatMessage.objects.create(
+            web_session=chat_session,
+            answer_for=user_message,
+            is_user=False,
+            text=ai_message_text,
+            extended_log=extended_log,
+        )
+        ai_message_text = markdown.markdown(ai_message_text)
+
+        # Возвращаем JSON-ответ для AJAX
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'user_message': user_message_text,
+                'ai_response': {
+                    "id": ai_message.pk,
+                    "score": None,
+                    "request_url": reverse_lazy("chat:message_score", kwargs={"message_pk": ai_message.pk}),
+                    "text": ai_message_text,
+                },
+            })
+        chat_history = ChatMessage.objects.filter(session=chat_session,
+                                                  is_user_deleted__isnull=True).order_by("created_at")
+        messages = []
+        for message in chat_history:
+            messages.append({
+                "id": message.id,
+                "is_user": message.is_user,
+                "text": message.text if message.is_user else markdown.markdown(message.text),
+                "score": message.score,
+            })
+
+        return render(request, self.template_name, {'chat_history': chat_history})
+
+
+class QwenChatView(View):
+    """Базовый чат с AI"""
+    template_name = "app_chat/ai_chat.html"
+
+    def get(self, request, kb_pk, *args, **kwargs):
+        kb = get_object_or_404(KnowledgeBase.objects.select_related("engine"), pk=kb_pk)
+
+        session_key = request.session.session_key
+        if not session_key:
+            request.session.create()
+            session_key = request.session.session_key
+
+        chat_session, _ = ChatSession.objects.get_or_create(session_key=session_key, kb=kb)
+
+        chat_history = chat_session.messages.filter(is_user_deleted__isnull=True).order_by("created_at").defer(
+            "extended_log")
+
+        messages = []
+        for message in chat_history:
+            messages.append({
+                "id": message.id,
+                "is_user": message.is_user,
+                "text": message.text if message.is_user else markdown.markdown(message.text),
+                "score": message.score,
+            })
+
+        context = {
+            'kb': kb,
+            'chat_history': messages,
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request, kb_pk, *args, **kwargs):
+
+        is_multichain = False # Настройка работы чата через MultiChainQARetriever иначе через EnsembleRetriever
+        start_time = time.monotonic()
+        kb = get_object_or_404(KnowledgeBase.objects.select_related("engine"), pk=kb_pk)
+        llm_name = kb.llm
+
+        session_key = request.session.session_key
+        if not session_key:
+            request.session.create()
+            session_key = request.session.session_key
+
+        chat_session, _ = ChatSession.objects.get_or_create(session_key=session_key, kb=kb)
+
+        user_message_text = request.POST.get('message', '').strip()
+        if not user_message_text:
+            return JsonResponse({"error": "Empty message"}, status=400)
+
+        # Сохраняем сообщение пользователя
+        user_message = ChatMessage.objects.create(
+            web_session=chat_session,
+            is_user=True,
+            text=user_message_text,
+            created_at=timezone.now()
+        )
+
+        retriever_scheme = "qwen"
+
+        embedding_engine = kb.engine
+        embeddings_model_name = embedding_engine.model_name
+        try:
+            # embeddings_model = load_embedding(embeddings_model_name)
+            embeddings_model = get_cached_model(
+                embeddings_model_name,
+                loader_func=load_embedding
+            )
+        except Exception as e:
+            logger.error(f"Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
+            raise ValueError(f"Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
+
+        # Инициализация или загрузка FAISS индекса
+        faiss_dir = os.path.join(BASE_DIR, "media", "kb", str(kb.pk), "embedding_stores",
+                                 f"WebSite_id_1_embedding_store", "FRIDA_faiss_index_db")
+
+        try:
+            # db_index = get_vectorstore(
+            #     path=faiss_dir,
+            #     embeddings=embeddings_model
+            # )
+            db_index = get_cached_index(
+                index_path=faiss_dir,
+                model_name=embeddings_model_name,
+                loader_func=get_vectorstore,
+                model_obj=embeddings_model
+            )
+        except Exception as e:
+            logger.error(f"Ошибка векторная база {embeddings_model_name}: {str(e)}")
+            context = {
+                'kb': kb,
+                'chat_history': [],
+                'message': 'Не найдена готовая векторная база, необходимо выполнить векторизацию'
+            }
+            # Возвращаем JSON-ответ для AJAX
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'user_message': user_message,
+                    'ai_response': '<p class="text text--alarm text--bold">Не найдена готовая векторная база,'
+                                   ' необходимо выполнить векторизацию</p>',
+                    'current_docs': [],
+                })
+            return render(request, self.template_name, context)
+
+        docs, ai_message_text = answer_index(
+            db_index,
+            kb.system_instruction,
+            user_message_text,
+            verbose=False)
 
         # Сохраняем ответ AI
         end_time = time.monotonic()

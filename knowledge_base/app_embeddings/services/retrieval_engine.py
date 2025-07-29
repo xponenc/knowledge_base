@@ -1,6 +1,7 @@
 # retrieval_engine.py
 import os
 import re
+from pprint import pprint
 
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Q, Value, TextField
@@ -510,9 +511,26 @@ def answer_index(db_index, system, query, verbose=False):
         {"role": "user", "content": f"Ответь на вопрос. Документ с информацией для ответа: {message_content}\n\nВопрос пользователя: \n{query}"}
     ]
 
-    client = OpenAI()
-    completion = client.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0)
-    return top_docs, completion.choices[0].message.content
+    # client = OpenAI()
+    # completion = client.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0)
+
+    client = OpenAI(
+        base_url="http://localhost:1234/v1",
+        api_key="lm-studio"
+    )
+
+    response = client.chat.completions.create(
+        model="Qwen3-8B",
+        messages=messages,
+        temperature=0,
+    )
+    pprint(response)
+    ai_message_text = response.choices[0].message.content
+    ai_message_text = re.sub(r'<think>.*?</think>\n\n', '', ai_message_text, flags=re.DOTALL)
+
+    return [], ai_message_text
+
+    # return top_docs, completion.choices[0].message.content
 
 
 def answer_index_with_metadata(db_index, system, query, verbose=False, metadata=True):
