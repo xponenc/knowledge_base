@@ -1,8 +1,14 @@
+import time
+
 from django.db.models import Prefetch
 from fastapi import Depends, APIRouter, HTTPException
 from asgiref.sync import sync_to_async
+from langchain_community.chat_models import ChatOpenAI
+
 from app_api.models import ApiClient
 from app_chat.models import ChatSession, TelegramSession, ChatMessage
+from app_embeddings.services.ensemble_chain_factory import build_ensemble_chain
+from app_embeddings.services.multi_chain_factory import build_multi_chain
 from app_embeddings.services.retrieval_engine import get_cached_multi_chain, reformulate_question
 from fast_api.auth import get_api_client
 from fast_api.schemas.message_schemas import MessageIn, MessageOut
@@ -49,9 +55,18 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
     }
     ```
     """
+
+    start_time = time.monotonic()
     logger.info(f"Processing message for telegram_id={data.telegram_id}, text='{data.text}'")
-    history_deep = 3
+
+    history_deep = 5
     is_reformulate_question = True
+
+    kb = client.knowledge_base
+    model_name = kb.llm
+    llm = ChatOpenAI(model=model_name, temperature=0)
+    system_prompt = kb.system_instruction
+
     user_message_text = data.text
 
     limited_chat_history = Prefetch(
@@ -66,7 +81,7 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
 
     telegram_session, _ = await sync_to_async(TelegramSession.objects.prefetch_related(limited_chat_history).get_or_create)(
         telegram_id=data.telegram_id,
-        defaults={"kb": client.knowledge_base}
+        defaults={"kb": kb}
     )
 
     user_message = await sync_to_async(ChatMessage.objects.create)(
@@ -108,22 +123,37 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
                 Ответь как можно точнее на ИСХОДНЫЙ вопрос, опираясь на документы."""
 
     try:
-        chain = await sync_to_async(get_cached_multi_chain)(client.knowledge_base.pk)
+        retriever_scheme = "EnsembleRetriever"
+        chain = await sync_to_async(build_ensemble_chain)(
+            kb_id=kb.id,
+            llm=llm,
+        )
         result = await sync_to_async(chain.invoke)({
             "input": user_message_text,
-            "system_prompt": client.knowledge_base.system_instruction or ""
+            "system_prompt": system_prompt,
         })
-        ai_text = result.get("result", "")
+        print(result)
+        ai_text = result.get("answer", "")
         logger.debug(f"Raw AI response: {ai_text}")
     except Exception as e:
         logger.error(f"AI processing error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Chain error: {str(e)}")
+
+
+    end_time = time.monotonic()
+    duration = end_time - start_time
+    extended_log = {
+        "llm": model_name,
+        "retriever_scheme": retriever_scheme,
+        "processing_time": duration,
+    }
 
     ai_message = await sync_to_async(ChatMessage.objects.create)(
         t_session=telegram_session,
         answer_for=user_message,
         is_user=False,
         text=ai_text,
+        extended_log=extended_log,
     )
     logger.debug(f"AI message saved: ID={ai_message.pk}")
 
