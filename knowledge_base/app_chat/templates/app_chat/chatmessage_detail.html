@@ -135,8 +135,10 @@
                             </dd>
                             <dt class="description__term">сессия</dt>
                             <dd class="description__defination">
-                                {{ object.t_session.telegram_id|default:"" }}
-                                {{ object.web_session.session_key|default:"" }}
+                                {% if object.t_session %}telegram {{ object.t_session.telegram_id|default:"" }}{% endif %}
+                                {% if object.web_session %}web {{ object.web_session.session_key|default:"" }}{% endif %}
+                                
+                                
                             </dd>
                         </dl>
                     </div>

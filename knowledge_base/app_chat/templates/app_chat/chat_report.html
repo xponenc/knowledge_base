@@ -14,6 +14,25 @@
 {% endblock nav %}
 
 
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        {% comment %} база знаний {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ kb.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">База знаний {{ kb.name }}</span>
+            </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">Отчет по чату</span>
+            <meta itemprop="position" content="2" />
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+
 {% block content %}
 <div class="page page--kb">
     <div class="page__top page__grid">
@@ -47,6 +66,16 @@
                 </dl>
             </div>
             <div class="info-page__footer">
+                {% if filter_heading %}
+                    <div class="btns _jc-fe">
+                        <a href="{% url 'chat:chat_report' kb.pk %}" class="btn btn--reset btn--simple btn--accent">
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                            </svg>
+                            отчет по чатам
+                        </a>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -55,7 +84,7 @@
         <div class="page__info info-page info-page--kb _mb" id="details">
             <span class="info-page__banner info-page__banner--medium">сообщения</span>
             <div class="info-page__header">
-                <h3 class="info-page__heading _ta-e"></h3>
+                <h3 class="info-page__heading _ta-e">{% if filter_heading %}{{ filter_heading }}{% endif %}</h3>
             </div>
             <div class="info-page__body">
                 {% if chat_messages|length > 0 %}
@@ -103,8 +132,8 @@
                                                     </svg>
                                                 </a>
                                             {% elif message.t_session %}
-                                                <a href="{% url 'chat:chat_report' kb.id %}?type=t_session&session_id={{ message.t_session.session_key}}" class="link-marker _mb">
-                                                    <span>telegram {{ message.web_session.session_key }}</span>
+                                                <a href="{% url 'chat:chat_report' kb.id %}?type=t_session&session_id={{ message.t_session.telegram_id}}" class="link-marker _mb">
+                                                    <span>telegram {{ message.t_session.telegram_id }}</span>
                                                     <svg class="link-marker__marker">
                                                         <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
                                                     </svg>

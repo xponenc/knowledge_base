@@ -132,7 +132,6 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
             "input": user_message_text,
             "system_prompt": system_prompt,
         })
-        print(result)
         ai_text = result.get("answer", "")
         logger.debug(f"Raw AI response: {ai_text}")
     except Exception as e:

@@ -661,15 +661,18 @@ class ChatReportView(LoginRequiredMixin, View):
             .order_by("-created_at", "web_session", "t_session")
             .defer("extended_log")
         )
-
+        filter_heading = None
         if session_type and session_type in ("web_session", "t_session") and session_id:
             if session_type == "web_session":
                 messages = messages.filter(web_session__session_key=session_id)
+                filter_heading = f"Отфильтровано по web сессии {session_id}"
             elif session_type == "t_session":
-                messages = messages.filter(t_session__session_key=session_id)
+                messages = messages.filter(t_session__telegram_id=session_id)
+                filter_heading = f"Отфильтровано по telegram сессии {session_id}"
 
         context = {
             "kb": kb,
+            "filter_heading": filter_heading,
             "chat_messages": messages,
         }
         return render(request=request,
