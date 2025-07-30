@@ -25,8 +25,8 @@ MODELS = {
     },
 }
 
-# RERANKER_MODEL = "DiTy/cross-encoder-russian-msmarco"
-RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-12-v2"
+RERANKER_MODEL = "DiTy/cross-encoder-russian-msmarco"
+# RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-12-v2"
 FAISS_THRESHOLD = 0.8
 TOP_N = 5
 

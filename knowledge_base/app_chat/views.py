@@ -114,13 +114,6 @@ class ChatView(View):
     template_name = "app_chat/ai_chat.html"
 
     def get(self, request, kb_pk, *args, **kwargs):
-        from openai import OpenAI
-        client = OpenAI()
-        models = client.models.list()
-        for model in models.data:
-            print(model.id)
-
-
         kb = get_object_or_404(KnowledgeBase.objects.select_related("engine"), pk=kb_pk)
 
         session_key = request.session.session_key
