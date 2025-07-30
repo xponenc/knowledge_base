@@ -65,21 +65,30 @@
                             </svg>
                             системный чат
                         </a>
-                        <a href="{% url 'chat:kb_random_test' object.pk %}" class="btn btn--reset btn--simple btn--primary">
-                            <svg class="btn__icon">
-                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
-                            </svg>
-                            random test
-                        </a>
-                    
                     {% endif %}
                     <a href="{% url 'chat:chat_report' object.pk %}" class="btn btn--reset btn--simple btn--accent">
                         <svg class="btn__icon">
-                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#report"></use>
                         </svg>
                         отчет по чатам
                     </a>
                 </div>
+                {% if object.engine %}
+                    <div class="btns _jc-fe">
+                        <a href="{% url 'chat:kb_bulk_test' object.pk %}" class="btn btn--reset btn--simple btn--accent" title="Тест чата базы знаний случайными вопросами с автоматической оценкой ответа" aria-label="Тест чата базы знаний случайными вопросами с автоматической оценкой ответа">
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#labs"></use>
+                            </svg>
+                            bulk test
+                        </a>
+                        <a href="{% url 'chat:kb_random_test' object.pk %}" class="btn btn--reset btn--simple btn--accent" title="Тест чата базы знаний списком вопросов" aria-label="Тест чата базы знаний списком вопросов">
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#labs"></use>
+                            </svg>
+                            random test
+                        </a>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -106,6 +115,10 @@
                     <dt class="description__term">llm</dt>
                     <dd class="description__defination">
                         {{ object.get_llm_display }}
+                    </dd> 
+                    <dt class="description__term">схема ретриверов</dt>
+                    <dd class="description__defination">
+                        {{ object.get_retriever_scheme_display }}
                     </dd> 
                     <dt class="description__term">системная инструкция</dt>
                     <dd class="description__defination">

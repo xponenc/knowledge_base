@@ -9,8 +9,15 @@ class KnowledgeBase(TrackableModel):
     """Модель Базы Знаний"""
 
     llm_models = (
-        ("gpt-4o-mini", "GPT 4o-mini" ),
-        ("gpt-4o", "GPT 4o"),
+        ("gpt-4o-mini", "GPT-4o-mini" ),
+        ("gpt-4o", "GPT-4o"),
+        ("gpt-4.1", "GPT-4.1"),
+        ("gpt-4.1-nano", "GPT-4.1 nano"),
+    )
+
+    retriever_schemas = (
+        ("multichain", "MultiRetrievalQAChain"),
+        ("ensemble", "EnsembleRetriever"),
     )
 
     def logo_upload_path(instance, filename):
@@ -19,6 +26,8 @@ class KnowledgeBase(TrackableModel):
     engine = models.ForeignKey("app_embeddings.EmbeddingEngine", verbose_name="модель эмбеддинга",
                                on_delete=models.SET_NULL, blank=True, null=True, related_name="bases")
     llm = models.CharField(verbose_name="LLM", max_length=30, choices=llm_models, default="gpt-4o-mini")
+    retriever_scheme = models.CharField(verbose_name="схема ретриверов", max_length=30, choices=retriever_schemas,
+                                        default="ensemble")
 
     name = models.CharField(verbose_name="название", max_length=400, unique=True)
     description = models.CharField(verbose_name="описание", max_length=1000, null=True, blank=True)

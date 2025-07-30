@@ -24,20 +24,15 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
 from django.views.generic import DetailView
 from langchain_community.chat_models import ChatOpenAI
-from openai import OpenAI
 from rest_framework.exceptions import PermissionDenied
 
-from app_chat.forms import SystemChatInstructionForm, KBRandomTestForm
+from app_chat.forms import SystemChatInstructionForm, KBRandomTestForm, KnowledgeBaseBulkTestForm
 from app_chat.models import ChatSession, ChatMessage
 from app_core.models import KnowledgeBase
-from app_embeddings.forms import ModelScoreTestForm
 from app_embeddings.services.embedding_store import load_embedding, get_vectorstore
-from app_embeddings.services.ensemble_chain_factory import build_ensemble_chain
-from app_embeddings.services.multi_chain_factory import build_multi_chain
 
-from app_embeddings.services.retrieval_engine import answer_index, answer_index_with_metadata, get_cached_multi_chain, \
-    get_cached_ensemble_chain, trigram_similarity_answer_index, reformulate_question
-from app_chat.tasks import test_model_answer
+from app_embeddings.services.retrieval_engine import answer_index, trigram_similarity_answer_index, reformulate_question
+from app_chat.tasks import benchmark_test_model_answer, bulk_test_model_answer
 
 from threading import Lock
 
@@ -119,6 +114,13 @@ class ChatView(View):
     template_name = "app_chat/ai_chat.html"
 
     def get(self, request, kb_pk, *args, **kwargs):
+        from openai import OpenAI
+        client = OpenAI()
+        models = client.models.list()
+        for model in models.data:
+            print(model.id)
+
+
         kb = get_object_or_404(KnowledgeBase.objects.select_related("engine"), pk=kb_pk)
 
         session_key = request.session.session_key
@@ -999,11 +1001,7 @@ class KBRandomTestView(LoginRequiredMixin, View):
                     "test_data": storage_test_data
                 })
 
-        pprint(test_data)
-        for item in test_data:
-            print(item.get("storage"), len(item.get("test_data")))
-
-        task = test_model_answer.delay(
+        task = benchmark_test_model_answer.delay(
             test_data=test_data,
             kb_id=kb.id,
             session_id=f"random_test_{session_key}"
@@ -1016,6 +1014,57 @@ class KBRandomTestView(LoginRequiredMixin, View):
             "task_name": f"Тестирование ответов модели",
             "task_object_url": f"{session_url}?{query}",
             "task_object_name": f" тестирования базы знаний {kb.name} случайными вопросами",
+            "next_step_url": f"{session_url}?{query}",
+        })
+
+
+class KBBulkTestView(LoginRequiredMixin, View):
+    """Тестирование заданной базы знаний вопросами по списку"""
+
+    def get(self, request, kb_pk, *args, **kwargs):
+        kb = get_object_or_404(KnowledgeBase, pk=kb_pk)
+
+        test_form = KnowledgeBaseBulkTestForm(instance=kb)
+        return render(request, "app_chat/kb_bulk_test_form.html", {
+            "test_form": test_form,
+            "kb": kb,
+        })
+
+    def post(self, request, kb_pk, *args, **kwargs):
+        kb = get_object_or_404(KnowledgeBase, pk=kb_pk)
+        test_form = KnowledgeBaseBulkTestForm(request.POST, request.FILES)
+
+        if not test_form.is_valid():
+            return render(request, "app_chat/kb_bulk_test_form.html", {
+                "test_form": test_form,
+                "kb": kb,
+            })
+
+        questions = test_form.get_questions()
+        llm_name = test_form.cleaned_data.get("llm")
+        retriever_scheme = test_form.cleaned_data.get("retriever_scheme")
+
+        session_key = request.session.session_key
+        if not session_key:
+            request.session.create()
+            session_key = request.session.session_key
+
+
+        task = bulk_test_model_answer.delay(
+            questions=questions,
+            kb_id=kb.pk,
+            retriever_scheme=retriever_scheme,
+            llm_name=llm_name,
+            session_id=f"bulk_test_{session_key}"
+        )
+        session_url = reverse_lazy("chat:chat_report", kwargs={"kb_pk": kb.id})
+        query = urlencode({"type": "web_session", "session_id": f"bulk_test_{session_key}"})
+
+        return render(self.request, "celery_task_progress.html", {
+            "task_id": task.id,
+            "task_name": f"Тестирование ответов модели",
+            "task_object_url": f"{session_url}?{query}",
+            "task_object_name": f" тестирования базы знаний {kb.name} списком вопросов",
             "next_step_url": f"{session_url}?{query}",
         })
 

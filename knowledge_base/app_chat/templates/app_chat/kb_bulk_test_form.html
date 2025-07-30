@@ -7,6 +7,8 @@
     <link href="{% static 'libs/choices/choices.min.css' %}" rel="stylesheet">
     <link href="{% static 'css/custom_choices.css' %}" rel="stylesheet">
     <link href="{% static 'css/chat.css' %}" rel="stylesheet">
+    <link href="{% static 'libs/choices/choices.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/custom_choices.css' %}" rel="stylesheet">
 {% endblock %}
 
 
@@ -15,7 +17,8 @@
 {% endblock nav %}
 
 
-{% block title %}Тестирование базы знаний случайными вопросами{% endblock %}
+{% block title %}Тестирование базы знаний списком вопросов{% endblock %}
+
 
 {% block breadcrumbs %}
 <nav aria-label="breadcrumb" class="breadcrumb-wrapper">
@@ -28,7 +31,7 @@
         <meta itemprop="position" content="1" />
         </li>
         <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
-            <span itemprop="name">Тестирование случайными вопросами</span>
+            <span itemprop="name">Тестирование списком вопросов</span>
             <meta itemprop="position" content="2" />
         </li>
     </ol>
@@ -114,35 +117,60 @@
             </div>
             <div class="info-page__body">
                 <div class="_mb">
-                    <p class="text _mb">Будет выполнен тест базы знаний случайными вопросами</p>
-                    <p class="text _mb">Выберите тестируемые хранилища и задайте количество тестовых вопросов</p>
-                    <p class="text _mb">По заданным критериям будут выбраны случайные источнии данных, по ним будут сформированы тестовые пары вопрос-ответ с помощью gpt-4o-mini</p>
-                    <p class="text _mb">Далее будет выполнен тестовый прогон RAG выбранными вопросами</p>
+                    <p class="text _mb">Необходимо загрузить список вопросов через поле ввода списком или через загрузку csv файла</p>
+                    <p class="text _mb">Далее будет выполнен тестовый прогон RAG по списку вопросов</p>
                     
                 </div>
                 <form method="POST" class="form" enctype="multipart/form-data">
-            {% csrf_token %}
-            {% include "widgets/_form_content_groups-widget.html" %}
-            <div class="form__btn-block">
-                <a href="{{ kb.get_absolute_url }}" class="btn btn--reset btn--simple">ОТМЕНИТЬ</a>
-                <button type="submit" class="btn btn--reset btn--simple btn--primary" id="submit-btn">
-                    <span>Запустить тест</span>
-                </button>
-            </div>
-        </form>
+                    {% csrf_token %}
+                    {% include "widgets/_form_content-widget.html" with form=test_form %}
+                    <div class="form__btn-block">
+                        <a href="{{ kb.get_absolute_url }}" class="btn btn--reset btn--simple">ОТМЕНИТЬ</a>
+                        <button type="submit" class="btn btn--reset btn--simple btn--primary" id="submit-btn">
+                            <span>Запустить тест</span>
+                        </button>
+                    </div>
+                </form>
             </div>
             <div class="info-page__footer">
             </div>
         </div>
-     
-        
     </div>
 </div>
 {% endblock content %}
 
 
+
 {% block script %}
+    <script src="{% static 'libs/choices/choices.min.js' %}"></script>
+    <script>
 
-
+        // Инициализация choice.js для #id_llm
+        let llmSelect = new Choices("#id_llm", {
+            allowHTML: true,
+            classNames: {
+                containerOuter: 'choices custom-choices custom-choices_transparent',
+            },
+            position: 'down',
+            itemSelectText: 'Выберите llm',
+            searchEnabled: true,
+            searchPlaceholderValue: 'поиск',
+            maxItemText: 'Выбрано максимально допустимое количество',
+            noResultsText: 'Ничего не найдено',
+        })
+        // Инициализация choice.js для #id_retriever_scheme
+        let retrieverSelect = new Choices("#id_retriever_scheme", {
+            allowHTML: true,
+            classNames: {
+                containerOuter: 'choices custom-choices custom-choices_transparent',
+            },
+            position: 'down',
+            itemSelectText: 'Выберите retriever',
+            searchEnabled: true,
+            searchPlaceholderValue: 'поиск',
+            maxItemText: 'Выбрано максимально допустимое количество',
+            noResultsText: 'Ничего не найдено',
+        })
+    </script>
 {% endblock script %}
 

@@ -101,6 +101,19 @@
             maxItemText: 'Выбрано максимально допустимое количество',
             noResultsText: 'Ничего не найдено',
         })
+        // Инициализация choice.js для #id_retriever_scheme
+        let retrieverSelect = new Choices("#id_retriever_scheme", {
+            allowHTML: true,
+            classNames: {
+                containerOuter: 'choices custom-choices custom-choices_transparent',
+            },
+            position: 'down',
+            itemSelectText: 'Выберите retriever',
+            searchEnabled: true,
+            searchPlaceholderValue: 'поиск',
+            maxItemText: 'Выбрано максимально допустимое количество',
+            noResultsText: 'Ничего не найдено',
+        })
         // Инициализация choice.js для #id_owners
         let ownersSelect = new Choices("#id_owners", {
             allowHTML: true,

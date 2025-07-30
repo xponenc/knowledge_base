@@ -96,7 +96,7 @@ def get_model_response_evaluation(
 
 
 @shared_task(bind=True)
-def test_model_answer(self,
+def benchmark_test_model_answer(self,
                       kb_id: int,
                       test_data: list[dict],
                       session_id: str):
@@ -259,6 +259,149 @@ def test_model_answer(self,
             if new_percent > progress_percent:
                 progress_percent = new_percent
                 progress_recorder.set_progress(progress_percent, 100, description=progress_description)
+
+    logger.info("Автотестирование завершено.")
+    return "Обработка завершена"
+
+
+
+@shared_task(bind=True)
+def bulk_test_model_answer(self,
+                      kb_id: int,
+                      questions: list[str],
+                      llm_name: str,
+                      retriever_scheme: str,
+                      session_id: str):
+    """
+    Выполняет тестирование модели на списке вопросов.
+
+    Параметры:
+    - kb_id: ID базы знаний (KnowledgeBase)
+    - test_data: список из строк-вопросов
+    - session_id: ключ сессии ChatSession, в рамках которой будет вестись диалог
+    """
+
+    logger.info(f"Запущена задача тестирования списком вопросов для KB ID {kb_id} и сессии {session_id}")
+
+    try:
+        kb = KnowledgeBase.objects.get(pk=kb_id)
+        logger.info(f"База знаний найдена: {kb.name}")
+    except KnowledgeBase.DoesNotExist:
+        logger.error(f"База знаний с ID {kb_id} не найдена.")
+        return "Не найдена заданная База зананий"
+
+    system_instruction = kb.system_instruction
+    logger.info(f"Используется системная инструкция: {system_instruction}")
+    llm_name = llm_name or kb.llm or "gpt-4o-mini"
+    logger.info(f"Используется llm: {llm_name}")
+    retriever_scheme = retriever_scheme or kb.retriever_scheme
+    logger.info(f"Используется схема ретриверов: {retriever_scheme}")
+
+    chat_session, _ = ChatSession.objects.get_or_create(session_key=session_id, kb=kb)
+    logger.info(f"Используется сессия: {chat_session.session_key}")
+
+    total_counter = len(questions)
+    logger.info(f"Поступили данные для {total_counter} тестов")
+    if total_counter == 0:
+        logger.warning("Нет тестовых данных для обработки.")
+        return "Обработка завершена: документы не найдены"
+
+    progress_recorder = ProgressRecorder(self)
+    progress_description = f'Обрабатывается {total_counter} тестов'
+    progress_percent = 0
+
+    current = 0
+
+    for test_question in questions:
+        start_time = time.monotonic()
+        logger.info(f"Начат тест по вопросу: {test_question}")
+        current += 1
+
+        question = ChatMessage.objects.create(
+            web_session=chat_session,
+            is_user=True,
+            text=test_question,
+        )
+        try:
+            if retriever_scheme == "multichain":
+                retriever_scheme_name = "MultiRetrievalQAChain"
+                response = requests.post(
+                    "http://localhost:8001/api/multi-chain/invoke",
+                    json={
+                        "kb_id": kb.pk,
+                        "query": test_question,
+                        "system_prompt": system_instruction or "",
+                        "model": llm_name,
+                    },
+                    headers={"Authorization": f"Bearer {KB_AI_API_KEY}"},
+                    timeout=60,
+                )
+                response.raise_for_status()
+                result = response.json()
+                ai_message_text = result["result"]
+                docs = result.get("source_documents", [])
+            elif retriever_scheme == "ensemble":
+                retriever_scheme_name = "EnsembleRetriever"
+                response = requests.post(
+                    "http://localhost:8001/api/ensemble-chain/invoke",
+                    json={
+                        "kb_id": kb.pk,
+                        "query": test_question,
+                        "system_prompt": system_instruction or "",
+                        "model": llm_name,
+                    },
+                    headers={
+                        "Authorization": f"Bearer {KB_AI_API_KEY}",  # тот же Bearer токен
+                    },
+                    timeout=60,
+                )
+
+                response.raise_for_status()
+                result = response.json()
+
+                docs = result.get("source_documents", [])
+                ai_message_text = result["result"]
+
+            else:
+                logger.warning(f"Некорректная схема ретриверов: {retriever_scheme}")
+                continue
+            end = time.monotonic()
+            duration = end - start_time
+
+
+
+            extended_log = {
+                "test": "Bulk Test",
+                "llm": llm_name,
+                "system_prompt": system_instruction,
+                "retriever_scheme": retriever_scheme_name,
+                "source_documents": docs,
+                "processing_time": duration,
+            }
+
+            ai_message = ChatMessage.objects.create(
+                web_session=chat_session,
+                answer_for=question,
+                is_user=False,
+                text=ai_message_text,
+                extended_log=extended_log,
+            )
+
+            logger.info(f"Получен ответ от модели, длина: {len(ai_message_text)} символов")
+
+
+
+        except requests.RequestException as e:
+            logger.exception(f"Ошибка запроса к LLM API: {e}")
+
+        except Exception as e:
+            logger.exception(f"Непредвиденная ошибка на шаге тестирования: {e}")
+
+        # Обновление прогресса
+        new_percent = int((current / total_counter) * 100)
+        if new_percent > progress_percent:
+            progress_percent = new_percent
+            progress_recorder.set_progress(progress_percent, 100, description=progress_description)
 
     logger.info("Автотестирование завершено.")
     return "Обработка завершена"
