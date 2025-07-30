@@ -138,6 +138,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const ratingDiv = container.querySelector(".rating");
             if (ratingDiv) {
                 ratingDiv.dataset.score = score;
+                ratingDiv.innerHTML = generateStarsHtml(messageId, score);
             }
             
         })

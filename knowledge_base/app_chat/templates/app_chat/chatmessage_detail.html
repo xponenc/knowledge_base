@@ -1,11 +1,12 @@
 {% extends 'clear_base.html' %}
 {% load static %}
-
+{% load custom_filters %}
 
 
 {% block extra_css %}
     <link href="{% static 'css/source.css' %}" rel="stylesheet">
     <link href="{% static 'css/storage.css' %}" rel="stylesheet">
+    <link href="{% static 'css/chat.css' %}" rel="stylesheet">
 {% endblock %}
 
 
@@ -32,6 +33,7 @@
 {% block content %}
 
 <div class="page page--content">
+    {% csrf_token %}
     <div class="page__top">
         <div class="page__info info-page info-page--content _jc-fs">
             <span class="info-page__banner info-page__banner--medium">сообщение</span>
@@ -90,7 +92,19 @@
                             </dd>
                             <dt class="description__term">оценка</dt>
                             <dd class="description__defination tags">
-                                {{ object.answer.score|default:"-" }}
+                                {% if object.is_user %}
+                                    <div class="rating" data-score="{{ object.answer.score|default_if_none:'' }}" data-message-id="{{ object.answer.id }}" data-url="{% url 'chat:message_score' object.answer.id %}">
+                                        <div class="rating__stars">
+                                            {% for i in "2 1 0 -1 -2"|split:" " %}
+                                                {% with i_int=i|add:"0" %}
+                                                    <label class="rating__star">
+                                                        <input type="radio" class="rating__input" name="score-{{ object.answer.id }}" value="{{ i_int }}" {% if object.answer.score == i_int%} checked{% endif %}>
+                                                    </label>
+                                                {% endwith %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endif %}
                                 {% if object.answer.extended_log.ai_answer_resume %} <span class="tag tag--warning">Оценка выставлена AI</span>{% endif %}
                             </dd>
                             <dt class="description__term">время обработки</dt>
@@ -184,5 +198,43 @@
 
 
 {% block script %}
+    <script>
+        const raiting = document.querySelector(".rating");
+
+        raiting.addEventListener("change", function (event) {
+            
+            const target = event.target;
+            if (!target.classList.contains("rating__input")) return;
+            const star = target;
+            console.log(star)
+            const requestUrl = raiting.dataset.url;
+            console.log(requestUrl)
+
+            if (!requestUrl) return;
+
+            const score = parseInt(star.value);
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            fetch(requestUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-CSRFToken": csrfToken,
+                },
+                body: new URLSearchParams({ score: score })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error("Ошибка при отправке оценки.");
+                if (raiting) {
+                    raiting.dataset.score = score;
+                }
+                
+            })
+            .catch(err => {
+                console.error("Ошибка отправки:", err);
+                alert("Ошибка при отправке оценки.");
+            });
+        });
+    </script>
     
 {% endblock script%}
