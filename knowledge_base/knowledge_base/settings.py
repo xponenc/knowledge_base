@@ -156,7 +156,8 @@ CELERY_ACCEPT_CONTENT = ['pickle', 'json']
 # Celery Configuration Options
 CELERY_TIMEZONE = "Europe/Samara"
 CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_TASK_TIME_LIMIT = 60 * 60 * 5
+CELERY_TASK_SOFT_TIME_LIMIT  = 55 * 60 * 5
 #
 # LOGGING = {
 #     'version': 1,
