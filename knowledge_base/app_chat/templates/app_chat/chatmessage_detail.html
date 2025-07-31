@@ -93,7 +93,7 @@
                             <dt class="description__term">оценка</dt>
                             <dd class="description__defination tags">
                                 {% if object.is_user %}
-                                    <div class="rating" data-score="{{ object.answer.score|default_if_none:'' }}" data-message-id="{{ object.answer.id }}" data-url="{% url 'chat:message_score' object.answer.id %}">
+                                    <div class="rating" data-score="{{ object.answer.score|default_if_none:'' }}" data-message-id="{{ object.answer.id }}" data-url="{% if object.answer %}{% url 'chat:message_score' object.answer.id %}{% endif %}">
                                         <div class="rating__stars">
                                             {% for i in "2 1 0 -1 -2"|split:" " %}
                                                 {% with i_int=i|add:"0" %}

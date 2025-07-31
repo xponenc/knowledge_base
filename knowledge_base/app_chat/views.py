@@ -290,7 +290,6 @@ class ChatCreateClustersView(LoginRequiredMixin, View):
         qc = QuestionClusterer(kb_pk=kb.pk)
         qc.add_questions(user_questions)
         clusters = qc.cluster_questions()
-        qc.print_clusters(clusters)
 
         return HttpResponse(f"Начата кластеризация {len(user_questions)} вопросов для базы знаний {kb.name}")
 
