@@ -52,3 +52,18 @@ class ChatMessage(models.Model):
         author = "User" if self.is_user else "AI"
         session = f"web {self.web_session_id}" if self.web_session else f"telegram {self.t_session_id}"
         return f"{author} message {self.id} in session {session}"
+
+    # FAISS_DIR = os.path.join(BASE_DIR, "media", "user_questions_faiss")
+    # EMBEDDING_MODEL = HuggingFaceEmbeddings(model_name="ai-forever/FRIDA")
+    #
+    # @receiver(post_save, sender=ChatMessage)
+    # def add_new_question_to_faiss(sender, instance, created, **kwargs):
+    #     if created and instance.is_user and instance.text.strip():
+    #         try:
+    #             db = FAISS.load_local(FAISS_DIR, EMBEDDING_MODEL, index_name="index")
+    #         except Exception:
+    #             db = FAISS.from_documents([Document(page_content='', metadata={})], EMBEDDING_MODEL)
+    #
+    #         doc = Document(page_content=instance.text, metadata={"id": instance.id})
+    #         db.add_documents([doc])
+    #         db.save_local(folder_path=FAISS_DIR, index_name="index")

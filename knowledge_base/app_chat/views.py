@@ -30,6 +30,7 @@ from app_chat.forms import SystemChatInstructionForm, KBRandomTestForm, Knowledg
 from app_chat.models import ChatSession, ChatMessage
 from app_core.models import KnowledgeBase
 from app_embeddings.services.embedding_store import load_embedding, get_vectorstore
+from app_embeddings.services.question_clustering import QuestionClusterer
 
 from app_embeddings.services.retrieval_engine import answer_index, trigram_similarity_answer_index, reformulate_question
 from app_chat.tasks import benchmark_test_model_answer, bulk_test_model_answer
@@ -251,6 +252,21 @@ class ChatView(View):
         return render(request, self.template_name, {'chat_history': chat_history})
 
 
+class ChatClusterView(LoginRequiredMixin, View):
+    """Анализ кластеров чата базы знаний"""
+
+    def get(self, request, kb_pk, *args, **kwargs):
+        FAISS_DIR = os.path.join(BASE_DIR, "media", "user_questions_faiss")
+        print(f"{FAISS_DIR=}")
+
+        qc = QuestionClusterer(faiss_dir=FAISS_DIR)
+        clusters = qc.cluster_questions()
+        data_json = qc.export_json(clusters)
+        print(data_json)
+
+        return render(request, "app_chat/chat_cluster.html", context={"cluster_data": data_json})
+
+
 class QwenChatView(View):
     """Базовый чат с AI"""
     template_name = "app_chat/ai_chat.html"
@@ -408,7 +424,7 @@ class QwenChatView(View):
         return render(request, self.template_name, {'chat_history': chat_history})
 
 
-class SystemChatView(View):
+class SystemChatView(LoginRequiredMixin, View):
     """Базовый чат с AI"""
     template_name = "app_chat/ai_system_chat.html"
 

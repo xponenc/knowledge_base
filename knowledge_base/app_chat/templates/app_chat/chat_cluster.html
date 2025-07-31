@@ -1,0 +1,154 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+
+
+{% block extra_css %}
+
+{% endblock %}
+
+
+{% block title %}История чатов по базе знаний{{ kb.name }}{% endblock %}
+
+{% block nav %}
+    {% include "include/nav.html" %}
+{% endblock nav %}
+
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        {% comment %} база знаний {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ kb.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">База знаний {{ kb.name }}</span>
+            </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">Отчет по чату</span>
+            <meta itemprop="position" content="2" />
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+
+{% block content %}
+<div class="page page--kb">
+    <div class="page__top page__grid">
+        <div class="page__info info-page info-page--logo">
+            {% if  kb.logo.url %}
+                <img src="{{ kb.logo.url }}" alt="Логотип базы знаний {{ kb.name }}" class="info-page__logo">
+            {% endif %}
+        </div>
+        <div class="page__info info-page">
+            <span class="info-page__banner">База знаний</span>
+            <div class="info-page__header">
+                <h2 class="page__heading page__heading--accent _ta-e">{{ kb.name }}</h2>
+                <h3 class="info-page__heading">Детали базы знаний</h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                <dl class="description">
+                    <dt class="description__term">владельцы</dt>
+                    <dd class="description__defination tags">
+                        {% for user in kb.owners.all %}
+                            <span class="tag tag--simple">
+                                {{ user.get_full_name|default:user.username }}
+                            </span>
+                        {% endfor %}
+                    </dd>
+                    <dt class="description__term">описание</dt>
+                    <dd class="description__defination">
+                        {{ kb.description|default:"—" }}
+                    </dd>
+                    
+                </dl>
+            </div>
+            <div class="info-page__footer">
+                {% if filter_heading %}
+                    <div class="btns _jc-fe">
+                        <a href="{% url 'chat:chat_report' kb.pk %}" class="btn btn--reset btn--simple btn--accent">
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                            </svg>
+                            отчет по чатам
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="page__content">
+        
+        <div class="page__info info-page info-page--kb _mb" id="details">
+            <span class="info-page__banner info-page__banner--medium">сообщения</span>
+            <div class="info-page__header">
+                <h3 class="info-page__heading _ta-e">{% if filter_heading %}{{ filter_heading }}{% endif %}</h3>
+            </div>
+            <div class="info-page__body">
+                <canvas id="clusterChart"></canvas>
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block script %}
+    <script src="{% static 'libs/chartJS/chart.min.js' %}"></script>
+    <script>
+        const clusterData = JSON.parse('{{ cluster_data|escapejs }}');
+
+        // Сгруппируем точки по кластеру
+        const clusters = {};
+        clusterData.forEach(item => {
+            if (!clusters[item.cluster]) clusters[item.cluster] = [];
+            clusters[item.cluster].push({x: item.x, y: item.y, label: item.text});
+        });
+
+        // Генерируем цвет для каждого кластера
+        function getRandomColor(seed) {
+            const colors = [
+            '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231',
+            '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe',
+            '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000',
+            ];
+            return colors[seed % colors.length];
+        }
+
+        const datasets = Object.entries(clusters).map(([clusterId, points]) => ({
+            label: clusterId === "-1" ? "Шум" : `Кластер ${clusterId}`,
+            data: points,
+            backgroundColor: getRandomColor(parseInt(clusterId) + 100),
+            pointRadius: 5,
+            pointHoverRadius: 7,
+        }));
+
+        const ctx = document.getElementById('clusterChart').getContext('2d');
+
+        new Chart(ctx, {
+            type: 'scatter',
+            data: { datasets },
+            options: {
+            plugins: {
+                tooltip: {
+                callbacks: {
+                    label: ctx => ctx.raw.label,
+                }
+                }
+            },
+            scales: {
+                x: {
+                title: { display: true, text: 'UMAP X' }
+                },
+                y: {
+                title: { display: true, text: 'UMAP Y' }
+                }
+            }
+            }
+        });
+        </script>
+{% endblock %}

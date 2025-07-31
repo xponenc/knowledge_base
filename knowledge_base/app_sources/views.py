@@ -719,7 +719,7 @@ class WebSiteTestParseView(LoginRequiredMixin, StoragePermissionMixin, View):
 
     def post(self, request, pk):
         website = get_object_or_404(WebSite, id=pk)
-
+        kb = website.kb
         parser_dispatcher = WebParserDispatcher()
         all_parsers = parser_dispatcher.discover_parsers()
         parse_form = TestParseForm(request.POST, parsers=all_parsers)
@@ -838,6 +838,7 @@ class WebSiteBulkParseView(LoginRequiredMixin, StoragePermissionMixin, View):
 
     def post(self, request, pk):
         website = get_object_or_404(WebSite, id=pk)
+        kb = website.kb
         website_main_parser = getattr(website, "mainparser", None)
         if not website_main_parser:
             pass
