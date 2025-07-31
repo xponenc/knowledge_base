@@ -82,10 +82,21 @@
         <div class="page__info info-page info-page--kb _mb" id="details">
             <span class="info-page__banner info-page__banner--medium">кластеры вопросов</span>
             <div class="info-page__header">
-                <h3 class="info-page__heading _ta-e">{% if filter_heading %}{{ filter_heading }}{% endif %}</h3>
+                <h3 class="info-page__heading _ta-e">график ТОП10</h3>
             </div>
             <div class="info-page__body">
                 <canvas id="clusterChart"></canvas>
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+        <div class="page__info info-page info-page--kb _mb" id="details">
+            <span class="info-page__banner info-page__banner--medium">кластеры вопросов</span>
+            <div class="info-page__header">
+                <h3 class="info-page__heading _ta-e">график ТОП10</h3>
+            </div>
+            <div class="info-page__body">
+                {{ clusters_with_tags }}
             </div>
             <div class="info-page__footer">
             </div>
@@ -100,30 +111,44 @@
     <script>
         const clusterData = JSON.parse('{{ cluster_data|escapejs }}');
 
-        // Сгруппируем точки по кластеру
+        // Группировка по кластеру
         const clusters = {};
         clusterData.forEach(item => {
             if (!clusters[item.cluster]) clusters[item.cluster] = [];
-            clusters[item.cluster].push({x: item.x, y: item.y, label: item.text});
+            clusters[item.cluster].push({ x: item.x, y: item.y, label: item.text });
         });
 
-        // Генерируем цвет для каждого кластера
-        function getRandomColor(seed) {
+        // Цвет кластера
+        function getRandomColor(seed, isNoise = false) {
+            if (isNoise) return "rgba(150, 150, 150, 0.6)";
             const colors = [
-            '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231',
-            '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe',
-            '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000',
+                '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231',
+                '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe',
+                '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000',
             ];
             return colors[seed % colors.length];
         }
 
-        const datasets = Object.entries(clusters).map(([clusterId, points]) => ({
-            label: clusterId === "-1" ? "Шум" : `Кластер ${clusterId}`,
-            data: points,
-            backgroundColor: getRandomColor(parseInt(clusterId) + 100),
-            pointRadius: 5,
-            pointHoverRadius: 7,
-        }));
+        // Радиус точки в зависимости от размера кластера
+        function computePointRadius(size) {
+            //return Math.min(20, Math.log2(size + 1) * 4 + 3); // от ~5 до ~20
+            return Math.sqrt(size) + 3; 
+        }
+
+        const datasets = Object.entries(clusters).map(([clusterId, points]) => {
+            const size = points.length;
+            const isNoise = clusterId === "-1";
+            const color = getRandomColor(parseInt(clusterId) + 100, isNoise);
+            const radius = computePointRadius(size);
+
+            return {
+                label: isNoise ? "Шум" : `Кластер ${clusterId} (${size})`,
+                data: points,
+                backgroundColor: color,
+                pointRadius: radius,
+                pointHoverRadius: radius + 2,
+            };
+        });
 
         const ctx = document.getElementById('clusterChart').getContext('2d');
 
@@ -131,22 +156,28 @@
             type: 'scatter',
             data: { datasets },
             options: {
-            plugins: {
-                tooltip: {
-                callbacks: {
-                    label: ctx => ctx.raw.label,
-                }
-                }
-            },
-            scales: {
-                x: {
-                title: { display: true, text: 'UMAP X' }
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ctx.raw.label,
+                        }
+                    },
+                    legend: {
+                        labels: {
+                            filter: item => item.text !== undefined,
+                        }
+                    }
                 },
-                y: {
-                title: { display: true, text: 'UMAP Y' }
+                scales: {
+                    x: {
+                        title: { display: true, text: 'UMAP X' }
+                    },
+                    y: {
+                        title: { display: true, text: 'UMAP Y' }
+                    }
                 }
-            }
             }
         });
-        </script>
+    </script>
+
 {% endblock %}

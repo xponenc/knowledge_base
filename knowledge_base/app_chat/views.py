@@ -257,12 +257,24 @@ class ChatClusterView(LoginRequiredMixin, View):
 
     def get(self, request, kb_pk, *args, **kwargs):
         kb = get_object_or_404(KnowledgeBase, pk=kb_pk)
-        qc = QuestionClusterer(kb_pk=kb.pk)
-        clusters = qc.cluster_questions()
-        data_json = qc.export_json(clusters)
+        print(QuestionClusterer.result_cache)
+        clusters_with_tags, data_json = QuestionClusterer.result_cache.get(kb.pk, (None, None))
+        if not clusters_with_tags or not data_json:
+            qc = QuestionClusterer(kb_pk=kb.pk)
+            clusters_with_tags = qc.cluster_questions()
+            _, data_json = QuestionClusterer.result_cache[kb.pk]
+
+        top3 = sorted(
+            clusters_with_tags.items(),
+            key=lambda item: len(item[1]["docs"]),
+            reverse=True
+        )[:3]
+
+        # передать в шаблон clusters_with_tags и data_json
         context = {
-            "kb": kb,
+            "clusters_with_tags": top3,
             "cluster_data": data_json,
+            "kb": kb,
         }
 
         return render(request, "app_chat/chat_cluster.html", context)
