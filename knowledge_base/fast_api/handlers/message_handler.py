@@ -92,6 +92,8 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
 
     logger.debug(f"User message saved: ID={user_message.pk}")
 
+    reformulated_question = ""
+
     if is_reformulate_question and telegram_session.limited_chat_history:
         chat_history = telegram_session.limited_chat_history
         if chat_history:
@@ -107,21 +109,25 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
             reformulated_question, user_message_was_changed = reformulate_question(
                 current_question=user_message_text,
                 chat_history=chat_str,
+                model="gpt-4.1"
             )
             if user_message_was_changed:
                 system_instruction = client.knowledge_base.system_instruction or ""
+                # system_instruction += f"""\n
+                # Документы ниже были найдены по переформулированному запросу:
+                # "{reformulated_question}"
+                #
+                # Однако пользователь изначально спросил:
+                # "{user_message_text}"
+                #
+                # История диалога:
+                # {chat_str}
+                #
+                # Ответь как можно точнее на ИСХОДНЫЙ вопрос, опираясь на документы."""
                 system_instruction += f"""\n
-                Документы ниже были найдены по переформулированному запросу:
-                "{reformulated_question}"
-
-                Однако пользователь изначально спросил:
-                "{user_message_text}"
-
-                История диалога:
-                {chat_str}
-
-                Ответь как можно точнее на ИСХОДНЫЙ вопрос, опираясь на документы."""
-
+                             История диалога:
+                             {chat_str}
+                """
     try:
         retriever_scheme = "EnsembleRetriever"
         chain = await sync_to_async(build_ensemble_chain)(
@@ -129,7 +135,7 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
             llm=llm,
         )
         result = await sync_to_async(chain.invoke)({
-            "input": user_message_text,
+            "input": reformulated_question or user_message_text,
             "system_prompt": system_prompt,
         })
         ai_text = result.get("answer", "")

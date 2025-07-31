@@ -489,9 +489,9 @@ class SystemChatView(LoginRequiredMixin, View):
                 if history_deep > 5:
                     history_deep = 5
             except ValueError:
-                history_deep = 3
+                history_deep = 5
         else:
-            history_deep = 3
+            history_deep = 5
 
         session_key = request.session.session_key
         if not session_key:
@@ -517,7 +517,7 @@ class SystemChatView(LoginRequiredMixin, View):
             is_user=True,
             text=user_message_text,
         )
-
+        reformulated_question = ""
         if is_reformulate_question and chat_session.limited_chat_history:
             chat_history = chat_session.limited_chat_history
             if chat_history:
@@ -529,6 +529,7 @@ class SystemChatView(LoginRequiredMixin, View):
                 reformulated_question, user_message_was_changed = reformulate_question(
                     current_question=user_message_text,
                     chat_history=chat_str,
+                    model="gpt-4.1",
                 )
                 if user_message_was_changed:
                     system_instruction = system_instruction or kb.system_instruction
@@ -543,6 +544,7 @@ class SystemChatView(LoginRequiredMixin, View):
                     {chat_str}
                     
                     Ответь на ИЗНАЧАЛЬНЫЙ вопрос согласно данной инструкции"""
+                    system_instruction += f"\nИстория диалога: {chat_str}"
 
         # embedding_engine = kb.engine
         # embeddings_model_name = embedding_engine.model_name
@@ -617,7 +619,7 @@ class SystemChatView(LoginRequiredMixin, View):
                 "http://localhost:8001/api/multi-chain/invoke",
                 json={
                     # "kb_id": kb.pk,
-                    "query": user_message_text,
+                    "query": reformulated_question or user_message_text,
                     "system_prompt": system_instruction or kb.system_instruction,
                     "model": llm_name,
                 },
@@ -655,7 +657,7 @@ class SystemChatView(LoginRequiredMixin, View):
                 "http://localhost:8001/api/ensemble-chain/invoke",
                 json={
                     "kb_id": kb.pk,
-                    "query": user_message_text,
+                    "query": reformulated_question or user_message_text,
                     "system_prompt": system_instruction or kb.system_instruction,
                     "model": llm_name,
                 },
@@ -758,7 +760,6 @@ class MessageScoreView(View):
     def post(self, request, message_pk):
         try:
             score = int(request.POST.get("score"))
-            print(score)
             if score not in range(-2, 3):  # -2, -1, 0, 1, 2
                 return JsonResponse({"error": "Invalid score value"}, status=400)
         except (TypeError, ValueError):
@@ -799,7 +800,6 @@ class ChatReportView(LoginRequiredMixin, View):
 
         session_type = request.GET.get("type")
         session_id = request.GET.get("session_id")
-        print(session_type, session_id)
 
         answer_prefetch = Prefetch(
             "answer",
@@ -915,11 +915,9 @@ class KBRandomTestView(LoginRequiredMixin, View):
                             "count": count,
                         })
         test_data = []
-        print(selected_storages)
         for item in selected_storages:
             storage = item.get("storage")
             counter = item.get("count")
-            print(storage)
             if isinstance(storage, WebSite):
                 url_ids = list(URL.objects
                                .filter(site=storage, status=SourceStatus.ACTIVE.value)
