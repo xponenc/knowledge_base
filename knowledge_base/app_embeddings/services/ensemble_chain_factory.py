@@ -103,7 +103,7 @@ def get_cached_ensemble_retriever(kb_id: int) -> Runnable:
         return _ensemble_retriever_cache[key]
 
 
-def init_cached_ensemble_retriever(kb_id: int, *, k: int = 5) -> Runnable:
+def init_cached_ensemble_retriever(kb_id: int, *, k: int = 2) -> Runnable:
     """
     Инициализирует EnsembleRetriever, объединяя все доступные FAISS-индексы для базы знаний.
     Добавляет реранкинг и enrichment документов.
