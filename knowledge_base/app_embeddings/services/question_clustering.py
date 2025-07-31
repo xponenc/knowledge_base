@@ -142,15 +142,20 @@ class QuestionClusterer:
         vectorizer = TfidfVectorizer(
             stop_words=russian_stopwords,
             max_features=1000,
-            ngram_range=(1, 2),  # Добавим биграммы
-            max_df=0.8,  # Игнорируем слова, встречающиеся >80% документов
-            min_df=2  # Игнорируем редкие (менее чем в 2 доках)
+            ngram_range=(1, 2),
+            max_df=0.8,
+            min_df=2
         )
-        X = vectorizer.fit_transform(texts)
-        feature_array = np.array(vectorizer.get_feature_names_out())
-        tfidf_mean = np.asarray(X.mean(axis=0)).ravel()
-        top_indices = tfidf_mean.argsort()[::-1][:top_n]
-        return feature_array[top_indices].tolist()
+        try:
+            X = vectorizer.fit_transform(texts)
+            if X.shape[1] == 0:
+                return ["(недостаточно данных)"]
+            feature_array = np.array(vectorizer.get_feature_names_out())
+            tfidf_mean = np.asarray(X.mean(axis=0)).ravel()
+            top_indices = tfidf_mean.argsort()[::-1][:top_n]
+            return feature_array[top_indices].tolist()
+        except ValueError:
+            return ["(не удалось выделить теги)"]
 
     def export_json(self, clusters: Dict[int, List[Document]]) -> str:
         """
