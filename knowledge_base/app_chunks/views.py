@@ -619,7 +619,7 @@ class ChunkCreateFromWebSiteView(LoginRequiredMixin, View):
                 "kb": kb,
                 "task_id": task.id,
                 "task_name": f"Чанкинг веб-страниц сайта {storage.name}",
-                "task_object_url": reverse_lazy("chunks:test_model_report"),
+                "task_object_url": storage.get_absolute_url(),
                 "task_object_name": "Отчет о чанкинге",
                 "next_step_url": reverse_lazy("sources:website_detail", kwargs={"pk": storage.pk}),
             }

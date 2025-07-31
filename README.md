@@ -9,3 +9,6 @@ sudo apt install tesseract-ocr-rus tesseract-ocr-eng
 на unix установить Poppler sudo apt-get install poppler-utils
 
 на unix eустановить sudo apt install chromium-chromedriver
+
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo apt install ./google-chrome-stable_current_amd64.deb
