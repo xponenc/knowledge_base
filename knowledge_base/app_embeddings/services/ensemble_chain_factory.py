@@ -163,7 +163,9 @@ def init_cached_ensemble_retriever(kb_id: int, *, k: int = 5) -> Runnable:
         docs = ensemble_retriever.invoke(query)
         docs_and_scores = [(doc, doc.metadata.get("retriever_score", 0.0)) for doc in docs]
 
-        top_docs = rerank_documents(query, docs_and_scores, threshold=1.5)
+        top_docs = docs_and_scores
+        # top_docs = rerank_documents(query, docs_and_scores, threshold=1.5) # TODO Rerank выключен
+
         if not top_docs:
             return [Document(page_content="Пожалуйста, задайте вопрос иначе или уточните его.")]
 

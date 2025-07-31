@@ -82,8 +82,9 @@ class CustomRetriever(BaseRetriever):
         if isinstance(query, dict):
             query = query.get("input", "")
 
-        docs_with_scores = self.db_index.similarity_search_with_score(query, k=10)
-        top_docs = rerank_documents(query, docs_with_scores, threshold=1.5)
+        docs_with_scores = self.db_index.similarity_search_with_score(query, k=5)
+        # top_docs = rerank_documents(query, docs_with_scores, threshold=1.5) # TODO Rerank выключен
+        top_docs = docs_with_scores
 
         if not top_docs:
             return [Document(page_content="Пожалуйста, задайте вопрос иначе или уточните его.")]
