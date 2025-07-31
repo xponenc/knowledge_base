@@ -66,23 +66,21 @@
                 </dl>
             </div>
             <div class="info-page__footer">
-                {% if filter_heading %}
-                    <div class="btns _jc-fe">
-                        <a href="{% url 'chat:chat_report' kb.pk %}" class="btn btn--reset btn--simple btn--accent">
-                            <svg class="btn__icon">
-                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
-                            </svg>
-                            отчет по чатам
-                        </a>
-                    </div>
-                {% endif %}
+                <div class="btns _jc-fe">
+                    <a href="{% url 'chat:chat_report' kb.pk %}" class="btn btn--reset btn--simple btn--accent">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                        </svg>
+                        отчет по чатам
+                    </a>
+                </div>
             </div>
         </div>
     </div>
     <div class="page__content">
         
         <div class="page__info info-page info-page--kb _mb" id="details">
-            <span class="info-page__banner info-page__banner--medium">сообщения</span>
+            <span class="info-page__banner info-page__banner--medium">кластеры вопросов</span>
             <div class="info-page__header">
                 <h3 class="info-page__heading _ta-e">{% if filter_heading %}{{ filter_heading }}{% endif %}</h3>
             </div>

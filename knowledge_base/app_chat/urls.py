@@ -2,7 +2,8 @@ from django.urls import path
 
 from app_chat.views import (ChatView, TestModelScoreReportView,
                             ClearChatView, CurrentTestChunksView, MessageScoreView, SystemChatView, ChatReportView,
-                            ChatMessageDetailView, KBRandomTestView, QwenChatView, KBBulkTestView, ChatClusterView)
+                            ChatMessageDetailView, KBRandomTestView, QwenChatView, KBBulkTestView, ChatClusterView,
+                            ChatCreateClustersView)
 
 app_name = "chat"
 
@@ -11,6 +12,7 @@ urlpatterns = [
 
     path("<int:kb_pk>", ChatView.as_view(), name="chat"),
     path("<int:kb_pk>/clusters", ChatClusterView.as_view(), name="chat-clusters"),
+    path("<int:kb_pk>/create-clusters", ChatCreateClustersView.as_view(), name="chat-create-clusters"),
     path("system/<int:kb_pk>", SystemChatView.as_view(), name="system_chat"),
     path("chat_report/<int:kb_pk>", ChatReportView.as_view(), name="chat_report"),
     path('<int:kb_pk>/clear-history', ClearChatView.as_view(), name='clear_chat'),

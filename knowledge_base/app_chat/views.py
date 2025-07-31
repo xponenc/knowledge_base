@@ -17,7 +17,7 @@ from collections import Counter
 import requests
 from django.db.models import Prefetch, Q, Func, F, Value, CharField, FloatField, OuterRef, Subquery
 from django.shortcuts import get_object_or_404, render, redirect
-from django.http import JsonResponse, Http404
+from django.http import JsonResponse, Http404, HttpResponse
 from django.views import View
 from django.utils import timezone
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -256,16 +256,31 @@ class ChatClusterView(LoginRequiredMixin, View):
     """Анализ кластеров чата базы знаний"""
 
     def get(self, request, kb_pk, *args, **kwargs):
-        FAISS_DIR = os.path.join(BASE_DIR, "media", "user_questions_faiss")
-        print(f"{FAISS_DIR=}")
-
-        qc = QuestionClusterer(faiss_dir=FAISS_DIR)
+        kb = get_object_or_404(KnowledgeBase, pk=kb_pk)
+        qc = QuestionClusterer(kb_pk=kb.pk)
         clusters = qc.cluster_questions()
         data_json = qc.export_json(clusters)
-        print(data_json)
+        context = {
+            "kb": kb,
+            "cluster_data": data_json,
+        }
 
-        return render(request, "app_chat/chat_cluster.html", context={"cluster_data": data_json})
+        return render(request, "app_chat/chat_cluster.html", context)
 
+
+class ChatCreateClustersView(LoginRequiredMixin, View):
+    def get(self, request, kb_pk, *args, **kwargs):
+        kb = get_object_or_404(KnowledgeBase, pk=kb_pk)
+
+        # Берём id и текст вопросов из БД
+        user_questions = ChatMessage.objects.filter(is_user=True).values_list('id', 'text')
+
+        qc = QuestionClusterer(kb_pk=kb.pk)
+        qc.add_questions(user_questions)
+        clusters = qc.cluster_questions()
+        qc.print_clusters(clusters)
+
+        return HttpResponse(f"Начата кластеризация {len(user_questions)} вопросов для базы знаний {kb.name}")
 
 class QwenChatView(View):
     """Базовый чат с AI"""

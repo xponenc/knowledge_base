@@ -1,4 +1,6 @@
 import os
+import time
+
 import django
 import re
 from typing import List, Dict, Tuple
@@ -6,8 +8,9 @@ from collections import defaultdict
 
 import nltk
 import numpy as np
+from faiss import FileIOReader
 from langchain_community.vectorstores import FAISS
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.schema import Document
 import hdbscan
 from nltk.corpus import stopwords
@@ -34,16 +37,19 @@ class QuestionClusterer:
     экспорт данных для визуализации.
     """
 
-    def __init__(self, faiss_dir: str, model_name: str = "ai-forever/FRIDA"):
+    def __init__(self, kb_pk: int, model_name: str = "ai-forever/FRIDA"):
         """
         :param faiss_dir: Путь для хранения FAISS индекса.
         :param model_name: Название модели для эмбеддингов.
         """
-        self.faiss_dir = faiss_dir
+        self.kb_pk = kb_pk
         self.model_name = model_name
         self.embeddings = HuggingFaceEmbeddings(model_name=model_name)
+        self.embedding_cache = {}
         # self.clusterer = hdbscan.HDBSCAN(min_cluster_size=5, metric='euclidean')
         self.clusterer = MiniBatchKMeans(n_clusters=10, batch_size=256, random_state=42)
+        self.faiss_dir = os.path.join(BASE_DIR, "media", "kb", str(kb_pk), "user_questions_faiss")
+
 
         if not os.path.exists(self.faiss_dir):
             os.makedirs(self.faiss_dir)
@@ -51,13 +57,25 @@ class QuestionClusterer:
         try:
             self.db = FAISS.load_local(self.faiss_dir, self.embeddings, index_name="index",
                                        allow_dangerous_deserialization=True)
-            print("Загружена существующая")
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            self.db = FAISS.from_documents([Document(page_content='', metadata={})], self.embeddings)
-            print("Создана новая")
+            print("Загружена существующая база кластеров")
+        except RuntimeError as e:
+            if "could not open" in str(e):
+                self.db = None
+                print("Создана новая база кластеров")
+            else:
+                raise
 
+
+    def embed_with_cache(self, texts: List[str]) -> List[List[float]]:
+        result = []
+        for text in texts:
+            if text in self.embedding_cache:
+                result.append(self.embedding_cache[text])
+            else:
+                vec = self.embeddings.embed_query(text)
+                self.embedding_cache[text] = vec
+                result.append(vec)
+        return result
 
     def clean_text(self, text: str) -> str:
         """Приводит текст к нижнему регистру и убирает знаки препинания."""
@@ -74,7 +92,10 @@ class QuestionClusterer:
         # Убираем дубликаты и пустые строки
         unique_q = {(qid, self.clean_text(q)) for qid, q in raw_questions if q.strip()}
         docs = [Document(page_content=q, metadata={"id": qid}) for qid, q in unique_q]
-        self.db.add_documents(docs)
+        if self.db is None:
+            self.db = FAISS.from_documents(docs, self.embeddings)
+        else:
+            self.db.add_documents(docs)
         self.db.save_local(folder_path=self.faiss_dir, index_name="index")
 
     def cluster_questions(self) -> Dict[int, List[Document]]:
@@ -89,7 +110,7 @@ class QuestionClusterer:
             return {-1: docs}
 
         questions = [doc.page_content for doc in docs]
-        vectors = normalize(np.array(self.embeddings.embed_documents(questions)))
+        vectors = normalize(np.array(self.embed_with_cache(questions)))
 
         labels = self.clusterer.fit_predict(vectors)
 
@@ -99,7 +120,6 @@ class QuestionClusterer:
 
         return dict(clustered)
 
-        return dict(clustered)
 
     def generate_tags(self, docs: List[Document], top_n: int = 5) -> List[str]:
         """
@@ -109,12 +129,25 @@ class QuestionClusterer:
         :param top_n: Кол-во топ-слов.
         :return: Список тегов.
         """
+        # texts = [doc.page_content for doc in docs]
+        # vectorizer = TfidfVectorizer(stop_words=russian_stopwords, max_features=1000)
+        # # vectorizer = TfidfVectorizer(max_features=1000)
+        # X = vectorizer.fit_transform(texts)
+        # feature_array = np.array(vectorizer.get_feature_names_out())
+        #
+        # tfidf_mean = np.asarray(X.mean(axis=0)).ravel()
+        # top_indices = tfidf_mean.argsort()[::-1][:top_n]
+        # return feature_array[top_indices].tolist()
         texts = [doc.page_content for doc in docs]
-        vectorizer = TfidfVectorizer(stop_words=russian_stopwords, max_features=1000)
-        # vectorizer = TfidfVectorizer(max_features=1000)
+        vectorizer = TfidfVectorizer(
+            stop_words=russian_stopwords,
+            max_features=1000,
+            ngram_range=(1, 2),  # Добавим биграммы
+            max_df=0.8,  # Игнорируем слова, встречающиеся >80% документов
+            min_df=2  # Игнорируем редкие (менее чем в 2 доках)
+        )
         X = vectorizer.fit_transform(texts)
         feature_array = np.array(vectorizer.get_feature_names_out())
-
         tfidf_mean = np.asarray(X.mean(axis=0)).ravel()
         top_indices = tfidf_mean.argsort()[::-1][:top_n]
         return feature_array[top_indices].tolist()
@@ -174,13 +207,14 @@ class QuestionClusterer:
 
 
 if __name__ == "__main__":
-    FAISS_DIR = os.path.join(BASE_DIR, "media", "user_questions_faiss")
-    print(f"{FAISS_DIR=}")
-
+    KB_PK = 1
+    start_time = time.monotonic()
     # Берём id и текст вопросов из БД
     user_questions = ChatMessage.objects.filter(is_user=True).values_list('id', 'text')
 
-    qc = QuestionClusterer(faiss_dir=FAISS_DIR)
+    qc = QuestionClusterer(kb_pk=KB_PK)
     qc.add_questions(user_questions)
     clusters = qc.cluster_questions()
     qc.print_clusters(clusters)
+
+    print("Длительность: ", time.monotonic() - start_time)
