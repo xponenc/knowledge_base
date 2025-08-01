@@ -164,7 +164,7 @@ def benchmark_test_model_answer(self,
                 question = ChatMessage.objects.create(
                     web_session=chat_session,
                     is_user=True,
-                    text=f"(вопрос сгенерирован ai) {benchmark_question}",
+                    text=benchmark_question,
                 )
 
                 logger.debug(f"Сформирован вопрос: {benchmark_question}")

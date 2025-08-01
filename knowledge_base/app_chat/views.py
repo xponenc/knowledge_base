@@ -288,6 +288,7 @@ class ChatCreateClustersView(LoginRequiredMixin, View):
         user_questions = ChatMessage.objects.filter(is_user=True).values_list('id', 'text')
 
         qc = QuestionClusterer(kb_pk=kb.pk)
+        qc.reset_index()
         qc.add_questions(user_questions)
         clusters = qc.cluster_questions()
 

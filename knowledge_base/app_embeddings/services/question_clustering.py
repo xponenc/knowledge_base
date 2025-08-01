@@ -8,6 +8,7 @@ from collections import defaultdict
 
 import nltk
 import numpy as np
+from django.db.models import Func, F, Value, CharField
 from faiss import FileIOReader
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -98,6 +99,18 @@ class QuestionClusterer:
         if kb_pk in cls.result_cache:
             del cls.result_cache[kb_pk]
             logger.info(f"Кэш result_cache для kb_pk={kb_pk} очищен")
+
+    def reset_index(self):
+        """
+        Удаляет FAISS-индекс и сбрасывает состояние.
+        """
+        import shutil
+        if os.path.exists(self.faiss_dir):
+            shutil.rmtree(self.faiss_dir)
+            logger.info(f"Удалён FAISS индекс для kb_pk={self.kb_pk}")
+        self.db = None
+        QuestionClusterer.clear_cache(self.kb_pk)
+
 
     def embed_with_cache(self, texts: List[str]) -> List[List[float]]:
         """
@@ -209,7 +222,6 @@ class QuestionClusterer:
         """
         Генерирует теги (ключевые слова) для кластера с помощью TF-IDF.
         """
-        print(f"generate_tags {docs=}")
         texts = [doc.page_content for doc in docs]
         vectorizer = TfidfVectorizer(
             stop_words=russian_stopwords,
@@ -267,7 +279,6 @@ class QuestionClusterer:
         """
         sorted_items = sorted(clusters.items(), key=lambda x: len(x[1]), reverse=True)
         for cluster_id, data in sorted_items:
-            print(data)
             docs = data.get("docs")
             if cluster_id == -1:
                 print(f"\n=== 📎 Шум (не попали в кластеры) ({len()} вопросов) ===")
@@ -281,7 +292,14 @@ if __name__ == "__main__":
     KB_PK = 1
     start_time = time.monotonic()
     # Берём id и текст вопросов из БД
-    user_questions = ChatMessage.objects.filter(is_user=True).values_list('id', 'text')
+    user_questions = ChatMessage.objects.filter(is_user=True).annotate(
+        test=Func(
+            F("extended_log"),
+            Value("test"),
+            function="jsonb_extract_path_text",
+            output_field=CharField(),
+        ),
+    ).exclude(test__isnull=False).values_list('id', 'text')
 
     qc = QuestionClusterer(kb_pk=KB_PK)
     qc.add_questions(user_questions)
