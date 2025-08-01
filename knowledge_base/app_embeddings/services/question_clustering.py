@@ -110,6 +110,7 @@ class QuestionClusterer:
             logger.info(f"Удалён FAISS индекс для kb_pk={self.kb_pk}")
         self.db = None
         QuestionClusterer.clear_cache(self.kb_pk)
+        QuestionClusterer.embedding_cache[self.kb_pk] = {}
 
 
     def embed_with_cache(self, texts: List[str]) -> List[List[float]]:
@@ -117,6 +118,8 @@ class QuestionClusterer:
         Получает эмбеддинги для списка текстов, используя кэш, уникальный для kb_pk.
         """
         start_time = time.monotonic()
+        if self.kb_pk not in self.embedding_cache:
+            self.embedding_cache[self.kb_pk] = {}
         cleaned_texts = [self.clean_text(text) for text in texts]
         result = []
         cache_hits = 0
