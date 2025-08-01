@@ -39,12 +39,13 @@ def universal_create_vectors_task(self, author_pk, report_pk):
     """
     Celery задача для векторизации чанков, связанных с WebSite, с поддержкой прогресс-бара.
     """
+
     progress_recorder = ProgressRecorder(self)
 
     report = (EmbeddingsReport.objects
               .select_related("site__kb", "batch__kb", "cloud_storage__kb", "local_storage__kb")
               .get(pk=report_pk))
-
+    logger.info(f"EmbeddingsReport [id {report.pk}] старт {__file__}")
     storage = (
             report.site or
             report.batch or
@@ -58,10 +59,11 @@ def universal_create_vectors_task(self, author_pk, report_pk):
         )
 
     kb = storage.kb
+    logger.info(f"EmbeddingsReport [id {report.pk}] База знаний: {kb.name} (id {kb.pk})")
 
     # Проверяем, есть ли связанный EmbeddingEngine
     if not kb.engine:
-        raise ValueError("Для базы знаний не указан движок эмбеддинга")
+        raise ValueError(f"EmbeddingsReport [id {report.pk}] Для базы знаний не указан движок эмбеддинга")
 
     embedding_engine = kb.engine
     embeddings_model_name = embedding_engine.model_name
@@ -69,12 +71,12 @@ def universal_create_vectors_task(self, author_pk, report_pk):
     try:
         embeddings_model = load_embedding(embeddings_model_name)
     except Exception as e:
-        raise ValueError(f"Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
+        raise ValueError(f"EmbeddingsReport [id {report.pk}] Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
 
     chunks = Chunk.objects.none()
 
     if isinstance(storage, CloudStorage):
-        logger.info("Storage is CloudStorage: %s", storage)
+        logger.info("EmbeddingsReport [id {report.pk}] Storage is CloudStorage: %s", storage)
         chunks = Chunk.objects.filter(
             Q(cleaned_content__network_document__storage=storage) |
             Q(raw_content__network_document__storage=storage),
@@ -82,7 +84,7 @@ def universal_create_vectors_task(self, author_pk, report_pk):
         ).exclude(status=ChunkStatus.ERROR.value)
 
     elif isinstance(storage, LocalStorage):
-        logger.info("Storage is LocalStorage: %s", storage)
+        logger.info("EmbeddingsReport [id {report.pk}] Storage is LocalStorage: %s", storage)
         chunks = Chunk.objects.filter(
             Q(cleaned_content__local_document__storage=storage) |
             Q(raw_content__local_document__storage=storage),
@@ -90,23 +92,23 @@ def universal_create_vectors_task(self, author_pk, report_pk):
         ).exclude(status=ChunkStatus.ERROR.value)
 
     elif isinstance(storage, WebSite):
-        logger.info("Storage is WebSite: %s", storage)
+        logger.info("EmbeddingsReport [id {report.pk}] Storage is WebSite: %s", storage)
         chunks = Chunk.objects.filter(
             url_content__url__site=storage,
             embedding__isnull=True
         ).exclude(status=ChunkStatus.ERROR.value)
 
     elif isinstance(storage, URLBatch):
-        logger.info("Storage is URLBatch: %s", storage)
+        logger.info("EmbeddingsReport [id {report.pk}] Storage is URLBatch: %s", storage)
         # оставляем chunks пустым
 
     else:
-        logger.warning("Неизвестный тип storage: %s", type(storage))
+        logger.warning("EmbeddingsReport [id {report.pk}] Неизвестный тип storage: %s", type(storage))
         # chunks остаётся пустым
 
     # Проверка наличия чанков
     if not chunks.exists():
-        raise ValueError("Чанки для обработки не найдены")
+        raise ValueError("EmbeddingsReport [id {report.pk}] Чанки для обработки не найдены")
 
     batch_size = 10
     total_chunks = chunks.count()
@@ -127,7 +129,7 @@ def universal_create_vectors_task(self, author_pk, report_pk):
             embeddings=embeddings_model
         )
     except Exception as e:
-        logger.error(e)
+        logger.error(f"EmbeddingsReport [id {report.pk}]", e)
         db_index = FAISS.from_documents([Document(page_content='', metadata={})], embeddings_model)
 
     for i in range(0, total_chunks, batch_size):
@@ -288,7 +290,8 @@ def create_vectors_task(self, website_id, author_pk, report_pk):
     vector_ids = []
 
     # Инициализация или загрузка FAISS индекса
-    faiss_dir = os.path.join(BASE_DIR, "media", "kb", str(kb.pk), "embedding_store",
+    faiss_dir = os.path.join(BASE_DIR, "media", "kb", str(kb.pk), "embedding_stores",
+                             f"{website.__class__.__name__}_id_{website.pk}_embedding_store",
                              f"{embedding_engine.name}_faiss_index_db")
 
     if not os.path.exists(faiss_dir):

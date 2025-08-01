@@ -3,6 +3,8 @@
 
 
 {% block extra_css %}
+    <link href="{% static 'libs/choices/choices.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/custom_choices.css' %}" rel="stylesheet">
 {% endblock %}
 
 
@@ -66,5 +68,35 @@
 
 
 {% block script %}
-    
+    <script src="{% static 'libs/choices/choices.min.js' %}"></script>
+    <script>
+        // Инициализация choice.js для #id_api_type
+        let apiSelect = new Choices("#id_api_type", {
+            allowHTML: true,
+            classNames: {
+                containerOuter: 'choices custom-choices custom-choices_transparent',
+            },
+            position: 'down',
+            itemSelectText: 'Выберите api',
+            searchEnabled: true,
+            searchPlaceholderValue: 'поиск',
+            maxItemText: 'Выбрано максимально допустимое количество',
+            // removeItemButton: true,
+            noResultsText: 'Ничего не найдено',
+        })
+        // Инициализация choice.js для #id_auth_type
+        let authSelect = new Choices("#id_auth_type", {
+            allowHTML: true,
+            classNames: {
+                containerOuter: 'choices custom-choices custom-choices_transparent',
+            },
+            position: 'down',
+            itemSelectText: '',
+            searchEnabled: true,
+            searchPlaceholderValue: 'поиск',
+            maxItemText: 'Выбрано максимально допустимое количество',
+            noResultsText: 'Ничего не найдено',
+        })
+        
+    </script>
 {% endblock script %}

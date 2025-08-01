@@ -2,6 +2,7 @@ from importlib import import_module
 
 from django import forms
 from django.core.signing import Signer
+from django.forms import Textarea
 
 from app_sources.source_models import NetworkDocument
 from app_sources.storage_models import CloudStorage
@@ -27,10 +28,23 @@ class CloudStorageForm(forms.ModelForm):
         super(CloudStorageForm, self).__init__(*args, **kwargs)
         for field in self.fields:
             self.fields[field].widget.attrs.update({
+                "class": "custom-field__input",
+                "placeholder": " ",
                 "autocomplete": "off",
                 "autocorrect": "off",
                 "autocapitalize": "off",
                 "spellcheck": "false",
+            })
+
+            self.fields['credentials'].widget = Textarea(attrs={
+                'class': 'custom-field__input custom-field__input_wide custom-field__input_textarea',
+                'placeholder': ' ',
+            })
+            self.fields['auth_type'].widget.attrs.update({
+                'placeholder': '',
+            })
+            self.fields['api_type'].widget.attrs.update({
+                'placeholder': '',
             })
 
     def clean(self):

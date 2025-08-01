@@ -223,7 +223,7 @@ class VectorizeWebsiteView(LoginRequiredMixin, StoragePermissionMixin, View):
             embeddings_report.save()
             return render(request, 'app_sources/sync_result.html', {
                 'result': {'error': f"Ошибка получения файлов: {e}"},
-                'cloud_storage': cloud_storage
+                'cloud_storage': storage
             })
 
 
