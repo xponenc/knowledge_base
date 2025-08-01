@@ -132,6 +132,8 @@ def universal_create_vectors_task(self, author_pk, report_pk):
         logger.error(f"EmbeddingsReport [id {report.pk}]", e)
         db_index = FAISS.from_documents([Document(page_content='', metadata={})], embeddings_model)
 
+    seen_chunks = set()
+
     for i in range(0, total_chunks, batch_size):
         batch_chunks = chunks[i:i + batch_size]
         batch_texts = []
@@ -156,9 +158,20 @@ def universal_create_vectors_task(self, author_pk, report_pk):
             texts=batch_texts,
             metadatas=batch_metadatas
         )
+        logger.info(f"EmbeddingsReport [id {report.pk}] {batch_chunk_ids=}")
+        logger.info(f"EmbeddingsReport [id {report.pk}] {batch_vector_ids=}")
 
         # Создаем записи Embedding
         for chunk_id, vector_id in zip(batch_chunk_ids, batch_vector_ids):
+
+            if chunk_id in seen_chunks:
+                logger.error(
+                    f"[DUPLICATE ADD] chunk_id={chunk_id} уже добавлен ранее в new_embeddings."
+                )
+                logger.error(f"{batch_chunk_ids=}")
+                logger.error(f"{batch_vector_ids=}")
+            else:
+                seen_chunks.add(chunk_id)
             # chunk = Chunk.objects.get(id=chunk_id)
             # if not Embedding.objects.filter(chunk=chunk, embedding_engine=embedding_engine).exists():
             new_embeddings.append(
