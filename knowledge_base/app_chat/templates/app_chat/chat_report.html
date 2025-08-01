@@ -66,22 +66,22 @@
                 </dl>
             </div>
             <div class="info-page__footer">
-                {% if filter_heading %}
-                    <div class="btns _jc-fe">
+                <div class="btns _jc-fe">
+                    {% if filter_heading %}
                         <a href="{% url 'chat:chat_report' kb.pk %}" class="btn btn--reset btn--simple btn--accent">
                             <svg class="btn__icon">
                                 <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
                             </svg>
                             отчет по чатам
                         </a>
-                    </div>
-                {% endif %}
-                <a href="{% url 'chat:chat-clusters' kb.pk %}" class="btn btn--reset btn--simple btn--accent">
-                    <svg class="btn__icon">
-                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
-                    </svg>
-                    кластеры чата
-                </a>
+                    {% endif %}
+                    <a href="{% url 'chat:chat-clusters' kb.pk %}" class="btn btn--reset btn--simple btn--accent">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                        </svg>
+                        кластеры чата
+                    </a>
+                </div>
             </div>
         </div>
     </div>

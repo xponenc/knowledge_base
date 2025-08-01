@@ -31,7 +31,7 @@ PROMPT_TEMPLATE = """
 
 def generate_summary(text: str) -> str:
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4.1-nano",
         messages=[
             {"role": "system", "content": "Ты помощник, обобщающий и корректирующий текст."},
             {"role": "user", "content": PROMPT_TEMPLATE.format(text=text)}
