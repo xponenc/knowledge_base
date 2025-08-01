@@ -81,7 +81,7 @@ def universal_create_vectors_task(self, author_pk, report_pk):
             Q(cleaned_content__network_document__storage=storage) |
             Q(raw_content__network_document__storage=storage),
             embedding__isnull=True
-        ).exclude(status=ChunkStatus.ERROR.value)
+        ).exclude(status=ChunkStatus.ERROR.value).distinct()
 
     elif isinstance(storage, LocalStorage):
         logger.info("EmbeddingsReport [id {report.pk}] Storage is LocalStorage: %s", storage)
@@ -89,14 +89,14 @@ def universal_create_vectors_task(self, author_pk, report_pk):
             Q(cleaned_content__local_document__storage=storage) |
             Q(raw_content__local_document__storage=storage),
             embedding__isnull=True
-        ).exclude(status=ChunkStatus.ERROR.value)
+        ).exclude(status=ChunkStatus.ERROR.value).distinct()
 
     elif isinstance(storage, WebSite):
         logger.info("EmbeddingsReport [id {report.pk}] Storage is WebSite: %s", storage)
         chunks = Chunk.objects.filter(
             url_content__url__site=storage,
             embedding__isnull=True
-        ).exclude(status=ChunkStatus.ERROR.value)
+        ).exclude(status=ChunkStatus.ERROR.value).distinct()
 
     elif isinstance(storage, URLBatch):
         logger.info("EmbeddingsReport [id {report.pk}] Storage is URLBatch: %s", storage)
@@ -290,7 +290,7 @@ def create_vectors_task(self, website_id, author_pk, report_pk):
             url_content__url__site=website,
             embedding__isnull=True
         )
-        .exclude(status=ChunkStatus.ERROR.value)
+        .exclude(status=ChunkStatus.ERROR.value).distinct()
     )
 
     if not chunks.exists():
