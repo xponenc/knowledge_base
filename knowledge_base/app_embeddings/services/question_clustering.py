@@ -8,7 +8,7 @@ from collections import defaultdict
 
 import nltk
 import numpy as np
-from django.db.models import Func, F, Value, CharField
+from django.db.models import Func, F, Value, CharField, Subquery, OuterRef
 from faiss import FileIOReader
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -295,16 +295,29 @@ if __name__ == "__main__":
     KB_PK = 1
     start_time = time.monotonic()
     # Берём id и текст вопросов из БД
-    user_questions = ChatMessage.objects.filter(is_user=True).annotate(
+    test_flag_subquery = ChatMessage.objects.filter(
+        answer_for=OuterRef("pk")
+    ).annotate(
         test=Func(
             F("extended_log"),
             Value("test"),
             function="jsonb_extract_path_text",
             output_field=CharField(),
-        ),
-    ).exclude(test__isnull=False).values_list('id', 'text')
+        )
+    ).values("test")[:1]
+
+    # фильтруем вопросы
+    user_questions = ChatMessage.objects.filter(
+        is_user=True,
+        answer__isnull=False,
+    ).annotate(
+        test=Subquery(test_flag_subquery)
+    ).exclude(
+        test__isnull=False
+    ).values_list("id", "text")
 
     qc = QuestionClusterer(kb_pk=KB_PK)
+    qc.reset_index()
     qc.add_questions(user_questions)
     clusters = qc.cluster_questions()
     qc.print_clusters(clusters)

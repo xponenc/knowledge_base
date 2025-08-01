@@ -284,8 +284,27 @@ class ChatCreateClustersView(LoginRequiredMixin, View):
     def get(self, request, kb_pk, *args, **kwargs):
         kb = get_object_or_404(KnowledgeBase, pk=kb_pk)
 
-        # Берём id и текст вопросов из БД
-        user_questions = ChatMessage.objects.filter(is_user=True).values_list('id', 'text')
+        # Берём id и текст вопросов из БД, исключаем вопросы сформированные в рамках тестов
+        test_flag_subquery = ChatMessage.objects.filter(
+            answer_for=OuterRef("pk")
+        ).annotate(
+            test=Func(
+                F("extended_log"),
+                Value("test"),
+                function="jsonb_extract_path_text",
+                output_field=CharField(),
+            )
+        ).values("test")[:1]
+
+        # фильтруем вопросы
+        user_questions = ChatMessage.objects.filter(
+            is_user=True,
+            answer__isnull=False,
+        ).annotate(
+            test=Subquery(test_flag_subquery)
+        ).exclude(
+            test__isnull=False
+        ).values_list("id", "text")
 
         qc = QuestionClusterer(kb_pk=kb.pk)
         qc.reset_index()
