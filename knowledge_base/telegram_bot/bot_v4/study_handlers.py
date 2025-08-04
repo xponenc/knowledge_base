@@ -93,7 +93,6 @@ async def test_sample_callback(callback: CallbackQuery, state: FSMContext):
         "2. <b>Водолазное дело</b> (<i>повышение квалификации</i>) — погрузитесь в профессию!\n\n"
         "<tg-spoiler>📢 Новые курсы стартуют скоро!</tg-spoiler>"
     )
-    print(f"{data=}")
     user_data = data.get("user_data")
 
     if not user_data:
