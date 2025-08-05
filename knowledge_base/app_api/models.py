@@ -12,4 +12,3 @@ class ApiClient(models.Model):
     def __str__(self):
         return f"API Client {self.name} (KB: {self.knowledge_base.name})"
 
-

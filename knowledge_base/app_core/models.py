@@ -1,7 +1,12 @@
+import secrets
+
 from django.contrib.auth.models import User
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.urls import reverse
 
+from app_api.models import ApiClient
 from knowledge_base.mixin_models import TrackableModel, SoftDeleteModel
 
 
@@ -48,3 +53,14 @@ class KnowledgeBase(TrackableModel):
 
     def is_owner_or_superuser(self, user):
         return user.is_superuser or user in self.owners.all()
+
+
+@receiver(post_save, sender=KnowledgeBase)
+def create_internal_api_client(sender, instance, created, **kwargs):
+    """Создание обязательного внутреннего api для взаимодействия по fastapi"""
+    if created:
+        ApiClient.objects.create(
+            name="internal api point",
+            token=secrets.token_urlsafe(32),
+            knowledge_base=instance
+        )

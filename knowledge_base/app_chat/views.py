@@ -26,6 +26,7 @@ from django.views.generic import DetailView
 from langchain_community.chat_models import ChatOpenAI
 from rest_framework.exceptions import PermissionDenied
 
+from app_api.models import ApiClient
 from app_chat.forms import SystemChatInstructionForm, KBRandomTestForm, KnowledgeBaseBulkTestForm
 from app_chat.models import ChatSession, ChatMessage
 from app_core.models import KnowledgeBase
@@ -41,7 +42,6 @@ from app_sources.content_models import URLContent, RawContent, ContentStatus, Cl
 from app_sources.source_models import URL, SourceStatus, NetworkDocument, OutputDataType
 from app_sources.storage_models import WebSite, CloudStorage
 from knowledge_base.settings import BASE_DIR
-from telegram_bot.bot_config import KB_AI_API_KEY
 
 logger = logging.getLogger(__file__)
 
@@ -143,10 +143,15 @@ class ChatView(View):
         return render(request, self.template_name, context)
 
     def post(self, request, kb_pk, *args, **kwargs):
-
         is_multichain = False # Настройка работы чата через MultiChainQARetriever иначе через EnsembleRetriever
         start_time = time.monotonic()
         kb = get_object_or_404(KnowledgeBase.objects.select_related("engine"), pk=kb_pk)
+        try:
+            api_client = ApiClient.objects.get(knowledge_base=kb, name="internal api point")
+        except ApiClient.DoesNotExist:
+            return JsonResponse({"error": "Не задан ApiClient 'internal api point' для базы знаний "}, status=400)
+        kb_api_key = api_client.token
+
         llm_name = kb.llm
 
         session_key = request.session.session_key
@@ -177,7 +182,7 @@ class ChatView(View):
                     "model": llm_name,
                 },
                 headers={
-                    "Authorization": f"Bearer {KB_AI_API_KEY}",
+                    "Authorization": f"Bearer {kb_api_key}",
                 },
                 timeout=60,
             )
@@ -195,7 +200,7 @@ class ChatView(View):
                     "model": llm_name,
                 },
                 headers={
-                    "Authorization": f"Bearer {KB_AI_API_KEY}",  # тот же Bearer токен
+                    "Authorization": f"Bearer {kb_api_key}",  # тот же Bearer токен
                 },
                 timeout=60,
             )
@@ -257,7 +262,7 @@ class ChatClusterView(LoginRequiredMixin, View):
 
     def get(self, request, kb_pk, *args, **kwargs):
         kb = get_object_or_404(KnowledgeBase, pk=kb_pk)
-        print(QuestionClusterer.result_cache)
+
         clusters_with_tags, data_json = QuestionClusterer.result_cache.get(kb.pk, (None, None))
         if not clusters_with_tags or not data_json:
             qc = QuestionClusterer(kb_pk=kb.pk)
@@ -513,6 +518,12 @@ class SystemChatView(LoginRequiredMixin, View):
 
         kb = get_object_or_404(KnowledgeBase.objects.select_related("engine"), pk=kb_pk)
 
+        try:
+            api_client = ApiClient.objects.get(knowledge_base=kb, name="internal api point")
+        except ApiClient.DoesNotExist:
+            return JsonResponse({"error": "Не задан ApiClient 'internal api point' для базы знаний "}, status=400)
+        kb_api_key = api_client.token
+
         is_multichain = request.POST.get("is_multichain") == "true"
         is_ensemble = request.POST.get("is_ensemble") == "true"
         is_reformulate_question = request.POST.get("is_reformulate_question") == "true"
@@ -564,33 +575,30 @@ class SystemChatView(LoginRequiredMixin, View):
             text=user_message_text,
         )
         reformulated_question = ""
-        if is_reformulate_question and chat_session.limited_chat_history:
-            chat_history = chat_session.limited_chat_history
+        if is_reformulate_question and telegram_session.limited_chat_history:
+            chat_history = telegram_session.limited_chat_history
             if chat_history:
                 history = [(msg.text, getattr(msg, "answer", None).text if getattr(msg, "answer", None) else "") for msg
                            in chat_history]
                 chat_str = ""
                 for user_q, ai_a in history:
                     chat_str += f"Пользователь: {user_q}\nАссистент: {ai_a}\n"
+                # user_message_text = reformulate_question(
+                #     current_question=user_message_text,
+                #     chat_history=history,
+                # )
                 reformulated_question, user_message_was_changed = reformulate_question(
                     current_question=user_message_text,
                     chat_history=chat_str,
-                    model="gpt-4.1",
+                    model="gpt-4.1"
                 )
                 if user_message_was_changed:
-                    system_instruction = system_instruction or kb.system_instruction
+                    system_instruction = kb.knowledge_base.system_instruction or ""
+
                     system_instruction += f"""\n
-                    Документы ниже были найдены по переформулированному запросу:
-                    "{reformulated_question}"
-                    
-                    Однако пользователь ИЗНАЧАЛЬНО спросил:
-                    "{user_message_text}"
-                    
-                    История диалога:
-                    {chat_str}
-                    
-                    Ответь на ИЗНАЧАЛЬНЫЙ вопрос согласно данной инструкции"""
-                    system_instruction += f"\nИстория диалога: {chat_str}"
+                        История диалога:
+                        {chat_str}
+                    """
 
         # embedding_engine = kb.engine
         # embeddings_model_name = embedding_engine.model_name
@@ -670,7 +678,7 @@ class SystemChatView(LoginRequiredMixin, View):
                     "model": llm_name,
                 },
                 headers={
-                    "Authorization": f"Bearer {KB_AI_API_KEY}",  # тот же Bearer токен
+                    "Authorization": f"Bearer {kb_api_key}",  # тот же Bearer токен
                 },
                 timeout=60,
             )
@@ -708,7 +716,7 @@ class SystemChatView(LoginRequiredMixin, View):
                     "model": llm_name,
                 },
                 headers={
-                    "Authorization": f"Bearer {KB_AI_API_KEY}",  # тот же Bearer токен
+                    "Authorization": f"Bearer {kb_api_key}",  # тот же Bearer токен
                 },
                 timeout=60,
             )

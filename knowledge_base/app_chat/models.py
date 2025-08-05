@@ -9,13 +9,21 @@ User = get_user_model()
 
 class ChatSession(models.Model):
     session_key = models.CharField(verbose_name="ключ пользовательской сессии",
-                                   max_length=100, unique=True, db_index=True)
+                                   max_length=100, db_index=True)
     kb = models.ForeignKey(KnowledgeBase, verbose_name="база знаний", on_delete=models.CASCADE,
                            related_name='chat_sessions')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"ChatSession {self.id} for KB {self.kb_id} (session_key={self.session_key})"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['session_key', 'kb'], name='unique_session_per_kb')
+        ]
+        indexes = [
+            models.Index(fields=['session_key', 'kb'], name='session_key_kb_idx')
+        ]
 
 
 class TelegramSession(models.Model):
