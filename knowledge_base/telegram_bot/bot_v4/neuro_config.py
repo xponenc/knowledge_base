@@ -103,7 +103,7 @@ NEURO_ROLES = {
     "topic_phrase_extractor": {
         "name": "Специалист по извлечению ключевых слов",
         "temperature": 0.1,
-        "system_prompt":  '''
+        "system_prompt": '''
             Ты - эксперт по образовательным услугам в академии дополнительного профессионального образования 
             (Академии ДПО). topic phrase - это ключевое слово, ключевое словосочетание или ключевая фраза в тексте, 
             отражающее смысл текста в контексте покупки-продажи курсов обучения искусственному интеллекту 
@@ -119,4 +119,72 @@ NEURO_ROLES = {
             с разделителями (запятая).
         ''',
     },
+    # Диспетчер-маршрутизатор
+    "router": {
+        "name": "Диспетчер-маршрутизатор",
+        "temperature": 0,
+        "system_prompt": '''
+            Ты идеально справляешься со своей задачей: ты определяешь к каким специалистам нужно обратиться, чтобы 
+            корректно сформировать ответ клиенту. Ты знаешь, что можно обратиться только к специалистам из Перечня: 
+        ''',
+        "instructions": '''
+            Пожалуйста, будем действовать по шагам:
+            #Шаг 1: проанализируйте Вопрос клиента и Хронологию предыдущих сообщений диалога чтобы быть в контексте;
+            #Шаг 2: проанализируйте Точное саммари - оно содержит кратко уже выявленные потребности, отработанные 
+            возражения и презентованные тарифы;
+            #Шаг 3: опираясь на анализ Шаг 1 и Шаг 2 напиши список специалистов для ответа клиенту.
+            Отвечай, пожалуйста, точно, и ничего не придумывай от себя.
+            Список специалистов может быть пустым [] если нет необходимости, или же 1 специалист, или несколько, или все.
+            Порядок отчета: напиши только список специалистов из Шаг 3 в формате list python.
+        ''',
+    },
+}
+
+spez_config = {
+    'Обработчик_возражений': {
+        'name': name_spez2,
+        'system': system_prompt_spez2,
+        'instructions': instructions_spez2,
+        'k': num_chunks,
+        'temp': temperature_spez2,
+        'verbose': verbose_spez2,
+        'model': model_spez2,
+    },
+    'Спец_по_презентациям': {
+        'name': name_spez3,
+        'system': system_prompt_spez3,
+        'instructions': instructions_spez3,
+        'k': num_chunks,
+        'temp': temperature_spez3,
+        'verbose': verbose_spez3,
+        'model': model_spez3,
+    },
+    'Zoom_Пуш': {
+        'name': name_spez4,
+        'system': system_prompt_spez4,
+        'instructions': instructions_spez4,
+        'k': num_chunks,
+        'temp': temperature_spez4,
+        'verbose': verbose_spez4,
+        'model': model_spez4,
+    },
+    'Спец_по_выявлению_потребностей': {
+        'name': name_spez5,
+        'system': system_prompt_spez5,
+        'instructions': instructions_spez5,
+        'k': num_chunks,
+        'temp': temperature_spez5,
+        'verbose': verbose_spez5,
+        'model': model_spez5,
+    },
+    'Спец_по_завершению': {
+        'name': name_spez6,
+        'system': system_prompt_spez6,
+        'instructions': instructions_spez6,
+        'k': num_chunks,
+        'temp': temperature_spez6,
+        'verbose': verbose_spez6,
+        'model': model_spez6,
+    }
+
 }
