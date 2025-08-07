@@ -16,7 +16,7 @@
 <div class="page page--kb">
     <div class="page__top page__grid">
         <div class="page__info info-page info-page--logo">
-            {% if  object.logo.url %}
+            {% if  object.logo and object.logo.url %}
                 <img src="{{ object.logo.url }}" alt="Логотип базы знаний {{ object.name }}" class="info-page__logo">
             {% endif %}
         </div>

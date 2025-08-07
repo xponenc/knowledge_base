@@ -575,8 +575,8 @@ class SystemChatView(LoginRequiredMixin, View):
             text=user_message_text,
         )
         reformulated_question = ""
-        if is_reformulate_question and telegram_session.limited_chat_history:
-            chat_history = telegram_session.limited_chat_history
+        if is_reformulate_question and chat_session.limited_chat_history:
+            chat_history = chat_session.limited_chat_history
             if chat_history:
                 history = [(msg.text, getattr(msg, "answer", None).text if getattr(msg, "answer", None) else "") for msg
                            in chat_history]
@@ -593,7 +593,7 @@ class SystemChatView(LoginRequiredMixin, View):
                     model="gpt-4.1"
                 )
                 if user_message_was_changed:
-                    system_instruction = kb.knowledge_base.system_instruction or ""
+                    system_instruction = kb.system_instruction or ""
 
                     system_instruction += f"""\n
                         История диалога:

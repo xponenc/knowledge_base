@@ -372,16 +372,22 @@ def create_vectors_task(self, website_id, author_pk, report_pk):
     db_index.save_local(folder_path=faiss_dir,  # путь к папке (path)
                         index_name="index")  # имя для индексной базы (index_name)
 
-    Chunk.objects.filter(embedding_id__in=new_embedding_ids).update(status=ChunkStatus.ACTIVE.value)
+    # Получаем список chunk.id из сохранённых Embedding
+    chunk_ids = [embedding.chunk_id for embedding in new_embeddings]
 
+    # Обновляем статус чанков
+    Chunk.objects.filter(id__in=chunk_ids).update(status=ChunkStatus.ACTIVE.value)
+
+    # Получаем id связанных URLContent и обновляем их статус
     url_content_ids = (
         Chunk.objects
-        .filter(embedding_id__in=new_embedding_ids)
+        .filter(id__in=chunk_ids)
         .values_list("url_content_id", flat=True)
         .distinct()
     )
     URLContent.objects.filter(id__in=url_content_ids).update(status=ContentStatus.ACTIVE.value)
 
+    # Получаем id связанных URL и обновляем их статус
     url_ids = (
         URLContent.objects
         .filter(id__in=url_content_ids)
@@ -390,7 +396,7 @@ def create_vectors_task(self, website_id, author_pk, report_pk):
     )
     URL.objects.filter(id__in=url_ids).update(status=SourceStatus.ACTIVE.value)
 
-    return f"Обработано {len(new_embeddings)} чанков, создано {len(vector_ids)} эмбеддингов"
+    return f"Обработано {len(chunk_ids)} чанков, создано {len(new_embeddings)} эмбеддингов"
 
 
 

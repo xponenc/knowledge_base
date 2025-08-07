@@ -43,7 +43,7 @@
             <div class="chat__header">
                 <h3 class="chat__heading">🧠 Ask {{ kb.engine.name }}</h3>
                 <span class="text text--muted">Embedded by: <span class="text text--fat text--muted">{{ kb.engine.model_name }}</span></span>
-                <span class="text text--muted _mb">Answer by: <span class="text text--fat text--muted">OpenAI/gpt-4o-mini</span></span>
+                <span class="text text--muted _mb">Answer by: <span class="text text--fat text--muted">{{ kb.get_llm_display }}</span></span>
             </div>
             <div class="chat__history" id="chat-history">
                 {% for message in chat_history %}
