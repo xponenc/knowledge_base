@@ -3,7 +3,7 @@ import json
 import os
 import re
 import time
-from typing import Dict
+from typing import Dict, List
 
 import openai
 from dotenv import load_dotenv
@@ -11,7 +11,7 @@ from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 
-from telegram_bot.bot_v4.neuro_config import NEURO_ROLES, EXPERTS
+from telegram_bot.bot_v4.neuro_config import EXPERTS, SENIOR_CONFIG, STYLIST_CONFIG, EXTRACTOR_ROLES
 
 verbose_mode = True
 
@@ -31,19 +31,28 @@ async def ask_neuro(telegram_id: int,
     history_chat = user_profile.get("history_chat", [])
     history_user = user_profile.get("history_user", [])
     history_manager = user_profile.get("history_manager", [])
-    neuro_data = user_profile.get("neuro_data", [])
+    neuro_data = user_profile.get("neuro_data", {})
     role = user_profile.get("role")
 
     if role == "client":
         while True:
             client_question = input(f'Вопрос клиента: ')  # TODO заглушка
+            history_user.append(client_question)
+            history_chat.append(f"Клиент: {client_question}")
             start_time = time.monotonic()
             if has_been_inactive:
                 greetings = get_greetings(client_question)  # запомнили приветствие
             else:
                 greetings = ""
             has_been_inactive = False  # TODO Заглушка
-            without_hello = get_seller_answer(history_user, history_manager, history_chat)
+            without_hello = get_seller_answer(
+                history_user=history_user,
+                user_message=client_question,
+                history_manager=history_manager,
+                history_chat=history_chat,
+                neuro_data=neuro_data,
+                verbose=verbose_mode
+            )
             if len(history_chat) == 1 and 'None' not in greetings:
                 main_answer = (f'{greetings} меня зовут Василий, я менеджер отдела продаж в Академиии Дополннительного'
                                f' профессионального образрвания (Академии ДПО). ') + without_hello
@@ -113,7 +122,7 @@ def get_seller_answer(history_user,
     summary = neuro_data.get("summary", "")
 
     # Выявление ПОТРЕБНОСТЕЙ в вопросе пользователя
-    worker = NEURO_ROLES.get("needs_extractor")
+    worker = EXTRACTOR_ROLES.get("needs_extractor")
     current_needs = extract_entity_from_statement(
         name=worker.get("name"),
         temp=worker.get("temperature"),
@@ -121,14 +130,14 @@ def get_seller_answer(history_user,
         instructions=worker.get("instructions"),
         question=user_message,
         history=[],
-        verbose=verbose,
+        verbose=verbose_mode,
     )
     if current_needs:
         needs.append(current_needs)
         needs = list_cleaner(needs)
 
     # Выявление ПРЕИМУЩЕСТВ в ответе менеджера
-    worker = NEURO_ROLES.get("benefits_extractor")
+    worker = EXTRACTOR_ROLES.get("benefits_extractor")
     current_benefits = extract_entity_from_statement(
         name=worker.get("name"),
         temp=worker.get("temperature"),
@@ -136,13 +145,14 @@ def get_seller_answer(history_user,
         instructions=worker.get("instructions"),
         question='',
         history=history_manager,
+        verbose=verbose_mode,
     )
     if current_benefits:
         benefits.append(current_benefits)
         benefits = list_cleaner(benefits)
 
     # Выявление ВОЗРАЖЕНИЙ в сообщение клиента
-    worker = NEURO_ROLES.get("objection_detector")
+    worker = EXTRACTOR_ROLES.get("objection_detector")
     current_objection = extract_entity_from_statement(
         name=worker.get("name"),
         temp=worker.get("temperature"),
@@ -150,13 +160,14 @@ def get_seller_answer(history_user,
         instructions=worker.get("instructions"),
         question=user_message,
         history=[],
+        verbose=verbose_mode,
     )
     if current_objection:
         objections.append(current_objection)
         objections = list_cleaner(objections)
 
     # Выявление ОТРАБОТАННЫХ ВОЗРАЖЕНИЙ в ответе менеджера
-    worker = NEURO_ROLES.get("resolved_objection_detector")
+    worker = EXTRACTOR_ROLES.get("resolved_objection_detector")
     current_resolved_objections = extract_entity_from_statement(
         name=worker.get("name"),
         temp=worker.get("temperature"),
@@ -164,13 +175,14 @@ def get_seller_answer(history_user,
         instructions=worker.get("instructions"),
         question='',
         history=history_manager,
+        verbose=verbose_mode,
     )
 
     resolved_objections.append(current_resolved_objections)
     resolved_objections = list_cleaner(resolved_objections)
 
     # Выявление ТАРИФОВ
-    worker = NEURO_ROLES.get("resolved_objection_detector")
+    worker = EXTRACTOR_ROLES.get("resolved_objection_detector")
     current_tariff = extract_entity_from_statement(
         name=worker.get("name"),
         temp=worker.get("temperature"),
@@ -178,6 +190,7 @@ def get_seller_answer(history_user,
         instructions=worker.get("instructions"),
         question='',
         history=history_manager,
+        verbose=verbose_mode,
     )
 
     if current_tariff:
@@ -190,20 +203,20 @@ def get_seller_answer(history_user,
         manager_list = history_manager[-1:]
     else:
         manager_list = []
-    worker = NEURO_ROLES.get("topic_phrase_extractor")
-    topic_phrase_completion = get_topic_phrase_questions(
+    worker = EXTRACTOR_ROLES.get("topic_phrase_extractor")
+    topic_phrase = get_topic_phrase_questions(
         name=worker.get("name"),
         temp=worker.get("temperature"),
         system_prompt=worker.get("system_prompt"),
         instruction=worker.get("instructions"),
         user_history=history_user[-k:],
         manager_history=manager_list,
+        verbose=verbose_mode
     )
-    topic_phrase_answer = topic_phrase_completion.choices[0].message.content
-
-    general_topic_phrase = str(history_user[-1] + ', '
-                               + topic_phrase_answer).replace('[', '').replace(']', '').replace(
-        "'", '')
+    # try:
+    #     general_topic_phrase = topic_phrase_answer.split(",")
+    # except ValueError:
+    #     general_topic_phrase = topic_phrase_answer
 
     # 7. Суммаризируем хронологию предыдущих сообщений диалога
     summarized_dialog = summarize_dialog(summary,
@@ -223,7 +236,7 @@ def get_seller_answer(history_user,
     '''
 
     #  9. Запускаем Диспетчера
-    worker = NEURO_ROLES.get("router")
+    worker = EXTRACTOR_ROLES.get("router")
     output_router = user_question_router(
         name=worker.get("name"),
         temp=worker.get("temperature"),
@@ -232,78 +245,80 @@ def get_seller_answer(history_user,
         question=history_user[-1],
         summary_history=summarized_dialog,
         summary_exact=summary_exact,
-        needs_lst=needs
+        needs_lst=needs,
+        verbose=verbose_mode
     )
 
-    output_router = (output_router.replace("```", '"').replace("python", '')
-                     .replace("‘", '"').replace("'", '"').strip())
-
+    # output_router = (output_router.replace("```", '"').replace("python", '')
+    #                  .replace("‘", '"').replace("'", '"').strip())
+    print(f"{output_router=}")
+    try:
+        output_router_list = json.loads(output_router)
+    except AttributeError:
+        pass
+    # output_router_list = [s.strip() for s in output_router.split(',')]
+    print(f"{output_router_list=}")
     #  10. По списку спецов из ответа Диспетчера запускаем спецов:
     experts_answers = []
-    try:
-        output_router_fixed = (str(output_router).split(':')[1] + '').replace("‘", '"').replace("'", '"')
-    except:
-        output_router_fixed = str(output_router).replace("‘", '"').replace("'", '"')
-
-    try:
-        output_router_list = json.loads(output_router_fixed)
-    except:
-        output_router_list = ['Zoom_Пуш', 'Спец_по_презентациям']
+    # try:
+    #     output_router_fixed = (str(output_router).split(':')[1] + '').replace("‘", '"').replace("'", '"')
+    # except:
+    #     output_router_fixed = str(output_router).replace("‘", '"').replace("'", '"')
+    #
+    # try:
+    #     output_router_list = json.loads(output_router_fixed)
+    # except:
+    #     output_router_list = ['Специалист по Zoom', 'Специалист по презентациям']
 
     try:
         for key_param in output_router_list:
             expert_params = EXPERTS[key_param] | {'question': history_user[-1],
                                                   'summary_history': summarized_dialog,
                                                   'summary_exact': summary_exact,
-                                                  'base_topicphrase': general_topic_phrase,
+                                                  'base_topic_phrase': topic_phrase,
                                                   'search_index': vectordb}
             expert_answer = processing_question_by_expert(**expert_params)
 
             experts_answers.append(f'{expert_params["name"]}: {expert_answer}')
 
-    # if verbose: print(f"\n{bcolors.BGMAGENTA}Ответы спецов:{bcolors.ENDC}\n", '\n\n=========\n'.join(output_spez))
-    except:
-        if verbose: print(
-            f'{bcolors.BGYELLOW}Ответ диспетчера либо не вызывает спецов либо имеет неверный формат:{bcolors.ENDC} {wrap(output_router)}')
+    except AttributeError:
+        if verbose:
+            print(f'Ответ диспетчера либо не вызывает спецов либо имеет неверный формат:{output_router}')
 
-    #11. На основании предлоажения узких спецов запускаем страшего менеджера для подготовки комплексного ответа:
+    # 11. На основании предложения узких спецов запускаем старшего менеджера для подготовки комплексного ответа:
+
     output_senior = senior_answer(
-        name=name_senior,
-        system=system_prompt_senior,
-        instructions=instructions_senior,
+        name=SENIOR_CONFIG.get("name"),
+        system=SENIOR_CONFIG.get("system_prompt"),
+        instructions=SENIOR_CONFIG.get("instructions"),
         question=history_user[-1],
-        output_spez=output_spez,
+        output_spez=experts_answers,
         summary_history=summarized_dialog,
-        base_topicphrase=general_topic_phrase,
+        # base_topicphrase=topic_phrase,
         search_index=vectordb,
-        summary_exact=tochnoe_summary,
-        temp=temperature_senior,
-        verbose=verbose_senior,
-        k=num_fragments_base_senior,
-        model=model_senior,
-        spez_list=output_router_list).choices[0].message.content
-    #if verbose: print(f"\n{bcolors.BGMAGENTA}senior: {bcolors.ENDC} {wrap(output_senior)}", )
+        summary_exact=summary_exact,
+        temp=SENIOR_CONFIG.get("temperature"),
+        verbose=verbose_mode,
+        spez_list=output_router_list)
+
     #12. Запускаем Стилиста:
-    output_stilist = stilizator_answer(
-        name=name_stilist,
-        system=system_prompt_stilist,
-        instructions=instructions_stilist,
-        answers_content=output_senior,
-        temp=temperature_stilist,
-        verbose=verbose_stilist,
-        model=model_stilist).choices[0].message.content
+
+    stylized_answer =  style_response(
+        name = STYLIST_CONFIG.get("name"),
+        system = STYLIST_CONFIG.get("system_prompt"),
+        instructions = STYLIST_CONFIG.get("instructions"),
+       answers_content = output_senior,
+                       temp=STYLIST_CONFIG.get("temperature"),
+                       model=STYLIST_CONFIG.get("model")
+    )
 
     #13. контрольный выстрел по приветствиям:
-    output_stilist_withouthello = del_hello(
-        name=name_stilist,
-        system=system_prompt_stilist1,
-        instructions=instructions_prompt_stilist1,
-        answers_content=output_stilist,
-        temp=temperature_stilist,
-        verbose=verbose_stilist,
-        model=model_stilist).choices[0].message.content
+    answer_without_greetings = remove_greeting(
+        text=stylized_answer,
+        verbose=verbose_mode,
+        )
 
-    return output_stilist_withouthello
+    return answer_without_greetings
 
 
 def extract_entity_from_statement(name: str,
@@ -316,16 +331,16 @@ def extract_entity_from_statement(name: str,
                                   model: str = "gpt-4.1-nano"):
     """Функция выявления сущностей"""
     if verbose:
-        print('\n==================\n')
+        print(f'\n[{name}]')
     if verbose and question:
         print(f'Вопрос клиента: {question}')
-    if name not in ['Спец по потребностям', 'Спец по возражениям'] and len(
+    if name not in ['Извлечение потребностей', 'Извлечение возражений'] and len(
             history):  # эти спецы анализируют только вопрос пользователя
         history_content = history[-1]  # берем только один последний ответ Менеджера в истории
     else:
         history_content = 'сообщений нет'
     if verbose:
-        print(f'Предыдущий ответ Менеджера отдела продаж:\n==================\n', history_content)
+        print(f'Предыдущий ответ Менеджера отдела продаж: ', history_content)
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user",
@@ -340,11 +355,9 @@ def extract_entity_from_statement(name: str,
     answer = completion.choices[0].message.content
 
     if verbose:
-        print('\n==================\n')
         print(f'{completion.usage.total_tokens} total tokens used (question-answer).')
-        print('\n==================\n')
-        print(f'Ответ {name}:\n', answer)
-    # if (name == 'Спец_по_выявлению_потребностей'):
+        print(f'Ответ по {name}: ', answer)
+    # if (name == 'Специалист по выявлению потребностей'):
     #     print("Выявлены потребности ")
     return answer
 
@@ -374,8 +387,9 @@ def get_topic_phrase_questions(name,
     """
     ключи из последних сообщений
 
-    эта генерация запускается после каждого нового вопроса пользователя, для выделения ключей в его сообщении, также выделяем ключи из последнего ответа
-    менеджера, далее через корректора ключей создадим общий логический контекст общения (к накопленному списку ключей добавим новые и скорректируем логику)
+    эта генерация запускается после каждого нового вопроса пользователя, для выделения ключей в его сообщении,
+    также выделяем ключи из последнего ответа менеджера, далее через корректора ключей создадим общий логический
+    контекст общения (к накопленному списку ключей добавим новые и скорректируем логику)
 
     """
     #  в том, что история клиента не пустая мы уверены, проверим, что есть история менеджера
@@ -396,9 +410,8 @@ def get_topic_phrase_questions(name,
     )
     answer = completion.choices[0].message.content
     if verbose:
-        print(f'{bcolors.GREEN}{bcolors.BOLD}Ответ {wrap(name)}:{bcolors.ENDC}\n',
-              f'{bcolors.BGYELLOW}Ключевые слова для Базы знаний:{bcolors.ENDC}\n {wrap(answer)}\n=========\n')
-    return completion
+        print(f'Ответ {name}:\n Ключевые слова для Базы знаний:{answer}')
+    return answer
 
 
 def summarize_dialog(dialog, _history, temp=0.1, verbose=0, model: str = "gpt-4.1-nano"):
@@ -443,7 +456,7 @@ def user_question_router(name: str,
                          temp=0,
                          verbose=0,
                          model="gpt-4.1-nano",
-                         needs_lst=[]
+                         needs_lst:List=None
                          ):
     """Диспетчер-маршрутизатор
     модель определяет по контексту, Хронологии предыдущих сообщений диалога и точному саммари каких узких специалистов
@@ -459,51 +472,51 @@ def user_question_router(name: str,
 
     if needs_lst and len(needs_lst) > 5:
         system_prompt += '''
-            ["Обработчик_возражений", "Спец_по_презентациям", "Zoom_Пуш", “Спец_по_завершению”]. 
+            ["Специалист по отработке возражений", "Специалист по презентациям", "Специалист по Zoom", “Специалист по завершению”]. 
             Ты знаешь, за что отвечает каждый специалист:
-                #1 Обработчик_возражений:  этот специалист участвует в ответе клиенту если:
+                #1 Специалист по отработке возражений:  этот специалист участвует в ответе клиенту если:
                 #1.1 клиент высказал возражение или сомнение;
                 #1.2 клиент чем-то недоволен или не все устраивает в продукте;
-                #2 Спец_по_презентациям: этот специалист участвует в ответе клиенту если клиент выразил 
+                #2 Специалист по презентациям: этот специалист участвует в ответе клиенту если клиент выразил 
                 заинтересованность курсами, программами и нужно презентовать какой-либо курс представленный в списке 
                 для обучения Академии ДПО или какую-то его часть, а также презентовать компанию Академия
                 Дополнительного Профессионального Обучения (сокр Академия ДПО), если при этом в Хронологии предыдущих 
                 сообщений диалога он это уже презентовал, то повторно презентовать запрещено;
-                #3 Zoom_Пуш: этот специалист участвует в ответе клиенту когда:
+                #3 Специалист по Zoom: этот специалист участвует в ответе клиенту когда:
                 #3.1 клиент говорит что курс или программа обучения ему подходит - чтобы позвать клиента на созвон 
                 или встречу с экспертом;
                 #3.2 клиент выражает готовность к покупке курса или программы обучения - чтобы позвать клиента на 
                 созвон или встречу с экспертом для оформления покупки;
                 #3.3 клиент обсуждает день и время созвона или встречи с экспертом в Zoom чтобы договориться о встрече;
                 #3.4 клиент предоставляет свои контактные данные для отправки приглашения на созвон или встречу в Zoom;
-                #4 Спец_по_завершению: этот специалист участвует в ответе клиенту в самом конце диалога, его задача 
+                #4 Специалист по завершению: этот специалист участвует в ответе клиенту в самом конце диалога, его задача 
                 отвечать когда пользователь дает понять,
                 что завершает диалог и больше не намерен ничего спрашивать, например: "спасибо","все понтяно","хорошо", 
                 "ладно" и прочие утвердительные выражения логически завершающие общение.
         '''
     else:
         system_prompt += '''
-            ["Спец_по_выявлению_потребностей", "Обработчик_возражений", "Спец_по_презентациям", "Zoom_Пуш", 
-            “Спец_по_завершению”]. 
+            ["Специалист по выявлению потребностей", "Специалист по отработке возражений", "Специалист по презентациям", "Специалист по Zoom", 
+            “Специалист по завершению”]. 
             Вот описание специалистов:
-                #1 Спец_по_выявлению_потребностей: этот специалист всегда участвует в ответе;
-                #2 Обработчик_возражений:  этот специалист участвует в ответе клиенту если:
+                #1 Специалист по выявлению потребностей: этот специалист всегда участвует в ответе;
+                #2 Специалист по отработке возражений:  этот специалист участвует в ответе клиенту если:
                 #2.1 клиент высказал возражение или сомнение;
                 #2.2 клиент чем-то недоволен или не все устраивает в продукте;
-                #3 Спец_по_презентациям: этот специалист участвует в ответе клиенту если клиент выразил 
+                #3 Специалист по презентациям: этот специалист участвует в ответе клиенту если клиент выразил 
                 заинтересованность курсами, программами и нужно презентовать курс из предоставленного в программе 
                 обучения Академии Дополнительного Профессионального Обучения или какую-то его часть, а также 
                 презентовать компанию Академия Дополнительного Профессионального Обучения (сокр Академия ДПО),
                 если при этом в Хронологии предыдущих сообщений диалога он это уже презентовал, то повторно 
                 презентовать запрещено;
-                #4 Zoom_Пуш: этот специалист участвует в ответе клиенту когда:
+                #4 Специалист по Zoom: этот специалист участвует в ответе клиенту когда:
                 #4.1 клиент говорит что курс или программа обучения ему подходит - чтобы позвать клиента на созвон 
                 или встречу с экспертом;
                 #4.2 клиент выражает готовность к покупке курса или программы обучения - чтобы позвать клиента на 
                 созвон или встречу с экспертом для оформления покупки;
                 #4.3 клиент обсуждает день и время созвона или встречи с экспертом в Zoom чтобы договориться о встрече;
                 #4.4 клиент предоставляет свои контактные данные для отправки приглашения на созвон или встречу в Zoom;
-                #5 Спец_по_завершению: этот специалист участвует в ответе клиенту в самом конце диалога, его задача 
+                #5 Специалист по завершению: этот специалист участвует в ответе клиенту в самом конце диалога, его задача 
                 отвечать когда пользователь дает понять,
                 что завершает диалог и больше не намерен ничего спрашивать, например: "спасибо","все понтяно","хорошо", 
                 "ладно" и прочие утвердительные выражения логически завершающие общение.'''
@@ -534,6 +547,324 @@ def user_question_router(name: str,
         print(f'Ответ {name}:\n', answer)
 
     return answer
+
+
+
+def processing_question_by_expert(name,
+                                  system,
+                                  instructions,
+                                  question,
+                                  summary_history,
+                                  summary_exact,
+                                  base_topic_phrase: str,
+                                  search_index,
+                                  temp=0,
+                                  verbose=0,
+                                  k=5,
+                                  model="gpt-4.1-nano"):
+    if name in ["Специалист по Zoom", "Специалист по завершению"]:
+        docs_content = ''
+    else:
+        knowledge_base = search_index.similarity_search(base_topic_phrase, k=k)
+        docs_content = re.sub(r'\n{2}', ' ', '\n '.join(
+            [f'\n==================\n' + doc.page_content + '\n' for doc in knowledge_base]))
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": f'''{instructions}
+
+         Вопрос клиента:{question}
+
+         Хронология предыдущих сообщений диалога: {summary_history}
+
+         Точное саммари: {summary_exact}
+
+         База Знаний: {docs_content}'''}
+    ]
+    if verbose:
+        print('\n==================\n')
+        print(f'Вопрос клиента: ', question)
+        print('Саммари диалога:\n==================\n', summary_history)
+        print(f'Саммари точное:\n==================\n', summary_exact)
+        print(f'База знаний:\n==================\n', docs_content)
+
+    completion = openai.chat.completions.create(
+        model=model,
+        messages=messages,
+        temperature=temp
+    )
+    answer = completion.choices[0].message.content
+
+    try:
+        answer = answer.split(': ')[1] + ' '
+    except:
+        answer = answer
+    answer = answer.lstrip('#3')
+
+    if verbose:
+        print(f'\n==================')
+        print(f'{completion.usage.total_tokens} total tokens used (question-answer).')
+        print('\n==================\n')
+        print(f'Ответ {name}:\n {answer}')
+    return answer
+
+
+def senior_answer(name,
+                  system,
+                  instructions,
+                  question,
+                  output_spez,
+                  summary_history,
+                  search_index,
+                  summary_exact,
+                  temp=0,
+                  verbose=0,
+                  model="gpt-4.1-nano",
+                  spez_list=None
+                  ):
+    if not spez_list:
+        spez_list = []
+
+    # дозаполним system по набору спецов
+    if 'Специалист по завершению' in spez_list:
+        system += "Специалист по завершению."
+    else:
+        system += '''
+            Специалист по отработке возражений, Специалист по презентациям, Специалист по Zoom, Специалист по выявлению потребностей.
+            #2 Ваша цель общения: в течение всего диалога выявить потребности клиента, закрыть все возражения клиента 
+            и в итоге назначить встречу клиента с экспертом для обсуждения деталей приобретения курса в соответствии 
+            с выявленными потребностями.
+            Вы всегда строго следуете Инструкциям и порядку отчета.
+            #3 Инструкция как отвечать на вопрос клиента:
+            ##3.1 При формировании своего ответа вы всегда следуете логике Хронологии предыдущих сообщений диалога и 
+            опираетесь на Ответы узких специалистов.
+            ##3.2 Презентацию делайте только в том случае, если клиент попросит рассказать о курсе\обучении\академии 
+            или она закрывает какие-то потребности, презентуйте опираясь на ответ Специалист по презентациям;
+            ##3.3 Если у вас есть ответ Специалист по отработке возражений, то закройте возражения, опираясь на ответ 
+            Специалист по отработке возражений;
+            ##3.4 Вы знаете, что Вам важно закрыть все возражения клиента;
+            ##3.5 В ответе Вам категорически запрещено говорить что Вы выясняете потребности и цели клиента;
+            ##3.6 Вам запрещено разговаривать на посторонние темы.
+            #4 Инструкция как отвечать на посторонние темы: если в Ответах узких специалистов написано, что вопрос 
+            не связан с Академией Дополнительного Профессионального образования, это значит, что нужно вежливо отказаться
+            отвечать на вопросы на посторонние темы и уточнить, есть ли у клиента вопросы касающиеся курсов, программ 
+            обучения в АДО или самой Академии.
+        '''
+
+    if 'Специалист по Zoom' in spez_list:
+        system += '''
+            #5 Инструкция как звать клиента на встречу с экспертом в Zoom:
+            ##5.1 Проанализируйте ответ специалиста Специалист по Zoom: он должен сообщить Вам текущий этап процесса записи на 
+            встречу с экспертом (например, "Этап2").
+            ##5.2 Если в ответе Специалист по Zoom нет текущего этапа, то пока назначать встречу с экспертом рано;
+            ##5.3 Если в ответе Специалист по Zoom есть текущий этап, найдите в Таблице этапов Инструкцию, соответствующую 
+            текущему этапу и подготовьте свой ответ строго в полном соответствии с этой инструкцией.
+            Ничего не придумывайте от себя, строго следуйте инструкции текущего этапа:
+            ###Таблица этапов:
+            |Этап| Инструкция|
+            |Этап1| Аргументируйте на основании потребностей клиента зачем ему нужно согласиться на Zoom встречу и 
+            задайте вопрос подтверждающий согласие клиента на участие во встрече;|
+            |Этап2| Предложите клиенту на выбор три конкретных варианта временных промежутков для встречи 
+            (например, "Завтра в 16:00, Завтра в 20:00, Послезавтра в 10:00" и тп) и попросите клиента выбрать 
+            (из предложенных) подходящее;|
+            |Этап3| Запросите номер телефона и почту и аргументируйте что телефон нужен Вам чтобы отправить 
+            ссылку на встречу клиенту;|
+            |Этап4| Поблагодарите клиента за приятный диалог и напишите о том что встреча назначена на такой-то 
+            день и такое-то время|
+            Вы обязаны в точности следовать инструкции текущего этапа записи на встречу, ничего не исключайте из 
+            нее и не добавляйте от себя.
+        '''
+    system += 'Вы всегда строго следуете порядку отчета'
+
+    # дозаполним instructions по набору спецов
+    if 'Специалист по завершению' not in spez_list:
+        if 'Специалист по выявлению потребностей' in spez_list:
+            instructions += '''
+            #5 задача:  Опираясь на свой анализ выберите только один вопрос из ответа Специалист по выявлению потребностей, 
+            которого нет в Хронологии предыдущих сообщений диалога и он лучше всего подходит логике Хронологии 
+            предыдущих сообщений диалога.
+        '''
+        else:
+            instructions += '''
+                #5 задача: Опираясь на свой анализ задайте вопрос, который должен способствовать продолжению диалога, 
+                продолжая логику Хронологи предыдущих сообщений диалога.
+            '''
+        instructions += ''' 
+         Не объясняйте свой выбор и ничего не комментируйте, не поясняйте из ответа каких специалистов Вы формируете 
+         свой ответ. Порядок отчета: В Вашем ответе должен быть только ответ клиенту (Задача 4) + только вопрос клиенту 
+         (Задача 5) (без пояснений и комментариев).
+         '''
+    else:
+        instructions += '''
+            В свой ответ только включите ответ Специалист по завершению.
+            Порядок отчета: В Вашем ответе должен быть только ответ клиенту.
+        '''
+    output_spez_content = "\n=====\n".join(output_spez)
+    if verbose:
+        print(f'Ответы узких специалистов:{output_spez_content}\n')
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": f'''{instructions}
+                                    \nВопрос клиента: {question}
+                                    \nХронология предыдущих сообщений диалога: {summary_history}
+                                    \nСаммари точное: {summary_exact}
+                                    \nОтветы узких специалистов: {output_spez_content}
+                                    \nОтвет: '''}
+    ]
+
+    completion = openai.chat.completions.create(
+        model=model,
+        messages=messages,
+        temperature=temp
+    )
+    answer = completion.choices[0].message.content
+    if verbose:
+        print(f'Ответ {name}: ', answer)
+
+    return answer
+
+
+
+#@title Функция
+def style_response(name,
+                   system,
+                   instructions,
+                   answers_content,
+                   temp=0,
+                   verbose=False,
+                   model="gpt-4.1-nano"):
+
+    if verbose:
+        print('==================')
+        print(f'Текст для стилизации:\n{answers_content}')
+    user_assist = f'''
+        {instructions}\n\nИсходный текст: Кира, я рад, что ты заинтересовалась нашими курсами. 
+        Наши программы обучения позволят тебе погрузиться в мир искусственного интеллекта с самого начала обучения.
+        Ты сможешь принять участие в реальных проектах уже с начала обучения, что поможет тебе получить ценный опыт 
+        и умения, необходимые для успешной карьеры в этой области.
+        Какие области твоей жизни ты бы хотела улучшить с помощью обучения в области искусственного интеллекта?
+
+        Ответ:
+    '''
+    user_assist2 = f'''
+        {instructions}\n\nИсходный текст: У нас в АДО самая обширная база учебного контента по различным 
+        специальностям, включая 174 темы, что значительно превосходит количество учебных материалов у конкурентов. 
+        Какие возможности для трудоустройства в сфере менеджмента, бухгалтерского дела, педагогики, психологии и т.д
+        Вас  интересуют?
+        Ответ:
+    '''
+
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user_assist},
+        {
+            "role": "assistant",
+            "content": '''Кира, я рад, что Вы заинтересовались нашими курсами. Наши образовательные программы позволят 
+            Вам окунуться в мир искусственного интеллекта с самого начала. Участвуя в реальных проектах уже на старте 
+            обучения, Вы сможете получить ценный опыт и необходимые умения для успешной карьеры в этой области. 
+            Что именно Вы хотели бы улучшить в своей жизни, изучая искусственный интеллект?'''},
+        {"role": "user", "content": user_assist2},
+        {"role": "assistant", "content": '''У нас в УИИ самая обширная база учебного контента по искусственному 
+        интеллекту, включая 174 темы, что значительно превосходит количество учебных материалов у конкурентов, 
+        включая SkillBox. Может быть Вас интересуют возможности для трудоустройства в сфере искусственного интеллекта 
+        и программирования?'''},
+        {"role": "user", "content": f'''{instructions}\n\n
+        Исходный текст: {answers_content}\n\nОтвет: '''}
+    ]
+
+    completion = openai.chat.completions.create(
+        model=model,
+        messages=messages,
+        temperature=temp
+    )
+    answer = completion.choices[0].message.content
+    if verbose:
+        print('\n==================')
+        print(f'{completion.usage.total_tokens} total tokens used (question-answer).')
+        print('==================')
+        print(f'Ответ {name}:\n', answer)
+
+    return answer
+
+
+def remove_greeting (
+        text:str,
+        model_name="gpt-4.1-nano",
+        model_temperature=0,
+        verbose=False
+):
+    """Очищает текст от приветствий"""
+    # system_prompt = '''
+    # Ты отличный редактор текстов и лучше всех умеешь находить в тексте приветствие (приветственную фразу).
+    # Приветствие - это выражение приветствия или приветственное сообщение,
+    # которое отправляется или произносится в начале общения с кем-либо.
+    # Приветствие может быть формальным или неформальным, зависеть от культуры и контекста.
+    # Оно служит для демонстрации вежливости, дружелюбия и желания установить контакт с собеседником.
+    # Приветствия могут быть разными в различных языках и культурах, от простого 'привет' или 'здравствуйте'
+    # до более формальных или традиционных выражений.
+    # Твоя задача обработать Исходный текст следующим образом: проанализировать Исходный текст и если в нем есть
+    # приветствие, то удалить его.
+    # Не добавляй никаких комментариев и пояснений. Отвечай только отредактированным текстом.
+    # '''
+
+    system_prompt = """
+    Ты — высокоточный редактор текста.
+    Твоя задача: удалить из начала текста только приветствие (вежливую фразу начала общения).
+    Не изменяй остальной текст.
+    Не добавляй пояснений, комментариев или новых слов.
+    Возвращай только отредактированный текст, без лишнего форматирования.
+    """
+
+    # Несколько примеров для повышения точности
+    few_shot_examples = [
+        {
+            "user": "Исходный текст: Добрый день, Кира, я готов рассказать Вам о курсе подробнее. Начнем с тарифов?",
+            "assistant": "Кира, я готов рассказать Вам о курсе подробнее. Начнем с тарифов?"
+        },
+        {
+            "user": "Исходный текст: Привет, Сергей! Сегодня у нас отличная погода.",
+            "assistant": "Сергей! Сегодня у нас отличная погода."
+        },
+        {
+            "user": "Исходный текст: Здравствуйте, коллеги. Начнем собрание.",
+            "assistant": "Коллеги. Начнем собрание."
+        }
+    ]
+
+    messages = [{"role": "system", "content": system_prompt}]
+
+    # Добавляем few-shot примеры
+    for ex in few_shot_examples:
+        messages.append({"role": "user", "content": f"{ex['user']}\n\nОтвет:"})
+        messages.append({"role": "assistant", "content": ex["assistant"]})
+
+    # Основной запрос
+    messages.append({"role": "user", "content": f"Исходный текст: {text}\n\nОтвет:"})
+
+    if verbose:
+        print("[Удаление приветствия]")
+        print("======================")
+        print(f"Текст для обработки:\n{text}")
+
+    completion = openai.chat.completions.create(
+        messages=messages,
+        model=model_name,
+        temperature=model_temperature
+    )
+
+    answer = completion.choices[0].message.content.strip()
+
+    # fallback, если модель вернула пустой ответ
+    if not answer:
+        answer = text
+
+    if verbose:
+        print("\n======================")
+        print(f"{completion.usage.total_tokens} total tokens used.")
+        print("======================")
+        print(f"Ответ:\n{answer}")
+
+    return answer
+
 
 
 def create_test_db():
@@ -585,61 +916,3 @@ if __name__ == "__main__":
         user_profile=user_profile,
         text=""
     ))
-
-
-def processing_question_by_expert(name,
-                                  system,
-                                  instructions,
-                                  question,
-                                  summary_history,
-                                  summary_exact,
-                                  base_topicphrase,
-                                  search_index,
-                                  temp=0,
-                                  verbose=0,
-                                  k=5,
-                                  model="gpt-4.1-nano"):
-    if name in ["Zoom_Пуш", "Спец_по_завершению"]:
-        docs_content = ''
-    else:
-        knowledge_base = search_index.similarity_search(base_topicphrase, k=k)
-        docs_content = re.sub(r'\n{2}', ' ', '\n '.join(
-            [f'\n==================\n' + doc.page_content + '\n' for doc in knowledge_base]))
-    messages = [
-        {"role": "system", "content": system},
-        {"role": "user", "content": f'''{instructions}
-
-         Вопрос клиента:{question}
-
-         Хронология предыдущих сообщений диалога: {summary_history}
-
-         Точное саммари: {summary_exact}
-
-         База Знаний: {docs_content}'''}
-    ]
-    if verbose:
-        print('\n==================\n')
-        print(f'Вопрос клиента: ', question)
-        print('Саммари диалога:\n==================\n', summary_history)
-        print(f'Саммари точное:\n==================\n', summary_exact)
-        print(f'База знаний:\n==================\n', docs_content)
-
-    completion = openai.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=temp
-    )
-    answer = completion.choices[0].message.content
-
-    try:
-        answer = answer.split(': ')[1] + ' '
-    except:
-        answer = answer
-    answer = answer.lstrip('#3')
-
-    if verbose:
-        print(f'\n==================')
-        print(f'{completion.usage.total_tokens} total tokens used (question-answer).')
-        print('\n==================\n')
-        print(f'Ответ {name}:\n {answer}')
-    return answer
