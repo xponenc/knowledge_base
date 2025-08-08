@@ -186,7 +186,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 message,
             })
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                // сервер вернул 400/500 — читаем текст и выбрасываем ошибку
+                return response.json().then(err => {
+                    throw new Error(err.error || "Ошибка сервера");
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             const { user_message, ai_response, current_docs } = data;
 

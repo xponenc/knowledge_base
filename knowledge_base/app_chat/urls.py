@@ -3,7 +3,7 @@ from django.urls import path
 from app_chat.views import (ChatView, TestModelScoreReportView,
                             ClearChatView, CurrentTestChunksView, MessageScoreView, SystemChatView, ChatReportView,
                             ChatMessageDetailView, KBRandomTestView, QwenChatView, KBBulkTestView, ChatClusterView,
-                            ChatCreateClustersView)
+                            ChatCreateClustersView, )
 
 app_name = "chat"
 

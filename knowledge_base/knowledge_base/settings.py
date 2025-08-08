@@ -12,16 +12,7 @@ SECRET_KEY = 'django-insecure-8@pn+um^b$&-%n@ys6a*30k$jkaxeqok-a7=-)rzqu)+%2#pff
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://a2acacdd1793.ngrok-free.app"
-]
-
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    "0.0.0.0",
-    "a2acacdd1793.ngrok-free.app"
-]
+ALLOWED_HOSTS = []
 
 # Application definition
 
@@ -207,71 +198,71 @@ CELERY_TASK_SOFT_TIME_LIMIT  = 55 * 60 * 5
 
 # Определяем, продакшен или разработка
 PRODUCTION = os.getenv('DJANGO_ENV') == 'production'
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'prod': {
-            'format': '{asctime} [{name}:{module}:{lineno}] [{levelname}] {message}',
-            'style': '{',
-        },
-        'dev': {
-            # 'format': '{levelname} {asctime} {module} {name} line:{lineno} {process:d} {thread:d} - {message}',
-            'format': '{asctime} [{name}:{module}:{lineno}] [{levelname}] {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'general_file': {
-            'level': 'INFO',
-            'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'general.log'),
-            'formatter': 'prod',
-            'when': 'midnight',
-            'interval': 1,
-            'backupCount': 14,
-            'encoding': 'utf-8',
-            'delay': True,
-        },
-        'celery_file': {
-            'level': 'INFO',
-            'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'celery.log'),
-            'formatter': 'prod',
-            'when': 'midnight',
-            'interval': 1,
-            'backupCount': 14,
-            'encoding': 'utf-8',
-            'delay': True,
-        },
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'dev',
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console', 'general_file'],
-            'level': 'INFO',
-            'propagate': False,  # Отключаем пропагацию, чтобы избежать дублирования
-        },
-        'celery': {
-            'handlers': ['console', 'celery_file'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'urllib3': {
-            'handlers': ['console', 'general_file'],
-            'level': 'WARNING',
-            'propagate': False,
-        },
-    },
-    'root': {
-        'handlers': ['console', 'general_file'],
-        'level': 'INFO',
-    },
-}
+#
+# LOGGING = {
+#     'version': 1,
+#     'disable_existing_loggers': False,
+#     'formatters': {
+#         'prod': {
+#             'format': '{asctime} [{name}:{module}:{lineno}] [{levelname}] {message}',
+#             'style': '{',
+#         },
+#         'dev': {
+#             # 'format': '{levelname} {asctime} {module} {name} line:{lineno} {process:d} {thread:d} - {message}',
+#             'format': '{asctime} [{name}:{module}:{lineno}] [{levelname}] {message}',
+#             'style': '{',
+#         },
+#     },
+#     'handlers': {
+#         'general_file': {
+#             'level': 'INFO',
+#             'class': 'logging.handlers.TimedRotatingFileHandler',
+#             'filename': os.path.join(BASE_DIR, 'logs', 'general.log'),
+#             'formatter': 'prod',
+#             'when': 'midnight',
+#             'interval': 1,
+#             'backupCount': 14,
+#             'encoding': 'utf-8',
+#             'delay': True,
+#         },
+#         'celery_file': {
+#             'level': 'INFO',
+#             'class': 'logging.handlers.TimedRotatingFileHandler',
+#             'filename': os.path.join(BASE_DIR, 'logs', 'celery.log'),
+#             'formatter': 'prod',
+#             'when': 'midnight',
+#             'interval': 1,
+#             'backupCount': 14,
+#             'encoding': 'utf-8',
+#             'delay': True,
+#         },
+#         'console': {
+#             'class': 'logging.StreamHandler',
+#             'formatter': 'dev',
+#         },
+#     },
+#     'loggers': {
+#         'django': {
+#             'handlers': ['console', 'general_file'],
+#             'level': 'INFO',
+#             'propagate': False,  # Отключаем пропагацию, чтобы избежать дублирования
+#         },
+#         'celery': {
+#             'handlers': ['console', 'celery_file'],
+#             'level': 'INFO',
+#             'propagate': False,
+#         },
+#         'urllib3': {
+#             'handlers': ['console', 'general_file'],
+#             'level': 'WARNING',
+#             'propagate': False,
+#         },
+#     },
+#     'root': {
+#         'handlers': ['console', 'general_file'],
+#         'level': 'INFO',
+#     },
+# }
 
 
 

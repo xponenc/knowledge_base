@@ -27,7 +27,10 @@ class ChainResponse(BaseModel):
 def invoke_chain(request: ChainRequest, client: ApiClient = Depends(get_api_client)):
     kb = client.knowledge_base
     model_name = request.model or kb.llm
-    llm = ChatOpenAI(model=model_name, temperature=0)
+    if model_name == "gpt-5-nano":
+        llm = ChatOpenAI(model=model_name, temperature=1)
+    else:
+        llm = ChatOpenAI(model=model_name, temperature=0)
     system_prompt = request.system_prompt or kb.system_instruction
 
     chain = build_multi_chain(

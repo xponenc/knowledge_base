@@ -22,6 +22,7 @@ from django.views import View
 from django.utils import timezone
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import DetailView
 from langchain_community.chat_models import ChatOpenAI
 from rest_framework.exceptions import PermissionDenied
