@@ -18,6 +18,8 @@ class KnowledgeBase(TrackableModel):
         ("gpt-4o", "GPT-4o"),
         ("gpt-4.1", "GPT-4.1"),
         ("gpt-4.1-nano", "GPT-4.1 nano"),
+        ("gpt-5", "GPT-5"),
+        ("gpt-5-nano", "GPT-5 nano"),
     )
 
     retriever_schemas = (
