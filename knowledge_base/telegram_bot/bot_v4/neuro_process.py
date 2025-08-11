@@ -67,8 +67,6 @@ async def ask_neuro(telegram_id: int,
             end_time = time.monotonic()
             print(f"Время, затраченное на итерацию: {end_time - start_time:.2f} секунды")
 
-            history_chat.append(f"Клиент: {client_question}")
-
     else:
         pass
         # employee_question = input(f'{bcolors.BGCYAN}Вопрос сотрудника:{bcolors.ENDC} ')
@@ -112,6 +110,10 @@ def get_seller_answer(history_user,
                       neuro_data: dict,
                       verbose: bool = False):
     """Ансамбль моделей для формирования ответа нейро-продажника"""
+
+    for msg in history_chat:
+        print(msg)
+
     output_router_list = []
 
     needs = neuro_data.get("needs", [])
@@ -128,8 +130,7 @@ def get_seller_answer(history_user,
         temp=worker.get("temperature"),
         system_prompt=worker.get("system_prompt"),
         instructions=worker.get("instructions"),
-        question=user_message,
-        history=[],
+        analysis_text=f"Клиент: {user_message}",
         verbose=verbose_mode,
     )
     if current_needs:
@@ -143,8 +144,7 @@ def get_seller_answer(history_user,
         temp=worker.get("temperature"),
         system_prompt=worker.get("system_prompt"),
         instructions=worker.get("instructions"),
-        question='',
-        history=history_manager,
+        analysis_text=history_manager[-1] if history_manager else "",
         verbose=verbose_mode,
     )
     if current_benefits:
@@ -158,8 +158,7 @@ def get_seller_answer(history_user,
         temp=worker.get("temperature"),
         system_prompt=worker.get("system_prompt"),
         instructions=worker.get("instructions"),
-        question=user_message,
-        history=[],
+        analysis_text=f"Клиент: {user_message}",
         verbose=verbose_mode,
     )
     if current_objection:
@@ -173,8 +172,7 @@ def get_seller_answer(history_user,
         temp=worker.get("temperature"),
         system_prompt=worker.get("system_prompt"),
         instructions=worker.get("instructions"),
-        question='',
-        history=history_manager,
+        analysis_text='\n'.join(history_chat[-3:-1]),
         verbose=verbose_mode,
     )
 
@@ -188,8 +186,7 @@ def get_seller_answer(history_user,
         temp=worker.get("temperature"),
         system_prompt=worker.get("system_prompt"),
         instructions=worker.get("instructions"),
-        question='',
-        history=history_manager,
+        analysis_text=history_manager[-1] if history_manager else "",
         verbose=verbose_mode,
     )
 
@@ -324,41 +321,40 @@ def get_seller_answer(history_user,
 def extract_entity_from_statement(name: str,
                                   system_prompt: str,
                                   instructions: str,
-                                  question: str,
-                                  history: list,
+                                  analysis_text: str,
                                   temp: float = 0,
                                   verbose: bool = False,
                                   model: str = "gpt-4.1-nano"):
-    """Функция выявления сущностей"""
+    """Функция выявления сущностей из переданного текста анализа"""
+
     if verbose:
         print(f'\n[{name}]')
-    if verbose and question:
-        print(f'Вопрос клиента: {question}')
-    if name not in ['Извлечение потребностей', 'Извлечение возражений'] and len(
-            history):  # эти спецы анализируют только вопрос пользователя
-        history_content = history[-1]  # берем только один последний ответ Менеджера в истории
-    else:
-        history_content = 'сообщений нет'
-    if verbose:
-        print(f'Предыдущий ответ Менеджера отдела продаж: ', history_content)
+        print(f'Анализируемый текст:\n{analysis_text}')
+
+    if not analysis_text.strip():
+        if verbose:
+            print(f'Недостаточно данных для запуска анализа')
+        return ""
+
+
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user",
-         "content": f"{instructions}\n\nВопрос клиента:{question}\n\nПредыдущий ответ Менеджера отдела продаж:"
-                    f"\n{history_content}\n\nОтвет: "}
+         "content": f"{instructions}\n\nТекст для анализа:\n{analysis_text}\n\nОтвет: "}
     ]
+
     completion = openai.chat.completions.create(
         model=model,
         messages=messages,
         temperature=temp
     )
+
     answer = completion.choices[0].message.content
 
     if verbose:
         print(f'{completion.usage.total_tokens} total tokens used (question-answer).')
         print(f'Ответ по {name}: ', answer)
-    # if (name == 'Специалист по выявлению потребностей'):
-    #     print("Выявлены потребности ")
+
     return answer
 
 
