@@ -2,6 +2,7 @@ from openai import OpenAI
 
 openai = OpenAI()
 
+
 def call_llm(system_prompt, user_prompt, model="gpt-4.1-nano", temp=0, verbose=False):
     messages = [
         {"role": "system", "content": system_prompt},

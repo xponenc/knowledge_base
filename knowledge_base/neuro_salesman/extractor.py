@@ -1,5 +1,6 @@
 from llm_utils import call_llm
 
+
 def run_extractor(role_config, question="", history=None, verbose=False):
     history_content = history[-1] if history else "сообщений нет"
     user_prompt = (

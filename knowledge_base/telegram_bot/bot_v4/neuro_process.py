@@ -301,20 +301,20 @@ def get_seller_answer(history_user,
 
     #12. Запускаем Стилиста:
 
-    stylized_answer =  style_response(
-        name = STYLIST_CONFIG.get("name"),
-        system = STYLIST_CONFIG.get("system_prompt"),
-        instructions = STYLIST_CONFIG.get("instructions"),
-       answers_content = output_senior,
-                       temp=STYLIST_CONFIG.get("temperature"),
-                       model=STYLIST_CONFIG.get("model")
+    stylized_answer = style_response(
+        name=STYLIST_CONFIG.get("name"),
+        system=STYLIST_CONFIG.get("system_prompt"),
+        instructions=STYLIST_CONFIG.get("instructions"),
+        answers_content=output_senior,
+        temp=STYLIST_CONFIG.get("temperature"),
+        model=STYLIST_CONFIG.get("model")
     )
 
     #13. контрольный выстрел по приветствиям:
     answer_without_greetings = remove_greeting(
         text=stylized_answer,
         verbose=verbose_mode,
-        )
+    )
 
     return answer_without_greetings
 
@@ -336,7 +336,6 @@ def extract_entity_from_statement(name: str,
         if verbose:
             print(f'Недостаточно данных для запуска анализа')
         return ""
-
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -362,7 +361,7 @@ def extract_entity_from_statement(name: str,
         total_cost, prompt_cost, answer_cost = get_price(
             prompt_token_counter=prompt_token_counter,
             answer_token_counter=answer_token_counter,
-            model_name = model,
+            model_name=model,
         )
         print(f"Итого: {format_cost(total_cost)}$, "
               f"Промпт: {format_cost(prompt_cost)}$, "
@@ -465,7 +464,7 @@ def user_question_router(name: str,
                          temp=0,
                          verbose=0,
                          model="gpt-4.1-nano",
-                         needs_lst:List=None
+                         needs_lst: List = None
                          ):
     """Диспетчер-маршрутизатор
     модель определяет по контексту, Хронологии предыдущих сообщений диалога и точному саммари каких узких специалистов
@@ -556,7 +555,6 @@ def user_question_router(name: str,
         print(f'Ответ {name}:\n', answer)
 
     return answer
-
 
 
 def processing_question_by_expert(name,
@@ -732,7 +730,6 @@ def senior_answer(name,
     return answer
 
 
-
 #@title Функция
 def style_response(name,
                    system,
@@ -741,7 +738,6 @@ def style_response(name,
                    temp=0,
                    verbose=False,
                    model="gpt-4.1-nano"):
-
     if verbose:
         print('==================')
         print(f'Текст для стилизации:\n{answers_content}')
@@ -795,8 +791,8 @@ def style_response(name,
     return answer
 
 
-def remove_greeting (
-        text:str,
+def remove_greeting(
+        text: str,
         model_name="gpt-4.1-nano",
         model_temperature=0,
         verbose=False
@@ -873,7 +869,6 @@ def remove_greeting (
         print(f"Ответ:\n{answer}")
 
     return answer
-
 
 
 def create_test_db():
