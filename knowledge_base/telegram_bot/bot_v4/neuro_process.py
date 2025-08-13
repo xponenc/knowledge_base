@@ -12,6 +12,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 
 from telegram_bot.bot_v4.neuro_config import EXPERTS, SENIOR_CONFIG, STYLIST_CONFIG, EXTRACTOR_ROLES
+from telegram_bot.bot_v4.neuro_price import get_price, format_cost
 
 verbose_mode = True
 
@@ -352,8 +353,20 @@ def extract_entity_from_statement(name: str,
     answer = completion.choices[0].message.content
 
     if verbose:
+        print(completion)
         print(f'{completion.usage.total_tokens} total tokens used (question-answer).')
+
         print(f'Ответ по {name}: ', answer)
+        prompt_token_counter = completion.usage.prompt_tokens
+        answer_token_counter = completion.usage.completion_tokens
+        total_cost, prompt_cost, answer_cost = get_price(
+            prompt_token_counter=prompt_token_counter,
+            answer_token_counter=answer_token_counter,
+            model_name = model,
+        )
+        print(f"Итого: {format_cost(total_cost)}$, "
+              f"Промпт: {format_cost(prompt_cost)}$, "
+              f"Ответ: {format_cost(answer_cost)}$")
 
     return answer
 
