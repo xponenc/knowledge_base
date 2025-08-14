@@ -26,40 +26,6 @@ _lock = Lock()
 # Кеш для retriever'ов, тяжелая часть (FAISS, Embeddings)
 _ensemble_retriever_cache: Dict[str, Runnable] = {}
 
-#
-# def build_ensemble_chain(kb_id: int, llm: ChatOpenAI) -> Runnable:
-#     """
-#     Собирает цепочку на лету: prompt + LLM + chain.
-#     Использует предварительно закешированный EnsembleRetriever.
-#
-#     Args:
-#         kb_id (int): ID базы знаний.
-#         llm (ChatOpenAI): Инстанс LLM (например, GPT-4o).
-#
-#     Returns:
-#         Runnable: Готовая к вызову цепочка.
-#     """
-#     retriever = get_cached_ensemble_retriever(kb_id)
-#
-#     prompt = ChatPromptTemplate.from_messages([
-#         SystemMessagePromptTemplate.from_template("{system_prompt}"),
-#         HumanMessagePromptTemplate.from_template("CONTEXT: {context}\n\nQuestion: {input}")
-#     ])
-#     document_chain = create_stuff_documents_chain(llm, prompt)
-#
-#     class CustomRetrievalQA(Runnable):
-#         def invoke(self, inputs: Dict[str, Any], config=None):
-#             query = inputs.get("input")
-#             system_prompt = inputs.get("system_prompt", "")
-#             docs = retriever.invoke(query)
-#
-#             return document_chain.invoke({
-#                 "input": query,
-#                 "context": docs,
-#                 "system_prompt": system_prompt
-#             })
-#
-#     return CustomRetrievalQA()
 
 def build_ensemble_chain(kb_id: int, llm: ChatOpenAI) -> Runnable:
     """

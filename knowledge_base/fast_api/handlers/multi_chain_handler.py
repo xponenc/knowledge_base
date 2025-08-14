@@ -9,19 +9,23 @@ from fast_api.auth import get_api_client
 
 multi_chain_router = APIRouter()
 
+
 class ChainRequest(BaseModel):
     # kb_id: int
     query: str
     system_prompt: Optional[str] = None
     model: str = "gpt-4o-mini"
 
+
 class SourceDocument(BaseModel):
     metadata: dict
     content: str
 
+
 class ChainResponse(BaseModel):
     result: str
     source_documents: List[SourceDocument]
+
 
 @multi_chain_router.post("/invoke", response_model=ChainResponse)
 def invoke_chain(request: ChainRequest, client: ApiClient = Depends(get_api_client)):

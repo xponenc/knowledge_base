@@ -11,53 +11,6 @@ from neuro_salesman.config import DEFAULT_LLM_MODEL
 from neuro_salesman.llm_utils import VerboseLLMChain
 from neuro_salesman.roles_config import EXTRACTOR_ROLES
 
-#
-# def make_bound_chain(chain, cfg):
-#     def bound_chain(ctx):
-#         text = cfg["text_selector"](ctx)  # выбираем правильный текст из входных данных
-#         return chain.invoke({"text": text})
-#     return bound_chain
-#
-#
-#
-# def make_extractor_chain(
-#         chain_name: str,
-#         chain_config: Dict,
-# ):
-#     """
-#     chain_config: словарь из EXTRACTOR_ROLES
-#     chain_name: ключ для результата
-#     """
-#
-#     model_name = chain_config.get("model_name", DEFAULT_LLM_MODEL)
-#     model_temperature = chain_config.get("model_temperature", 0)
-#     system_prompt = chain_config.get("system_prompt", "")
-#     instructions = chain_config.get("instructions", "")
-#     llm = ChatOpenAI(model=model_name, temperature=model_temperature)
-#
-#     # Объединяем system_prompt + instructions в единый prompt с переменной {text}
-#     prompt_template = PromptTemplate(
-#         template="{system_prompt}\n{instructions}\n\nТекст для анализа:\n{text}\n\nОтвет:",
-#         input_variables=["system_prompt", "instructions", "text"]
-#     )
-#
-#     chain = LLMChain(
-#         llm=llm,
-#         prompt=prompt_template,
-#         output_key=chain_name
-#     ).bind(
-#         system_prompt=system_prompt,
-#         instructions=instructions
-#     )
-#
-#     # chain  = LLMChain(
-#     #     llm=llm,
-#     #     prompt=prompt_template,
-#     #     output_key=chain_name
-#     # ).bind(system_prompt=system_prompt)
-#
-#     return make_bound_chain(chain, chain_config)
-
 
 def make_bound_chain(chain, cfg, debug_mode=False):
     """
@@ -109,8 +62,7 @@ def make_bound_chain(chain, cfg, debug_mode=False):
 
 def make_extractor_chain(chain_name: str, chain_config: Dict, debug_mode=False):
     """
-    Создаёт экстрактор на основе конфигурации.
-    Использует современный подход LangChain с prompt | llm.
+    Создаёт цепочку-экстрактор на основе конфигурации.
     """
 
     model_name = chain_config.get("model_name", DEFAULT_LLM_MODEL)

@@ -1,5 +1,6 @@
 from langchain_core.runnables import Runnable
 
+
 class VerboseLLMChain(Runnable):
     def __init__(self, chain: Runnable, chain_name: str, debug_mode: bool = False):
         self.chain = chain

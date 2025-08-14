@@ -1,8 +1,11 @@
+from functools import partial
 from typing import Dict, List
 
+import django
+from langchain_core.documents import Document
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
-from langchain_core.runnables import RunnableSequence, RunnableLambda
+from langchain_core.runnables import RunnableSequence, RunnableLambda, RunnablePassthrough
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
@@ -18,11 +21,18 @@ from langchain_community.vectorstores import FAISS
 from langchain.schema.runnable import Runnable
 
 from neuro_salesman.config import DEFAULT_LLM_MODEL
-from neuro_salesman.expert import process_experts
+from neuro_salesman.expert import build_parallel_experts
 from neuro_salesman.extractor import build_parallel_extractors
 from neuro_salesman.roles_config import EXTRACTOR_ROLES
 from neuro_salesman.router import create_router_chain
 from neuro_salesman.summary import create_summary_exact
+
+# Инициализация Django
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "knowledge_base.settings")
+django.setup()
+
+from app_embeddings.services.ensemble_chain_factory import get_cached_ensemble_retriever
+
 
 # --- Загрузка ключей
 load_dotenv()
@@ -45,6 +55,7 @@ greeting_identification_system_prompt = """
 Ты должен выявить приветствие в тексте клиента.
 Если приветствия нет — верни пустую строку.
 """
+
 
 # # === 1. Выявление приветствия
 
@@ -85,6 +96,7 @@ def create_greeting_chain(debug_mode: bool = False):
             return {**inputs, self.output_key: result}
 
     return KeyedRunnable(chain, "greeting")
+
 
 # # === 2. Извлечение сущностей
 # extractor_prompt = PromptTemplate(
@@ -193,7 +205,6 @@ def create_greeting_chain(debug_mode: bool = False):
 #     print(result)
 
 
-
 # --- Основная функция
 def get_seller_answer(histories: list, debug_mode=False):
     """
@@ -210,18 +221,87 @@ def get_seller_answer(histories: list, debug_mode=False):
         # "search_index": search_index,
     }
 
+    retriever = get_cached_ensemble_retriever(kb_id=1)
+
+    # Создаем функцию для поиска по topic_phrases
+    def search_with_retriever(inputs):
+        topic_phrases = inputs.get("topic_phrases", "").content
+        print(f"{topic_phrases=}")
+        if not topic_phrases:
+            return {"search_index": None}
+        search_results = retriever.invoke(topic_phrases)
+        print(f"{search_results=}")
+        search_index = ""
+        for index, document in enumerate(search_results, start=1):
+            search_index += f"Документ {index}:\n{document.page_content}\n"
+        print(f"{search_index=}")
+        return {"search_index": search_index}
+
     greeting_identification_chain = create_greeting_chain()
     parallel_extractors = build_parallel_extractors(db_name="", debug_mode=debug_mode)
-    summary_chain = RunnableLambda(create_summary_exact)
-    router_chain = create_router_chain(debug_mode=debug_mode)
-    experts_chain = RunnableLambda(process_experts)
 
+    # summary_chain = RunnableLambda(create_summary_exact)
+    summary_chain = RunnableLambda(partial(create_summary_exact, debug_mode=debug_mode))
+    router_chain = create_router_chain(debug_mode=debug_mode)
+
+    # # Создаем последовательную цепочку для summary_chain и router_chain
+    # sequential_chains = RunnableSequence(
+    #     lambda x: summary_chain.invoke(x),  # Выполняем summary_chain
+    #     lambda x: router_chain.invoke(x)  # Затем router_chain
+    # )
+    #
+    # # Создаем параллельную цепочку
+    # parallel_chains = RunnableParallel(
+    #     sequential=lambda x: sequential_chains.invoke(x),  # Последовательное выполнение summary и router
+    #     search=RunnableLambda(search_with_retriever)  # Параллельное выполнение поиска
+    # )
+
+    # Создаем последовательную цепочку для summary_chain и router_chain
+    sequential_summary_and_router_chains = RunnableSequence(
+        summary_chain,  # Выполняем summary_chain
+        router_chain  # Затем router_chain
+    )
+
+    # Функция для распаковки результатов sequential_chains
+    def unpack_sequential(_inputs):
+        print(f"\n\n{_inputs=}\n\n")
+
+        """Распаковываем вложенные словари в плоский словарь"""
+        summary_and_router_output = _inputs.get("summary_and_router", {})
+        search_index_output = _inputs.get("search_index", {})
+        return {**summary_and_router_output, **search_index_output}
+
+    def unpack_sequential(_inputs):
+        if debug_mode:
+            print(f"\n\n[Unpack Sequential] inputs: {_inputs}\n\n")
+        summary_and_router_output = _inputs.get("summary_and_router", {})
+        search_index_output = _inputs.get("search_index", [])
+        original_inputs = _inputs.get("original_inputs", {})
+        new_inputs = {
+            **original_inputs,
+            **summary_and_router_output,
+            **search_index_output
+        }
+        if debug_mode:
+            print(f"[Unpack Sequential] new inputs: {new_inputs}")
+        return new_inputs
+
+    # Создаем параллельную цепочку
+    parallel_chains = RunnableParallel(
+        summary_and_router=sequential_summary_and_router_chains,  # Выполняем sequential_chains
+        search_index=RunnableLambda(search_with_retriever),
+        original_inputs=RunnablePassthrough()
+    )
+
+    experts_chain = build_parallel_experts(debug_mode=debug_mode)
 
     full_chain = RunnableSequence(
         greeting_identification_chain,
         parallel_extractors,
-        summary_chain,
-        router_chain,
+        # summary_chain,
+        # router_chain,
+        parallel_chains,
+        RunnableLambda(unpack_sequential),
         experts_chain
     )
 
@@ -229,13 +309,12 @@ def get_seller_answer(histories: list, debug_mode=False):
 
     if debug_mode:
         print("Результаты экстракции:", results)
-        for name, result in  results.items():
+        for name, result in results.items():
             if isinstance(result, AIMessage):
                 print(name, " - ", result.content)  # Выводим content
                 # print(
                 #     f"Token usage for {name}: {result.response_metadata.get('token_usage', 'N/A')}")  # Выводим token_usage
                 # print(f"Usage metadata for {name}: {result.usage_metadata}")  # Выводим usage_metadata
-
 
     return results
 
@@ -248,4 +327,3 @@ if __name__ == "__main__":
                  "Понимаю ваши опасения. Давайте уточню — обучение можно проходить в удобное для вас время, в записи. Это поможет вам совмещать курс с основной работой.",
                  "Ну, возможно… Но я слышал, что многие онлайн-курсы оказываются бесполезными, и люди жалеют о потраченных деньгах."]
     neuro_data = get_seller_answer(histories, debug_mode=True)
-
