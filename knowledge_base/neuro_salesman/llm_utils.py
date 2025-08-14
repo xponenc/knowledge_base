@@ -1,20 +1,19 @@
-from openai import OpenAI
+from langchain_core.runnables import Runnable
 
-openai = OpenAI()
+class VerboseLLMChain(Runnable):
+    def __init__(self, chain: Runnable, chain_name: str, debug_mode: bool = False):
+        self.chain = chain
+        self.chain_name = chain_name
+        self.verbose = debug_mode
 
+    def invoke(self, inputs: dict, config=None, **kwargs):
+        if self.verbose:
+            print(f"[{self.chain_name}] inputs: {inputs}")
+        result = self.chain.invoke(inputs, config=config, **kwargs)
+        if self.verbose:
+            print(f"[{self.chain_name}] output: {result}")
+        return result
 
-def call_llm(system_prompt, user_prompt, model="gpt-4.1-nano", temp=0, verbose=False):
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
-    ]
-    completion = openai.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=temp
-    )
-    answer = completion.choices[0].message.content.strip()
-    if verbose:
-        print(f"[LLM] Tokens: {completion.usage.total_tokens}")
-        print(f"[LLM] Answer: {answer}")
-    return answer
+    # @property
+    # def output_key(self):
+    #     return getattr(self.chain, "output_key", None)
