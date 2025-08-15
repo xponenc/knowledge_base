@@ -5,7 +5,7 @@ from langchain_openai import ChatOpenAI
 from langchain.chains.llm import LLMChain
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate, SystemMessagePromptTemplate, \
     HumanMessagePromptTemplate
-from langchain_core.runnables import RunnableParallel, Runnable
+from langchain_core.runnables import RunnableParallel, Runnable, RunnablePassthrough
 
 from neuro_salesman.config import DEFAULT_LLM_MODEL
 from neuro_salesman.llm_utils import VerboseLLMChain
@@ -115,4 +115,5 @@ def build_parallel_extractors(db_name: str, debug_mode: bool = False):
         chain = make_extractor_chain(chain_name=extractor, chain_config=extractor_config, debug_mode=debug_mode)
         verbose_chain = VerboseLLMChain(chain, chain_name=chain_name, debug_mode=debug_mode)
         chains[extractor] = verbose_chain
+    chains['original_inputs'] = RunnablePassthrough()
     return RunnableParallel(**chains)

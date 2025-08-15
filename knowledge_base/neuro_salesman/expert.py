@@ -1,7 +1,7 @@
 import re
 from typing import Dict
 
-from langchain_community.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain_core.runnables import Runnable, RunnableParallel, RunnablePassthrough
@@ -33,7 +33,10 @@ def make_bound_chain(chain, cfg, debug_mode=False):
                 {
                     "docs_content": f"База Знаний: \n{docs_content}" if context_search else "",
                     "system_prompt": self.cfg.get("system_prompt", ""),
-                    "instructions": self.cfg.get("instructions", "")
+                    "instructions": self.cfg.get("instructions", ""),
+                    "last message from client": inputs.get("last message from client", ""),
+                    "summary_history": "\n".join(inputs.get("histories", [])),
+                    "summary_exact": inputs.get("summary_exact", "")
                 },
                 config=config,
                 **kwargs
