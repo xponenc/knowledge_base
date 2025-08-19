@@ -79,7 +79,7 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
         to_attr="limited_chat_history",
     )
 
-    telegram_session, _ = await sync_to_async(TelegramSession.objects.prefetch_related(limited_chat_history).get_or_create)(
+    telegram_session, created = await sync_to_async(TelegramSession.objects.prefetch_related(limited_chat_history).get_or_create)(
         telegram_id=data.telegram_id,
         defaults={"kb": kb}
     )
@@ -94,7 +94,7 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
 
     reformulated_question = ""
 
-    if is_reformulate_question and telegram_session.limited_chat_history:
+    if is_reformulate_question and not created:
         chat_history = telegram_session.limited_chat_history
         if chat_history:
             history = [(msg.text, getattr(msg, "answer", None).text if getattr(msg, "answer", None) else "") for msg

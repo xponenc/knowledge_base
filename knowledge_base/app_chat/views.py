@@ -565,7 +565,7 @@ class SystemChatView(LoginRequiredMixin, View):
             ),
             to_attr="limited_chat_history",
         )
-        chat_session, _ = (
+        chat_session, created = (
             ChatSession.objects.prefetch_related(limited_chat_history).get_or_create(session_key=session_key, kb=kb)
         )
 
@@ -576,7 +576,7 @@ class SystemChatView(LoginRequiredMixin, View):
             text=user_message_text,
         )
         reformulated_question = ""
-        if is_reformulate_question and chat_session.limited_chat_history:
+        if is_reformulate_question and not created:
             chat_history = chat_session.limited_chat_history
             if chat_history:
                 history = [(msg.text, getattr(msg, "answer", None).text if getattr(msg, "answer", None) else "") for msg
