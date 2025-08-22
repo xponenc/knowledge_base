@@ -37,7 +37,7 @@
 
 /* Config */
 .assistant-tree__config {
-    margin-top: 6px;
+    margin-top: var(--gap-half);
     padding: 6px 10px;
     background: #f7f7f7;
     border: 1px dashed #ccc;
@@ -47,6 +47,18 @@
     /* white-space: pre-wrap; */
     color: #222;
 }
+
+.assistant-tree__function {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.5s ease-in-out, padding 0.5s ease-in-out;
+    padding: 0 8px;
+}
+
+/* .assistant-tree__function--hidden {
+    display: none;
+    visibility: hidden;
+} */
 
 /* Модификаторы по типу */
 .assistant-tree__type--extractor {
@@ -83,3 +95,24 @@
     background: #f7f0ff;
     color: #8c735b;
 }
+
+.assistant-tree__toggle-function {
+    margin-top: var(--gap-half);
+    color: var(--header-color);
+    border: none;
+    padding: 6px 12px;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    font-weight: bold;
+    margin-bottom: 2px;
+    transition-property: color, background-color;
+    transition-timing-function: ease-in-out;
+    transition-duration: 0.3s;
+}
+
+.assistant-tree__toggle-function--open, .assistant-tree__toggle-function:hover, .assistant-tree__toggle-function:focus {
+    background-color: var(--header-color);
+    color: var(--text-on-accent-bg-color);
+}
+

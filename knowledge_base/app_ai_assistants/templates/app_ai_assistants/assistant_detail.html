@@ -121,7 +121,10 @@
                     {% endif %}
                 
                     {% if block.function_source %}
-                        <div class="assistant-tree__config">
+                        <button class="assistant-tree__toggle-function">
+                            Показать/Скрыть исходник функции
+                        </button>
+                        <div class="assistant-tree__config assistant-tree__function">
                             <div class="assistant-tree__code codehilite">
                                 {{ block.function_source|safe }}
                             </div>
@@ -150,6 +153,37 @@
 {% endblock content %}
 
 {% block script %}
+    {% comment %} <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.assistant-tree__toggle-function').forEach(button => {
+            button.addEventListener('click', () => {
+                const configDiv = button.nextElementSibling;
+                configDiv.classList.toggle('assistant-tree__config--hidden');
+            });
+        });
+    });
+    </script> {% endcomment %}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.assistant-tree__toggle-function').forEach(button => {
+                button.addEventListener('click', () => {
+                    button.classList.toggle('assistant-tree__toggle-function--open');
+                    const configDiv = button.nextElementSibling;
+                    console.log(configDiv)
+
+                    if (configDiv.style.maxHeight) {
+                        // Свернуть
+                        configDiv.style.maxHeight = null;
+                    } else {
+                        // Развернуть до реальной высоты содержимого
+                        configDiv.style.maxHeight = configDiv.scrollHeight + "px";
+                    }
+                });
+            });
+        });
+    </script>
+
+
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script>
     mermaid.initialize({
@@ -279,4 +313,6 @@
         });
     });
     </script>
+
+
 {% endblock script %}
