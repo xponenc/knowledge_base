@@ -34,6 +34,7 @@ urlpatterns = [
     path('chunks/', include('app_chunks.urls')),
     path('tasks/', include('app_tasks.urls')),
     path('chat/', include('app_chat.urls')),
+    path('assistant/', include('app_ai_assistants.urls')),
 ]
 
 if settings.DEBUG:

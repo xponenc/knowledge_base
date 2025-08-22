@@ -1,3 +1,10 @@
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+print(sys.path)
+
 from utils.setup_logger import setup_logger
 
 logger = setup_logger(name=__name__, log_dir="logs/neuro_salesman", log_file="ns.log")

@@ -9,6 +9,7 @@
     --website-accent-color: #5e5774;
     --urlbatch-accent-color: #c17a4e;
     --content-accent-color: #0c3d48;
+    --assistant-accent-color: #3aa686;
 }
 
 .page--engine {
@@ -52,6 +53,11 @@
     --banner-color: var(--content-accent-color);
     --header-color: var(--content-accent-color);
     --accent-color: var(--content-accent-color);
+}
+.page--assistant {
+    --banner-color: var(--assistant-accent-color);
+    --header-color: var(--assistant-accent-color);
+    --accent-color: var(--assistant-accent-color);
 }
 
 .page__heading {

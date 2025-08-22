@@ -5,119 +5,181 @@ from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTempla
 from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI
 
+from neuro_salesman.chains.chain_logger import ChainLogger
+from neuro_salesman.chains.generic_runnable import GenericRunnable
 from neuro_salesman.chains.keyed_runnable import KeyedRunnable
 from neuro_salesman.config import DEFAULT_LLM_MODEL, EMPTY_MESSAGE, LLM_TIMEOUT, LLM_MAX_RETRIES
-from neuro_salesman.roles_config import GREETING_EXTRACTOR, REMOVE_GREETING_CONFIG
+from neuro_salesman.roles_config import NEURO_SALER
 from utils.setup_logger import setup_logger
 
-logger = setup_logger(name=__file__, log_dir="logs/neuro_salesman", log_file="ns.log")
+# logger = setup_logger(name=__file__, log_dir="logs/neuro_salesman", log_file="ns.log")
 
+
+# def create_extract_greeting_chain(debug_mode: bool = False):
+#     """
+#     Создает цепочку для выявления приветствия в последнем сообщении клиента.
+#
+#     Пошагово:
+#     1. Создает LLM-модель с параметрами из GREETING_EXTRACTOR.
+#     2. Формирует промпт из system_prompt и instructions.
+#     3. Оборачивает цепочку в KeyedRunnable, которая:
+#         - проверяет, пустой ли текст;
+#         - вызывает модель;
+#         - добавляет результат под ключ "greeting" в inputs;
+#         - логгирует вход и выход в зависимости от debug_mode.
+#
+#     Args:
+#         debug_mode (bool): Включает подробный вывод в консоль и DEBUG-логгер.
+#
+#     Returns:
+#         KeyedRunnable: объект Runnable, который при вызове invoke возвращает inputs с добавленным ключом 'greeting'.
+#     """
+#
+#     model_name = GREETING_EXTRACTOR.get("model_name", DEFAULT_LLM_MODEL)
+#     model_temperature = GREETING_EXTRACTOR.get("model_temperature", 0)
+#     system_prompt = GREETING_EXTRACTOR.get("system_prompt", "")
+#     instructions = GREETING_EXTRACTOR.get("instructions", "")
+#     verbose_name = GREETING_EXTRACTOR.get("verbose_name", "Greeting Extractor")
+#
+#     logger = ChainLogger(prefix=f"[{verbose_name}]", debug_mode=debug_mode)
+#     logger.log("init", "info", f"Chain started")
+#
+#     # Создаем LLM-модель
+#     llm = ChatOpenAI(model=model_name,
+#                      temperature=model_temperature,
+#                      max_retries=LLM_MAX_RETRIES,
+#                      timeout=LLM_TIMEOUT)
+#
+#     # Промпт с фиксированными instructions
+#     prompt_template = ChatPromptTemplate.from_messages([
+#         SystemMessagePromptTemplate.from_template(system_prompt),
+#         HumanMessagePromptTemplate.from_template(
+#             f"{instructions}:\n{{last message from client}}\n\nОтвет:"
+#         )
+#     ])
+#
+#     logger.log("init",
+#                "info",
+#                f"Chain creation started (model={model_name}, temperature={model_temperature})")
+#
+#     chain = prompt_template | llm
+#
+#     # class KeyedRunnable(Runnable):
+#     #     """
+#     #     Обертка для цепочки, возвращающая результат под ключом output_key.
+#     #
+#     #     Attributes:
+#     #         chain (Runnable): цепочка, которую нужно вызвать.
+#     #         output_key (str): ключ, под которым сохранять результат в словаре inputs.
+#     #     """
+#     #
+#     #     def _log(self, session_info, level, message):
+#     #         if self.debug_mode:
+#     #             print(f"[Greeting Extractor][{session_info}] {message}")
+#     #         getattr(logger, level)(f"[Greeting Extractor][{session_info}] {message}")
+#     #
+#     #     def __init__(self, chain, output_key, debug_mode):
+#     #         self.chain = chain
+#     #         self.output_key = output_key
+#     #         self.debug_mode = debug_mode
+#     #
+#     #     def invoke(self, inputs, config=None, **kwargs):
+#     #         """
+#     #         Вызывает цепочку на последнем сообщении клиента и возвращает обновленный словарь inputs.
+#     #
+#     #         Args:
+#     #             inputs (dict): словарь с входными данными, ожидается ключ "last message from client".
+#     #             config: опциональная конфигурация вызова.
+#     #             **kwargs: дополнительные параметры вызова.
+#     #
+#     #         Returns:
+#     #             dict: исходные inputs с добавленным ключом output_key и результатом цепочки.
+#     #         """
+#     #         start_time = time.monotonic()
+#     #         session_info = f"[{inputs.get('session_type', 'n/a')}:{inputs.get('session_id', 'n/a')}]"
+#     #         text = inputs.get("last message from client", "")
+#     #         if not text or not text.strip():
+#     #             self._log(session_info, "warning", "пустой текст, модель не вызвалась")
+#     #             if self.debug_mode:
+#     #                 print(f"[Greeting Extractor][{session_info}]: пустой текст, модель не вызвалась")
+#     #             return {**inputs, self.output_key: EMPTY_MESSAGE}
+#     #
+#     #         self._log(session_info, "info", "started")
+#     #
+#     #         try:
+#     #             result = self.chain.invoke(inputs,
+#     #                                        config=config,
+#     #                                        **kwargs)
+#     #
+#     #             elapsed = time.monotonic() - start_time
+#     #             self._log(session_info, "debug", f"input: {inputs}")
+#     #             self._log(session_info, "info", f"finished in {elapsed:.2f}s")
+#     #             self._log(session_info, "debug", f"output: {{{self.output_key}: {result}}}")
+#     #             return {**inputs, self.output_key: result}
+#     #
+#     #         except Exception as e:
+#     #             logger.error(f"[Greeting Extractor][{session_info}] Ошибка: {str(e)}", exc_info=True)
+#     #             if debug_mode:
+#     #                 print(f"[Greeting Extractor][{session_info}] Ошибка: {str(e)}")
+#     #             return {**inputs, self.output_key: EMPTY_MESSAGE}
+#
+#     return KeyedRunnable(chain, prefix=verbose_name, output_key="greeting", debug_mode=debug_mode)
 
 def create_extract_greeting_chain(debug_mode: bool = False):
     """
     Создает цепочку для выявления приветствия в последнем сообщении клиента.
 
-    Пошагово:
+    Шаги:
     1. Создает LLM-модель с параметрами из GREETING_EXTRACTOR.
     2. Формирует промпт из system_prompt и instructions.
-    3. Оборачивает цепочку в KeyedRunnable, которая:
-        - проверяет, пустой ли текст;
-        - вызывает модель;
-        - добавляет результат под ключ "greeting" в inputs;
-        - логгирует вход и выход в зависимости от debug_mode.
+    3. Оборачивает цепочку в GenericRunnable:
+       - берёт текст из inputs["last_message_from_client"];
+       - вызывает модель;
+       - добавляет результат под ключом "greeting" в inputs;
+       - логгирует вход и выход.
 
     Args:
         debug_mode (bool): Включает подробный вывод в консоль и DEBUG-логгер.
 
     Returns:
-        KeyedRunnable: объект Runnable, который при вызове invoke возвращает inputs с добавленным ключом 'greeting'.
+        GenericRunnable: объект Runnable, который при вызове возвращает inputs + {"greeting": <результат>}.
     """
-
+    GREETING_EXTRACTOR = NEURO_SALER.get("EXTRACTORS", {}).get("greeting")
     model_name = GREETING_EXTRACTOR.get("model_name", DEFAULT_LLM_MODEL)
     model_temperature = GREETING_EXTRACTOR.get("model_temperature", 0)
     system_prompt = GREETING_EXTRACTOR.get("system_prompt", "")
     instructions = GREETING_EXTRACTOR.get("instructions", "")
     verbose_name = GREETING_EXTRACTOR.get("verbose_name", "Greeting Extractor")
-    logger.info(f"[{verbose_name}] chain started")
 
-    # Создаем LLM-модель
-    llm = ChatOpenAI(model=model_name,
-                     temperature=model_temperature,
-                     max_retries=LLM_MAX_RETRIES,
-                     timeout=LLM_TIMEOUT)
+    # --- Создаем LLM ---
+    llm = ChatOpenAI(
+        model=model_name,
+        temperature=model_temperature,
+        max_retries=LLM_MAX_RETRIES,
+        timeout=LLM_TIMEOUT
+    )
 
-    # Промпт с фиксированными instructions
+    # --- Промпт ---
     prompt_template = ChatPromptTemplate.from_messages([
         SystemMessagePromptTemplate.from_template(system_prompt),
         HumanMessagePromptTemplate.from_template(
-            f"{instructions}:\n{{last message from client}}\n\nОтвет:"
+            f"{instructions}:\n{{last_message_from_client}}\n\nОтвет:"
         )
     ])
 
-    # Цепочка LLM + промпт
     chain = prompt_template | llm
-    logger.info(f"[{verbose_name}] chain created (model={model_name}, temperature={model_temperature})")
 
-    # class KeyedRunnable(Runnable):
-    #     """
-    #     Обертка для цепочки, возвращающая результат под ключом output_key.
-    #
-    #     Attributes:
-    #         chain (Runnable): цепочка, которую нужно вызвать.
-    #         output_key (str): ключ, под которым сохранять результат в словаре inputs.
-    #     """
-    #
-    #     def _log(self, session_info, level, message):
-    #         if self.debug_mode:
-    #             print(f"[Greeting Extractor][{session_info}] {message}")
-    #         getattr(logger, level)(f"[Greeting Extractor][{session_info}] {message}")
-    #
-    #     def __init__(self, chain, output_key, debug_mode):
-    #         self.chain = chain
-    #         self.output_key = output_key
-    #         self.debug_mode = debug_mode
-    #
-    #     def invoke(self, inputs, config=None, **kwargs):
-    #         """
-    #         Вызывает цепочку на последнем сообщении клиента и возвращает обновленный словарь inputs.
-    #
-    #         Args:
-    #             inputs (dict): словарь с входными данными, ожидается ключ "last message from client".
-    #             config: опциональная конфигурация вызова.
-    #             **kwargs: дополнительные параметры вызова.
-    #
-    #         Returns:
-    #             dict: исходные inputs с добавленным ключом output_key и результатом цепочки.
-    #         """
-    #         start_time = time.monotonic()
-    #         session_info = f"[{inputs.get('session_type', 'n/a')}:{inputs.get('session_id', 'n/a')}]"
-    #         text = inputs.get("last message from client", "")
-    #         if not text or not text.strip():
-    #             self._log(session_info, "warning", "пустой текст, модель не вызвалась")
-    #             if self.debug_mode:
-    #                 print(f"[Greeting Extractor][{session_info}]: пустой текст, модель не вызвалась")
-    #             return {**inputs, self.output_key: EMPTY_MESSAGE}
-    #
-    #         self._log(session_info, "info", "started")
-    #
-    #         try:
-    #             result = self.chain.invoke(inputs,
-    #                                        config=config,
-    #                                        **kwargs)
-    #
-    #             elapsed = time.monotonic() - start_time
-    #             self._log(session_info, "debug", f"input: {inputs}")
-    #             self._log(session_info, "info", f"finished in {elapsed:.2f}s")
-    #             self._log(session_info, "debug", f"output: {{{self.output_key}: {result}}}")
-    #             return {**inputs, self.output_key: result}
-    #
-    #         except Exception as e:
-    #             logger.error(f"[Greeting Extractor][{session_info}] Ошибка: {str(e)}", exc_info=True)
-    #             if debug_mode:
-    #                 print(f"[Greeting Extractor][{session_info}] Ошибка: {str(e)}")
-    #             return {**inputs, self.output_key: EMPTY_MESSAGE}
-
-    return KeyedRunnable(chain, prefix=verbose_name, output_key="greeting", debug_mode=debug_mode)
+    # --- Оборачиваем в GenericRunnable ---
+    return GenericRunnable(
+        chain=chain,
+        output_key="greeting",
+        prefix=verbose_name,
+        debug_mode=debug_mode,
+        input_mapping=lambda inputs: {
+            "last_message_from_client": inputs.get("last message from client", "")
+        },
+        output_mapping=lambda result, inputs: {**inputs, "greeting": result}
+    )
 
 
 # def create_remove_greeting_chain(debug_mode: bool = False):
@@ -262,6 +324,7 @@ def create_remove_greeting_chain(debug_mode: bool = False):
     Возвращает KeyedRunnable, который берет текст из REMOVE_GREETING_CONFIG['target']
     и возвращает результат под ключом 'answer_without_greetings'.
     """
+    REMOVE_GREETING_CONFIG = NEURO_SALER.get("EXTRACTORS", {}).get("remove_greeting")
 
     model_name = REMOVE_GREETING_CONFIG.get("model_name", DEFAULT_LLM_MODEL)
     model_temperature = REMOVE_GREETING_CONFIG.get("model_temperature", 0)
@@ -271,7 +334,8 @@ def create_remove_greeting_chain(debug_mode: bool = False):
     verbose_name = REMOVE_GREETING_CONFIG.get("verbose_name", "Remove Greeting Chain")
     target_key = REMOVE_GREETING_CONFIG.get("target", "")
 
-    logger.info(f"[{verbose_name}] chain started")
+    logger = ChainLogger(prefix=f"[{verbose_name}]", debug_mode=debug_mode)
+    logger.log("init", "info", f"Chain started")
 
     llm = ChatOpenAI(
         model=model_name,
@@ -288,6 +352,11 @@ def create_remove_greeting_chain(debug_mode: bool = False):
     messages.append(HumanMessagePromptTemplate.from_template(f"{instructions}:\n{{text}}\n\nОтвет:"))
 
     prompt_template = ChatPromptTemplate.from_messages(messages)
+
+    logger.log("init",
+               "info",
+               f"Chain creation started (model={model_name}, temperature={model_temperature})")
+
     chain = prompt_template | llm
 
     class RemoveGreetingRunnable(KeyedRunnable):
@@ -299,4 +368,8 @@ def create_remove_greeting_chain(debug_mode: bool = False):
             text = inputs.get(target_key, "")
             return super().invoke({"text": text}, config=config, **kwargs)
 
-    return RemoveGreetingRunnable(chain, output_key="answer_without_greetings", prefix=verbose_name, debug_mode=debug_mode)
+    return RemoveGreetingRunnable(chain,
+                                  output_key="answer_without_greetings",
+                                  prefix=verbose_name,
+                                  debug_mode=debug_mode
+                                  )

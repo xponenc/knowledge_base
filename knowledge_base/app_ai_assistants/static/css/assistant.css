@@ -1,0 +1,85 @@
+.assistant-tree {
+    font-family: Inter, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.assistant-tree__list {
+    list-style: none;
+    margin: 0;
+    padding-left:calc(var(--gap) * 3);
+    border-left: 2px solid #e1e1e6;
+}
+
+.assistant-tree__item {
+    margin: 6px 0;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: #f9f9fb;
+    border: 1px solid #e1e1e6;
+}
+
+/* Имя и тип */
+.assistant-tree__name {
+    font-weight: 600;
+    color: #333;
+}
+
+.assistant-tree__type {
+    font-size: 12px;
+    font-weight: 500;
+    margin-left: 6px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: #eee;
+    color: #555;
+}
+
+/* Config */
+.assistant-tree__config {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: #f7f7f7;
+    border: 1px dashed #ccc;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 12px;
+    /* white-space: pre-wrap; */
+    color: #222;
+}
+
+/* Модификаторы по типу */
+.assistant-tree__type--extractor {
+    background: #e8f6ff;
+    color: #0077b6;
+}
+
+.assistant-tree__type--parallel {
+    background: #f3eaff;
+    color: #6e60ce;
+}
+
+.assistant-tree__type--sequential {
+    background: #fff4e6;
+    color: #be5000;
+}
+
+.assistant-tree__type--router {
+    background: #e9f9f4;
+    color: #3aa686;
+}
+
+.assistant-tree__type--expert {
+    background: #f0f7ff;
+    color: #5e5774;
+}
+
+.assistant-tree__type--senior {
+    background: #fff8e1;
+    color: #d4a017;
+}
+
+.assistant-tree__type--stylist {
+    background: #f7f0ff;
+    color: #8c735b;
+}

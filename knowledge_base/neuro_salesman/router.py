@@ -8,7 +8,7 @@ from langchain_core.runnables import Runnable
 
 from neuro_salesman.chains.chain_logger import ChainLogger
 from neuro_salesman.config import DEFAULT_LLM_MODEL
-from neuro_salesman.roles_config import ROUTER_CONFIG
+from neuro_salesman.roles_config import NEURO_SALER
 
 #
 # def create_router_chain(debug_mode: bool = False):
@@ -305,23 +305,27 @@ class RouterRunnable(Runnable):
         logger.log("invoke", "info", f"[{self.chain_name}] outputs={result}")
 
         output_router_list = parse_router_output(result.content)
-        return {**inputs, "router_output": output_router_list}
+        return {**inputs,
+                "routers": output_router_list,
+                "router_output": result}
 
 
 # === Фабрика цепочки ===
-def create_router_chain(debug_mode: bool = False) -> RouterRunnable:
+def create_router_chain(router_name: str, debug_mode: bool = False) -> RouterRunnable:
     """
     Фабрика для создания RouterRunnable.
 
     Args:
+        router_name (str): имя роутера
         debug_mode (bool): включить ли debug-режим (печать + логгирование).
 
     Returns:
         RouterRunnable: готовая цепочка для маршрутизации диалога.
     """
-    chain_name = ROUTER_CONFIG.get("verbose_name", "Router")
-    model_name = ROUTER_CONFIG.get("model_name", DEFAULT_LLM_MODEL)
-    model_temperature = ROUTER_CONFIG.get("model_temperature", 0)
+    router_config = NEURO_SALER.get("ROUTERS", {}).get(router_name)
+    chain_name = router_config.get("verbose_name", "Router")
+    model_name = router_config.get("model_name", DEFAULT_LLM_MODEL)
+    model_temperature = router_config.get("model_temperature", 0)
 
     llm = ChatOpenAI(model=model_name, temperature=model_temperature)
 

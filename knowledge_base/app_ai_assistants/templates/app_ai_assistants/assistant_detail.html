@@ -1,0 +1,282 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+{% load custom_filters %}
+{% load json_extras %}
+
+
+{% block extra_css %}
+    <link href="{% static 'css/assistant.css' %}" rel="stylesheet">
+    <link href="{% static 'css/code.css' %}" rel="stylesheet">
+{% endblock %}
+
+
+{% block nav %}
+    {% include "include/nav.html" %}
+{% endblock nav %}
+
+
+{% block title %}AI ассистент{% endblock %}
+
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        {% comment %} база знаний {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ kb.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">База знаний {{ kb.name }}</span>
+            </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">AI ассистент ({{ assistant.name }})</span>
+            <meta itemprop="position" content="2" />
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+
+{% block content %}
+<div class="page page--assistant">
+    <div class="page__top page__grid">
+        <div class="page__info info-page info-page--logo">
+            {% if kb.logo and kb.logo.url %}
+                <img src="{{ kb.logo.url }}" alt="Логотип базы знаний {{ kb.name }}" class="info-page__logo">
+            {% endif %}
+        </div>
+        <div class="page__info info-page">
+            <span class="info-page__banner">AI assistant</span>
+            <div class="info-page__header">
+                <h2 class="page__heading page__heading--accent _ta-e">{{ object.name }}</h2>
+                <h3 class="info-page__heading">Детали базы знаний</h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                <dl class="description">
+                    <dt class="description__term">описание</dt>
+                    <dd class="description__defination">
+                        {{ object.description|default:"—" }}
+                    </dd>
+                    
+                </dl>
+            </div>
+            <div class="info-page__footer">
+                <div class="btns _jc-fe">
+                    <a href="{% url 'ai-assistants:ai-assistant-update' assistant.id %}" class="btn btn--reset btn--round" title="Редактировать информацию о ассистенте" aria-label="Редактировать информацию о ассистенте">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                        </svg>
+                    </a>
+                    {% if kb.engine %}
+                        <a href="{% url 'ai-assistants:ai-assistant-chat' assistant.pk %}" class="btn btn--reset btn--simple btn--primary">
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                            </svg>
+                            чат
+                        </a>
+                        <a href="{% url 'ai-assistants:ai-assistant-chat' assistant.pk %}" class="btn btn--reset btn--simple btn--primary">
+                            <svg class="btn__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
+                            </svg>
+                            системный чат
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="page__content">
+        <h3>Структура цепочки ассистента</h3>
+    
+        <div class="assistant-tree">
+            <ul class="assistant-tree__list">
+                {% for block in assistant_structure %}
+                    <li class="assistant-tree__item">
+                    <span class="assistant-tree__name">{{ block.name }}</span>
+                    <span class="assistant-tree__type assistant-tree__type--{{ block.block_type }}">
+                        {{ block.block_type }}
+                    </span>
+    
+                    {% if block.config %}
+                        <div class="assistant-tree__config">
+                            <ul>
+                                {% for key, value in block.config.items %}
+                                    <li>
+                                        <strong>{{ key }}</strong>:
+                                        {% if value.items %}
+                                            <ul>
+                                            {% for k, v in value.items %}
+                                                <li>{{ k }}: {{ v|linebreaksbr }}</li>
+                                            {% endfor %}
+                                            </ul>
+                                        {% else %}
+                                            {{ value|linebreaksbr }}
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+    
+                        </div>
+                    {% endif %}
+                
+                    {% if block.function_source %}
+                        <div class="assistant-tree__config">
+                            <div class="assistant-tree__code codehilite">
+                                {{ block.function_source|safe }}
+                            </div>
+                        </div>
+                    {% endif %}
+    
+                    {% if block.children %}
+                        {% include "app_ai_assistants/include/block_children.html" with blocks=block.children %}
+                    {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    
+        <h2>{{ assistant.name }}</h2>
+        <div class="mermaid">
+            {{ mermaid_code|safe }}
+        </div>
+    
+        <div id="cy" style="width:100%; height:600px; border:1px solid #ccc;"></div>
+        <button id="saveGraph" class="btn btn--reset btn--simple">Сохранить</button>
+    </div>
+
+
+</div>
+{% endblock content %}
+
+{% block script %}
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+    mermaid.initialize({
+        startOnLoad: true,
+        theme: "default",   // "default" | "dark" | "forest" | "neutral"
+    });
+    </script>
+
+
+    <!-- Cytoscape core (без defer, чтобы загрузился первым) -->
+    <script src="https://unpkg.com/cytoscape@3.33.1/dist/cytoscape.min.js"></script>
+
+    <!-- jQuery (нужен для edgehandles) -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+    <!-- Lodash (требуется для cytoscape-edgehandles) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
+
+    <!-- Cytoscape Edgehandles -->
+    <script defer src="https://cdn.jsdelivr.net/npm/cytoscape-edgehandles@4.0.1/cytoscape-edgehandles.js"></script>
+    
+    <!-- Undo/Redo -->
+    <script defer src="https://cdn.jsdelivr.net/npm/cytoscape-undo-redo@1.3.3/cytoscape-undo-redo.min.js"></script>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const data = {{ cytoscape_data|safe }};
+
+        const cy = cytoscape({
+            container: document.getElementById("cy"),
+            elements: data.nodes.concat(data.edges),
+            layout: { name: "breadthfirst", directed: true, padding: 10 },
+            style: [
+                {
+                    selector: "node",
+                    style: {
+                        "label": "data(label)",
+                        "text-valign": "center",
+                        "color": "#000",
+                        "background-color": ele => {
+                            const type = ele.data("block_type");
+                            const colors = {
+                                greeting: "#FFD700",
+                                extractor: "#90EE90",
+                                summary: "#ADD8E6",
+                                router: "#FFA07A",
+                                expert: "#F08080",
+                                senior: "#FF6347",
+                                stylist: "#9370DB",
+                                remove_greeting: "#D3D3D3",
+                                sequence: "#FFE4B5",
+                                parallel: "#AFEEEE",
+                            };
+                            return colors[type] || "#ccc";
+                        },
+                        "border-color": "#333",
+                        "border-width": 2,
+                        "shape": "roundrectangle",
+                        "width": "label",         // ширина по тексту
+                        "height": "label",        // высота по тексту
+                        "padding": "10px",        // внутренние отступы
+                        "text-wrap": "wrap",      // перенос строк
+                        "text-max-width": 120     // ограничение ширины текста
+                    }
+                },
+                {
+                    selector: "edge",
+                    style: {
+                        "curve-style": "bezier",
+                        "target-arrow-shape": "triangle",
+                        "line-color": "#888",
+                        "target-arrow-color": "#888",
+                        "label": "data(order)",
+                        "font-size": 10,
+                        "text-background-color": "#fff",
+                        "text-background-opacity": 1,
+                        "text-margin-y": -10,
+                    }
+                }
+            ]
+        });
+
+        console.log("Edgehandles available:", typeof cy.edgehandles);
+
+        if (!cy.edgehandles) {
+            console.error("Cytoscape Edgehandles plugin is not loaded");
+            return;
+        }
+
+        // Edgehandles (соединение блоков)
+        const eh = cy.edgehandles({
+            toggleOffOnLeave: true,
+            snap: true,
+            noEdgeEventsInDraw: true
+        });
+
+        // Undo/Redo
+        const ur = cy.undoRedo();
+
+        document.addEventListener("keydown", e => {
+            if (e.ctrlKey && e.key === "z") ur.undo();
+            if (e.ctrlKey && e.key === "y") ur.redo();
+        });
+
+        // === Кнопка сохранения графа ===
+        document.getElementById("saveGraph").addEventListener("click", function () {
+            const newNodes = cy.nodes().map(n => n.data());
+            const newEdges = cy.edges().map(e => e.data());
+
+            fetch("{% url 'ai-assistants:ai-assistant-graph-save' assistant.id %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": "{{ csrf_token }}"
+                },
+                body: JSON.stringify({
+                    nodes: newNodes,
+                    edges: newEdges
+                })
+            }).then(r => {
+                if (r.ok) {
+                    alert("✅ Граф сохранён!");
+                } else {
+                    alert("❌ Ошибка сохранения");
+                }
+            });
+        });
+    });
+    </script>
+{% endblock script %}

@@ -12,7 +12,7 @@ from neuro_salesman.chains.chain_logger import ChainLogger
 from neuro_salesman.chains.keyed_runnable import KeyedRunnable
 from neuro_salesman.config import DEFAULT_LLM_MODEL, EMPTY_MESSAGE, LLM_MAX_RETRIES, LLM_TIMEOUT
 from neuro_salesman.llm_utils import VerboseLLMChain
-from neuro_salesman.roles_config import EXTRACTOR_ROLES
+from neuro_salesman.roles_config import NEURO_SALER
 
 #
 # def make_bound_chain(chain, cfg, debug_mode=False):
@@ -125,14 +125,15 @@ def make_extractor_chain(
                      max_retries=LLM_MAX_RETRIES,
                      timeout=LLM_TIMEOUT
                      )
-    logger.log("init",
-               "info",
-               f"Chain creation started (model={model_name}, temperature={model_temperature})")
 
     prompt_template = ChatPromptTemplate.from_messages([
         SystemMessagePromptTemplate.from_template("{system_prompt}\n{instructions}"),
         HumanMessagePromptTemplate.from_template("Текст для анализа:\n{text}\n\nОтвет:")
     ])
+
+    logger.log("init",
+               "info",
+               f"Chain creation started (model={model_name}, temperature={model_temperature})")
 
     chain = prompt_template | llm
 
@@ -164,7 +165,7 @@ def make_extractor_chain(
 
     return BoundChainRunnable(chain, output_key="", prefix=verbose_name, debug_mode=debug_mode)
 
-def build_parallel_extractors(debug_mode: bool = False):
+def build_parallel_extractors(extractors:dict, debug_mode: bool = False):
     """
     Создает параллельный runnable, который запускает все экстракторы одновременно.
 
@@ -180,7 +181,7 @@ def build_parallel_extractors(debug_mode: bool = False):
         RunnableParallel: параллельный runnable с цепочками-экстракторами и passthrough для оригинальных inputs.
     """
     chains = {}
-    for extractor, extractor_config in EXTRACTOR_ROLES.items():
+    for extractor, extractor_config in extractors.items():
         chains[extractor] = make_extractor_chain(extractor_config, debug_mode=debug_mode)
     chains['original_inputs'] = RunnablePassthrough()
     return RunnableParallel(**chains)

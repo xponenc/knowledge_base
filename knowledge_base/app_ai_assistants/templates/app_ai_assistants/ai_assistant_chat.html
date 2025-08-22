@@ -1,0 +1,231 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+
+{% block extra_css %}
+    <link href="{% static 'css/chat.css' %}" rel="stylesheet">
+{% endblock %}
+
+
+{% block nav %}
+    {% include "include/nav.html" %}
+{% endblock nav %}
+
+
+{% block title %}Чат с AI ассистентом{% endblock %}
+
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        {% comment %} база знаний {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ kb.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">База знаний {{ kb.name }}</span>
+            </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">Чат с AI ({{ assistant.name }})</span>
+            <meta itemprop="position" content="2" />
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+
+{% block content %}
+<div class="page page--kb">
+    <div class="page__top">
+        <!-- Правая колонка: Чат -->
+        <div class="chat">
+            <div class="chat__header">
+                <h3 class="chat__heading">🧠 Ask {{ kb.engine.name }}</h3>
+                <span class="text text--muted">Embedded by: <span class="text text--fat text--muted">{{ kb.engine.model_name }}</span></span>
+                <span class="text text--muted _mb">Answer by: <span class="text text--fat text--muted">{{ kb.get_llm_display }}</span></span>
+            </div>
+            <div class="chat__history" id="chat-history">
+                {% for message in chat_history %}
+                    <div class="message {% if message.is_user %} message--user{% else %} message--ai{% endif %}" data-message-id="{{ message.id }}" data-url="{% url 'chat:message_score' message.id %}">
+                        {{ message.text|safe }}
+                        {% if not message.is_user %}
+                            <div class="rating" data-score="{{ message.score|default_if_none:'' }}">
+                                <div class="rating__stars">
+                                    {% for i in "2 1 0 -1 -2"|split:" " %}
+                                        {% with i_int=i|add:"0" %}
+                                            <label class="rating__star">
+                                                <input type="radio" class="rating__input" name="score-{{ message.id }}" value="{{ i_int }}" {% if message.score == i_int%} checked{% endif %}>
+                                            </label>
+                                        {% endwith %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="chat__footer">
+                <form action="{% url 'chat:clear_chat' kb.pk %}" method="post" class="clear-button">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn--reset btn--simple">Очистить чат</button>
+                </form>
+                <form id="chat-form" method="post" class="chat__form form" >
+                    {% csrf_token %}
+                    <div class="chat__input">
+                        <input type="text" name="message" id="message-input" class="form-control" placeholder="Введите ваше сообщение..." required>
+                        <button type="submit" class="btn btn--reset btn--simple btn--primary" id="submit-btn">
+                            Отправить
+                            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="loader"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+
+{% block script %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const chatForm = document.querySelector("#chat-form");
+    const chatHistory = document.getElementById("chat-history");
+    const messageInput = document.getElementById("message-input");
+    const submitBtn = document.getElementById("submit-btn");
+    const loader = document.getElementById("loader");
+
+    if (chatHistory) {
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function generateStarsHtml(messageId, score) {
+        const stars = [];
+        for (let i = 2; i >= -2; i--) {
+            stars.push(`
+                <label class="rating__star">
+                    <input type="radio" class="rating__input" name="score-${messageId}" value="${i}" data-message-id="${messageId}" ${score === i ? 'checked' : ''}>
+                </label>
+            `);
+        }
+        return `<div class="rating__stars">${stars.join('')}</div>`;
+    }
+
+    chatHistory.addEventListener("change", function (event) {
+        const target = event.target;
+        console.log(event.target)
+        if (!target.classList.contains("rating__input")) return;
+        const star = target;
+        const container = star.closest(".message");
+        const messageId = container?.dataset.messageId;
+        const requestUrl = container?.dataset.url;
+        if (!messageId || !requestUrl) return;
+
+        const score = parseInt(star.value);
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch(requestUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-CSRFToken": csrfToken,
+            },
+            body: new URLSearchParams({ score: score })
+        })
+        .then(response => {
+            if (!response.ok) throw new Error("Ошибка при отправке оценки.");
+            const ratingDiv = container.querySelector(".rating");
+            if (ratingDiv) {
+                ratingDiv.dataset.score = score;
+                ratingDiv.innerHTML = generateStarsHtml(messageId, score);
+            }
+            
+        })
+        .catch(err => {
+            console.error("Ошибка отправки:", err);
+            alert("Ошибка при отправке оценки.");
+        });
+    });
+
+    chatForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+
+        const message = messageInput.value.trim();
+        if (!message) return;
+
+          // Показать загрузку и блокировать кнопку
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = 'Обработка... <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+        loader.classList.remove("d-none");
+
+         // Очистить поле ввода и временно добавить сообщение пользователя
+        messageInput.value = "";
+        const tempUserMsg = `<div class="message message--user">${message}</div>`;
+        const tempBotMsgId = `temp-bot-${Date.now()}`;
+        const tempBotMsg = `
+            <div class="message message--ai" id="${tempBotMsgId}">
+                <div class="message__typing-indicator">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        `;
+        chatHistory.innerHTML += tempUserMsg + tempBotMsg;
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch("", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-CSRFToken": csrfToken,
+                "X-Requested-With": "XMLHttpRequest"
+            },
+            body: new URLSearchParams({
+                message,
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                // сервер вернул 400/500 — читаем текст и выбрасываем ошибку
+                return response.json().then(err => {
+                    throw new Error(err.error || "Ошибка сервера");
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            const { user_message, ai_response, current_docs } = data;
+
+            // Заменить временный ответ AI на реальный
+            const botMsgEl = document.getElementById(tempBotMsgId);
+            if (botMsgEl) {
+                botMsgEl.outerHTML = `
+                    <div class="message message--ai" data-message-id="${ai_response.id}" data-url="${ai_response.request_url}">
+                        ${ai_response.text}
+                        <div class="rating" data-score="${ai_response.score ?? ''}">
+                            ${generateStarsHtml(ai_response.id, ai_response.score)}
+                        </div>
+                    </div>
+                `;
+            }
+
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        })
+        .catch(error => {
+            console.error("Ошибка:", error);
+            alert("Ошибка при отправке запроса.");
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Отправить';
+            loader.classList.add("d-none");
+        });
+    });
+
+});
+</script>
+
+{% endblock script %}
+

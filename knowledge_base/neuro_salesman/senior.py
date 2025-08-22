@@ -7,13 +7,14 @@ from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI
 
 from neuro_salesman.config import DEFAULT_LLM_MODEL
-from neuro_salesman.roles_config import SENIOR_CONFIG, EXPERTS_ROLES
+from neuro_salesman.roles_config import NEURO_SALER
 
 
 def create_senior_chain(debug_mode: bool = False):
     """
     Создает цепочку для старшего менеджера в стиле LangChain.
     """
+    SENIOR_CONFIG = NEURO_SALER.get("SENIOR")
     model_name = SENIOR_CONFIG.get("model_name", DEFAULT_LLM_MODEL)
     model_temperature = SENIOR_CONFIG.get("model_temperature", 0)
     system_prompt = SENIOR_CONFIG.get("system_prompt", "")

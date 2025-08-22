@@ -11,19 +11,13 @@ from langchain.schema.runnable import RunnableParallel
 
 import os
 from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
-from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain, SequentialChain
-from langchain_community.embeddings import OpenAIEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain.schema.runnable import Runnable
 
-from neuro_salesman.config import DEFAULT_LLM_MODEL
 from neuro_salesman.context import search_with_retriever
 from neuro_salesman.expert import build_parallel_experts
 from neuro_salesman.extractor import build_parallel_extractors
 from neuro_salesman.greetings import create_remove_greeting_chain, create_extract_greeting_chain
-from neuro_salesman.roles_config import EXTRACTOR_ROLES
+from neuro_salesman.roles_config import NEURO_SALER
 from neuro_salesman.router import create_router_chain
 from neuro_salesman.senior import create_senior_chain
 from neuro_salesman.stylist import create_stylist_chain
@@ -67,8 +61,11 @@ def get_seller_answer(
     greeting_identification_chain = create_extract_greeting_chain(debug_mode=debug_mode)
 
     logger.info(f"[{session_type}:{session_id}] Constructing parallel_extractors")
-    # 2. Параллельная цепочка из экстракторов EXTRACTOR_ROLES
-    parallel_extractors = build_parallel_extractors(debug_mode=debug_mode)
+    # 2. Параллельная цепочка из экстракторов
+    extractors = ["greeting", "needs", "benefits", "objections", "resolved_objections", "tariffs", "topic_phrases"]
+    extractors_config = NEURO_SALER.get("EXTRACTORS", {})
+    extractors = {extractor: extractors_config.get(extractor) for extractor in extractors if extractor in extractors_config}
+    parallel_extractors = build_parallel_extractors(extractors=extractors, debug_mode=debug_mode)
 
     logger.info(f"[{session_type}:{session_id}] Constructing summary_chain")
     # 3. Саммаризация истории чата
@@ -153,7 +150,7 @@ if __name__ == "__main__":
                  "Менеджер: Это отличный курс по Python.Добрый день! У нас есть два варианта: Базовый тариф — 15 000 ₽. Продвинутый тариф — 25 000 ₽. В оба тарифа входит полный доступ к материалам и поддержка.",
                  "Клиент: Мне кажется, это дорого, и я не уверен, что у меня будет время на обучение.",
                  "Менеджер: Понимаю ваши опасения. Давайте уточню — обучение можно проходить в удобное для вас время, в записи. Это поможет вам совмещать курс с основной работой.",
-                 "Клиент: Ну, возможно… Но я слышал, что многие онлайн-курсы оказываются бесполезными, и люди жалеют о потраченных деньгах."]
+                 "Клиент: Здрасьте.Ну, возможно… Но я слышал, что многие онлайн-курсы оказываются бесполезными, и люди жалеют о потраченных деньгах."]
     neuro_data = get_seller_answer(
         session_type,
         session_id,

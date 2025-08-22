@@ -8,7 +8,7 @@ from langchain_core.runnables import Runnable, RunnableParallel, RunnablePassthr
 
 from neuro_salesman.config import DEFAULT_LLM_MODEL
 from neuro_salesman.llm_utils import VerboseLLMChain
-from neuro_salesman.roles_config import EXPERTS_ROLES
+from neuro_salesman.roles_config import NEURO_SALER
 
 
 def make_bound_chain(chain, cfg, debug_mode=False):
@@ -131,7 +131,8 @@ def make_expert_chain(chain_name: str, expert_config: Dict, debug_mode: bool = F
 
 def build_parallel_experts(debug_mode: bool = False):
     chains = {}
-    for expert, expert_config in EXPERTS_ROLES.items():
+    experts = NEURO_SALER.get("EXPERTS", {})
+    for expert, expert_config in experts.items():
         chain__verbose_name = expert_config.get("verbose_name", "Expert")
         chain = make_expert_chain(chain_name=expert, expert_config=expert_config, debug_mode=debug_mode)
         verbose_chain = VerboseLLMChain(chain, chain_name=chain__verbose_name, debug_mode=debug_mode)

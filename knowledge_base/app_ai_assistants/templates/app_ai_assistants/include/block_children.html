@@ -1,0 +1,45 @@
+{% load json_extras %}
+
+<ul class="assistant-tree__list">
+    {% for block in blocks %}
+        <li class="assistant-tree__item">
+        <span class="assistant-tree__name">{{ block.name }}</span>
+        <span class="assistant-tree__type assistant-tree__type--{{ block.block_type }}">
+            {{ block.block_type }}
+        </span>
+
+        {% if block.config %}
+            <div class="assistant-tree__config">
+                <ul>
+                    {% for key, value in block.config.items %}
+                        <li>
+                            <strong>{{ key }}</strong>:
+                            {% if value.items %}
+                                <ul>
+                                {% for k, v in value.items %}
+                                    <li>{{ k }}: {{ v|linebreaksbr }}</li>
+                                {% endfor %}
+                                </ul>
+                            {% else %}
+                                {{ value|linebreaksbr }}
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        {% if block.function_source %}
+            <div class="assistant-tree__config">
+                <div class="assistant-tree__code codehilite">
+                    {{ block.function_source|safe }}
+                </div>
+            </div>
+        {% endif %}
+
+        {% if block.children %}
+            {% include "app_ai_assistants/include/block_children.html" with blocks=child.children %}
+        {% endif %}
+        </li>
+    {% endfor %}
+</ul>

@@ -1,0 +1,91 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+
+
+{% block extra_css %}
+    <link href="{% static 'libs/choices/choices.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/custom_choices.css' %}" rel="stylesheet">
+{% endblock %}
+
+
+{% block title %}{% endblock %}
+{{ object|yesno:"Редактировать,Создать" }} АI ассистента {{ object.name }}
+
+
+{% block content %}
+<div class="page page--assistant">
+    <div class="page__top page__grid">
+        <div class="page__info info-page info-page--logo">
+            {% if object and object.kb.logo.url %}
+                <img src="{{ object.kb.logo.url }}" alt="Логотип базы знаний {{ object.kb.name }}" class="info-page__logo">
+            {% elif  kb.logo.url %}
+                <img src="{{ kb.logo.url }}" alt="Логотип базы знаний {{ kb.name }}" class="info-page__logo">
+            {% endif %}
+        </div>
+        <div class="page__info info-page">
+            <span class="info-page__banner">AI Assistant</span>
+            <div class="info-page__header">
+                {% if object %}
+                    <h2 class="page__heading page__heading--accent _ta-e">{{ object.name }}</h2>
+                {% endif %}
+                <h3 class="info-page__heading _ta-e">{{ object|yesno:"Редактировать,Создать" }}</h3>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                {% if object %}
+                    <dl class="description">
+                        <dt class="description__term">База знаний</dt>
+                        <dd class="description__defination tags">
+                            {{ object.kb.name }}
+                        </dd>
+                        <dt class="description__term">Описание</dt>
+                        <dd class="description__defination">
+                            {{ object.description|default:"—" }}
+                        </dd>
+                        <dt class="description__term">Дата создания</dt>
+                        <dd class="description__defination">
+                            <pre class="text">{{ object.created_at|date:"d.m.Y H:i" }}</pre> 
+                        </dd>
+                    </dl>
+                {% endif %}
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+    </div>
+    <div class="page__content">
+        <form method="POST" class="form" enctype="multipart/form-data">
+            {% csrf_token %}
+            {% include "widgets/_form_content-widget.html" %}
+            <div class="form__btn-block">
+                <a href="{{ kb.get_absolute_url }}#assistant" class="btn btn--reset btn--simple">ОТМЕНИТЬ</a>
+                <button type="submit" class="btn btn--reset btn--simple btn--primary" id="submit-btn">
+                    {{ object|yesno:"Сохранить,Создать" }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block script %}
+    <script src="{% static 'libs/choices/choices.min.js' %}"></script>
+    <script>
+        // Инициализация choice.js для #id_type
+        let typeiSelect = new Choices("#id_type", {
+            allowHTML: true,
+            classNames: {
+                containerOuter: 'choices custom-choices custom-choices_transparent',
+            },
+            position: 'down',
+            itemSelectText: 'Выберите тип',
+            searchEnabled: true,
+            searchPlaceholderValue: 'поиск',
+            maxItemText: 'Выбрано максимально допустимое количество',
+            // removeItemButton: true,
+            noResultsText: 'Ничего не найдено',
+        })
+        
+    </script>
+{% endblock script %}

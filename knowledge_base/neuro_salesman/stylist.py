@@ -6,13 +6,14 @@ from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI
 
 from neuro_salesman.config import DEFAULT_LLM_MODEL
-from neuro_salesman.roles_config import STYLIST_CONFIG
+from neuro_salesman.roles_config import NEURO_SALER
 
 
 def create_stylist_chain(debug_mode: bool = False):
     """
     Создает цепочку для стилизации ответа в стиле LangChain.
     """
+    STYLIST_CONFIG = NEURO_SALER.get("STYLIST")
     model_name = STYLIST_CONFIG.get("model_name", DEFAULT_LLM_MODEL)
     model_temperature = STYLIST_CONFIG.get("model_temperature", 0)
     system_prompt = STYLIST_CONFIG.get("system_prompt", "")

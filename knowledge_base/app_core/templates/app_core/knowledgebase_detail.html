@@ -482,6 +482,73 @@
             <div class="info-page__footer">
             </div>
         </div>
+        <div class="page__info info-page info-page--assistant _mb" id="assistant">
+            <span class="info-page__banner info-page__banner--medium">AI помощники</span>
+            <div class="info-page__header">
+                <h3 class="info-page__heading _ta-e">Список AI-помощников</h3>
+                <div class="btns">
+                    <a href="{% url 'ai-assistants:ai-assistant-crete' knowledgebase.pk %}" class="btn btn--reset btn--simple" title="Добавить помощника" aria-label="Добавить помощника">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#ai"></use>
+                        </svg>
+                        создать
+                    </a>
+                </div>
+            </div>
+            <div class="info-page__body">
+                <h3 class="info-page__heading"></h3>
+                {% if knowledgebase.assistant_set.all|length > 0 %}
+                    <table class="elastic-table elastic-table_3-auto">
+                        <thead class="elastic-table__thead">
+                            <tr class="elastic-table__tr">
+                                <th class="elastic-table__th">Название</th>
+                                <th class="elastic-table__th">Кол-во источников</th>
+                                <th class="elastic-table__th"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="elastic-table__tbody">
+                            {% for assistant in knowledgebase.assistant_set.all %}
+                                <tr class="elastic-table__tr">
+                                    <td class="elastic-table__td">
+                                        <a href="{% url 'ai-assistants:ai-assistant-detail' assistant.id %}" class="link-marker">
+                                            <div class="elastic-table__cell">
+                                                <span>{{ assistant.name }}</span>
+                                                <span>{{ assistant.created_at|date:"d.m.Y H:i" }}</span>
+                                                <span>{{ assistant.author.get_full_name|default:assistant.author }}</span>
+                                            </div>
+                                            <svg class="link-marker__marker">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#ai"></use>
+                                            </svg>
+                                        </a>
+                                    </td>
+                                    <td class="elastic-table__td">
+                                        {{ urlbatch.urls_counter }}
+                                    </td>
+                                    <td class="elastic-table__td _ai-fe">
+                                        <div class="btns">
+                                            <a href="{% url 'ai-assistants:ai-assistant-detail' assistant.id %}" class="btn btn--reset btn--round" title="Редактировать помощника" aria-label="Редактировать помощника">
+                                                <svg class="btn__icon">
+                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                                                </svg>
+                                            </a>
+                                            <a href="{% url 'ai-assistants:ai-assistant-detail' assistant.id %}" class="btn btn--reset btn--round"  title="Удалить помощника" aria-label="Удалить помощника">
+                                                <svg class="btn__icon">
+                                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#trash-fat"></use>
+                                                </svg>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="text text--muted _ta-c">Нет созданных помощников</p>
+                {% endif %}
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
         {% include "include/object_history.html" %}
     </div>
 </div>
