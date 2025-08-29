@@ -34,13 +34,14 @@ def process_chain_results(results: Dict[str, Any]) -> Dict[str, Any]:
 
             # Чистим модель от даты
             model = re.sub(r"-\d{4}-\d{2}-\d{2}$", "", model)
-
-            # Стоимость
-            total_cost, prompt_cost, answer_cost = get_price(
-                prompt_token_counter=prompt_tokens,
-                answer_token_counter=answer_tokens,
-                model_name=model,
-            )
+            if model == "n/a":
+                total_cost, prompt_cost, answer_cost = 0, 0, 0
+            else:
+                total_cost, prompt_cost, answer_cost = get_price(
+                    prompt_token_counter=prompt_tokens,
+                    answer_token_counter=answer_tokens,
+                    model_name=model,
+                )
 
             # Записываем в словарь по цепочке
             summary["chains"][chain_name] = {

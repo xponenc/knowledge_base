@@ -8,7 +8,7 @@ from langchain_core.runnables import Runnable, RunnableParallel, RunnablePassthr
 
 from neuro_salesman.chains.chain_logger import ChainLogger
 from neuro_salesman.chains.generic_runnable import GenericRunnable
-from neuro_salesman.config import DEFAULT_LLM_MODEL
+from neuro_salesman.config import DEFAULT_LLM_MODEL, EMPTY_MESSAGE
 from neuro_salesman.llm_utils import VerboseLLMChain
 from neuro_salesman.roles_config import NEURO_SALER
 from neuro_salesman.utils import print_dict_structure
@@ -75,6 +75,31 @@ def make_expert_chain(chain_name: str, expert_config: Dict, debug_mode: bool = F
     chain = prompt_template | llm
 
     return make_bound_chain(chain, expert_config, debug_mode=debug_mode)
+
+
+class ConditionalExpert(Runnable):
+    """
+    Обертка над экспертом, которая вызывает его
+    только если он есть в списке активных из Router.
+    """
+
+    def __init__(self, runnable: Runnable, expert_name: str):
+        self.runnable = runnable
+        self.expert_name = expert_name
+
+    def invoke(self, inputs: Dict[str, Any], config=None, **kwargs) -> Dict[str, Any]:
+        for key in ("original_inputs", "report_and_router", "final_result"):
+            key_inputs = inputs.pop(key, None)
+            if key_inputs and isinstance(key_inputs, dict):
+                inputs.update(key_inputs)
+
+        active_experts = inputs.get("routers", [])
+        print(self.expert_name, active_experts)
+        if self.expert_name not in active_experts:
+            # Пропуск: просто возвращаем пустой слот
+            return EMPTY_MESSAGE
+        print("Запуск")
+        return self.runnable.invoke(inputs, config=config, **kwargs)
 
 
 def create_expert_chain(
@@ -164,13 +189,14 @@ def create_expert_chain(
         #     print("\n")
         return result
 
-    return GenericRunnable(
+    base_runnable = GenericRunnable(
         chain=chain,
-        output_key=chain_name,  # ключ для результата
-        prefix=f"ExpertChain[{chain_name}]",  # используется в логах
+        output_key=chain_name,
+        prefix=f"ExpertChain[{chain_name}]",
         input_mapping=input_mapping,
         output_mapping=output_mapping,
     )
+    return ConditionalExpert(base_runnable, chain_name)
 
 
 def build_parallel_experts(debug_mode: bool = False):

@@ -445,6 +445,7 @@ def create_router_chain(
         - router_output: полный ответ LLM.
         """
         output_router_list = parse_router_output(result.content)
+        print(output_router_list)
         return {**inputs,
                 "routers": output_router_list,
                 "router_output": result}

@@ -31,34 +31,30 @@ PRICE_MODELS = {
 
 
 def get_price(prompt_token_counter: int,
-              answer_token_counter:int,
+              answer_token_counter: int,
               model_name: str,
               mode: str = "text_tokens",
               cashed: bool = False):
     """Возвращает стоимость обработки вопроса LLM"""
     inf = float('inf')
 
-    model_price = PRICE_MODELS.get(mode, {}).get(model_name)
+    model_price = PRICE_MODELS.get(mode, {}).get(model_name, {})
 
-    if not model_price:
-
-        return inf, inf, inf
-
-    prompt_price = model_price.get("input")
+    prompt_price = model_price.get("input", 1_000_000)
     if cashed:
-        answer_price = model_price.get("cashed_input")
+        answer_price = model_price.get("cashed_input", 1_000_000)
     else:
-        answer_price = model_price.get("output")
+        answer_price = model_price.get("output", 1_000_000)
 
     try:
         prompt_cost = prompt_price * prompt_token_counter / 1_000_000
     except ValueError:
-        prompt_cost = inf
+        prompt_cost = 1_000_000
 
     try:
         answer_cost = answer_price * answer_token_counter / 1_000_000
     except ValueError:
-        answer_cost = inf
+        answer_cost = 1_000_000
 
     total_cost = answer_cost + prompt_cost
 

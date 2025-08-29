@@ -1,4 +1,5 @@
 import time
+from copy import copy
 from typing import Callable, Dict, Any
 from langchain_core.runnables import Runnable
 from .chain_logger import ChainLogger
@@ -76,10 +77,16 @@ class GenericRunnable(Runnable):
 
         start_time = time.monotonic()
 
+        updates = {}
         for key in ("original_inputs", "report_and_router", "final_result"):
-            key_inputs = inputs.pop(key, None)
+            key_inputs = inputs.get(key)
             if key_inputs and isinstance(key_inputs, dict):
-                inputs.update(key_inputs)
+                updates.update(key_inputs)
+
+        for key in ("original_inputs", "report_and_router", "final_result"):
+            inputs.pop(key, None)
+
+        inputs.update(updates)
 
         session_info = f"{inputs.get('session_type', 'n/a')}:{inputs.get('session_id', 'n/a')}"
         self.logger.log(session_info, "debug", f"inputs: {inputs}")
