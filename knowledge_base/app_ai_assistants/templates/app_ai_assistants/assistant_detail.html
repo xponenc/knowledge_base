@@ -157,7 +157,7 @@
                             
                                 {% if block.function_source  %}
                                     <div class="assistant-tree__config assistant-tree__function">
-                                        <span class="assistant-tree__subheading">Функция построения Langchain цепочки</span>
+                                        <span class="assistant-tree__subheading">Функция построения LangChain цепочки</span>
 
                                         <div class="assistant-tree__code codehilite">
                                             {{ block.function_source|safe }}
@@ -238,29 +238,27 @@
     </script>
 
 
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    {% comment %} <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script> {% endcomment %}
+    <script src="{% static 'libs/mermaid/mermaid.min.js' %}"></script>
+
     <script>
     mermaid.initialize({
         startOnLoad: true,
-        theme: "default",   // "default" | "dark" | "forest" | "neutral"
+        theme: "neutral",   // "default" | "dark" | "forest" | "neutral"
     });
     </script>
 
-
     <!-- Cytoscape core (без defer, чтобы загрузился первым) -->
-    <script src="https://unpkg.com/cytoscape@3.33.1/dist/cytoscape.min.js"></script>
-
+    <script src="{% static 'libs/cytoscape/3.33.1/cytoscape.min.js' %}"></script>
     <!-- jQuery (нужен для edgehandles) -->
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-
+    <script src="{% static 'libs/jquery/jquery-3.6.0.min.js' %}"></script>
     <!-- Lodash (требуется для cytoscape-edgehandles) -->
-    <script defer src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
-
+    <script src="{% static 'libs/lodash/4.17.21/lodash.min.js' %}"></script>
     <!-- Cytoscape Edgehandles -->
-    <script defer src="https://cdn.jsdelivr.net/npm/cytoscape-edgehandles@4.0.1/cytoscape-edgehandles.js"></script>
-    
+    <script src="{% static 'libs/cytoscape-edgehandles/4.0.1/cytoscape-edgehandles.js' %}"></script>
     <!-- Undo/Redo -->
-    <script defer src="https://cdn.jsdelivr.net/npm/cytoscape-undo-redo@1.3.3/cytoscape-undo-redo.min.js"></script>
+    <script src="{% static 'libs/cytoscape-undo-redo/1.3.3/cytoscape-undo-redo.min.js' %}"></script>
+
 
     <script>
     document.addEventListener("DOMContentLoaded", function () {
