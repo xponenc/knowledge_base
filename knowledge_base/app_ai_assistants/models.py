@@ -22,7 +22,7 @@ class Assistant(models.Model):
     description = models.TextField(verbose_name="Описание", blank=True)
     type = models.CharField(verbose_name="Тип помощника", max_length=50, choices=TYPE_CHOICES, default="neuro_sales")
 
-    author = models.ForeignKey(User,  verbose_name="Автор", on_delete=models.CASCADE)
+    author = models.ForeignKey(User, verbose_name="Автор", on_delete=models.CASCADE)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -38,7 +38,9 @@ class Block(models.Model):
     """Блок ассистента: атомарный или контейнер"""
     BLOCK_TYPES = [
         ("extractor", "Extractor"),
+        ("reformulator", "Reformulator"),
         ("summary", "Summary"),
+        ("report", "Report"),
         ("router", "Router"),
         ("expert", "Expert"),
         ("senior", "Senior"),
@@ -68,6 +70,7 @@ class Block(models.Model):
         """Жёсткая валидация при сохранении (не даст битый JSON записать в БД)"""
         self.full_clean()  # вызовет clean() + стандартные проверки
         super().save(*args, **kwargs)
+
 
 class BlockConnection(models.Model):
     """Связь между блоками"""

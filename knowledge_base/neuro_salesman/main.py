@@ -11,17 +11,14 @@ from langchain.schema.runnable import RunnableParallel
 
 import os
 from dotenv import load_dotenv
-from langchain.chains import LLMChain, SequentialChain
 
 from neuro_salesman.context import search_with_retriever
 from neuro_salesman.expert import build_parallel_experts
 from neuro_salesman.extractor import build_parallel_extractors
-from neuro_salesman.greetings import create_remove_greeting_chain, create_extract_greeting_chain
 from neuro_salesman.roles_config import NEURO_SALER
 from neuro_salesman.router import create_router_chain
 from neuro_salesman.senior import create_senior_chain
 from neuro_salesman.stylist import create_stylist_chain
-from neuro_salesman.summary import create_summary_exact
 from neuro_salesman.utils import debug_inputs, unpack_original_inputs, unpack_sequential
 from utils.setup_logger import setup_logger
 

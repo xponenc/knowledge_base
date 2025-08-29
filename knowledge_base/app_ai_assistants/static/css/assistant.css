@@ -7,16 +7,88 @@
 .assistant-tree__list {
     list-style: none;
     margin: 0;
-    padding-left:calc(var(--gap) * 3);
+    padding-left: calc(var(--gap) * 3);
     border-left: 2px solid #e1e1e6;
 }
 
 .assistant-tree__item {
+    position: relative;
     margin: 6px 0;
     padding: 6px 10px;
     border-radius: 8px;
-    background: #f9f9fb;
+    background: #d6d2cc1a;
     border: 1px solid #e1e1e6;
+    transition: border-color ease-in-out 0.3s;
+}
+
+.assistant-tree__item::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 4px solid transparent;
+    border-radius: 8px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity ease-in-out 0.3s;
+}
+
+.assistant-tree__item--changed {
+}
+.assistant-tree__item--changed::after {
+    border-color: var(--warning-color);
+    opacity: 1;
+}
+
+.assistant-tree__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.assistant-tree__subheading {
+    font-weight: 700;
+    font-size: 1.2em;
+    margin-bottom: 6px;
+    text-align: center;
+}
+
+.assistant-tree__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+    flex: 0 0 45px;
+    width: 45px;
+    height: 45px;
+    overflow: hidden;
+    border-radius: 50%;
+    border: 1px solid var(--btn-border-color);
+    color: var(--text-color-mute)
+}
+
+.assistant-tree__icon--changed {
+background-color: var(--warning-color);
+    margin-right: -10px;
+    color: var(--text-on-accent-bg-color);
+    visibility: hidden;
+    opacity: 0;
+    transform: scale(0);
+    border-bottom-right-radius: 0;
+    border-top-right-radius: 0;
+    transition-property: visibility, opacity, transform;
+    transition-timing-function: ease-in-out;
+    transition-duration: 0.3s;
+}
+
+.assistant-tree__icon--active {
+    visibility: visible;
+    opacity: 1;
+    transform: scale(1);
+}
+
+.assistant-tree__icon * {
+    max-width: 100%;
+    max-height: 100%;
 }
 
 /* Имя и тип */
@@ -37,15 +109,22 @@
 
 /* Config */
 .assistant-tree__config {
+    overflow: hidden;
     margin-top: var(--gap-half);
-    padding: 6px 10px;
-    background: #f7f7f7;
-    border: 1px dashed #ccc;
+    padding: 0 10px;
+
+    max-height: 0;
+    border: 1px dashed transparent;
     border-radius: 6px;
     font-family: monospace;
     font-size: 12px;
     /* white-space: pre-wrap; */
-    color: #222;
+    transition: max-height 0.5s ease-in-out, padding 0.5s ease-in-out;
+}
+
+.assistant-tree__config--active {
+    margin-bottom: 10px;
+    border-color: var(--accent-color);
 }
 
 .assistant-tree__function {
@@ -99,20 +178,108 @@
 .assistant-tree__toggle-function {
     margin-top: var(--gap-half);
     color: var(--header-color);
-    border: none;
+    border: 1px solid #c1c0bf;
+    border-radius: 6px;
+    outline: none;
     padding: 6px 12px;
     cursor: pointer;
     width: 100%;
     text-align: left;
     font-weight: bold;
     margin-bottom: 2px;
+    background-color: #d6d2cc1a;
     transition-property: color, background-color;
     transition-timing-function: ease-in-out;
     transition-duration: 0.3s;
 }
 
-.assistant-tree__toggle-function--open, .assistant-tree__toggle-function:hover, .assistant-tree__toggle-function:focus {
+.assistant-tree__toggle-function--open,
+.assistant-tree__toggle-function:hover,
+.assistant-tree__toggle-function:focus {
     background-color: var(--header-color);
     color: var(--text-on-accent-bg-color);
 }
 
+/* =============================================
+   Ошибки формы целиком
+   ============================================= */
+.assistant-form-errors {
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    border: 1px solid var(--error-color);
+    border-radius: 6px;
+    background-color: var(--error-bg-color);
+}
+
+.assistant-form-errors__item {
+    color: var(--error-text-color);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    padding: 0.25rem 0.5rem;
+    position: relative;
+}
+
+/* маленькая красная иконка слева */
+.assistant-form-errors__item::before {
+    content: "⚠️";
+    display: inline-block;
+    margin-right: 0.5rem;
+    font-size: 0.9rem;
+    vertical-align: middle;
+}
+
+/* =============================================
+    Ошибки конкретного блока
+   ============================================= */
+.assistant-tree__block-errors {
+    margin-top: 0.5rem;
+    margin-bottom: 1em;
+    padding: 0.5rem;
+    border-left: 3px solid var(--error-color);
+    border-radius: 0 4px 4px 0;
+    background-color: var(--error-bg-color);
+    max-height: 8rem;
+    /* скролл если много ошибок */
+    overflow-y: auto;
+}
+
+.assistant-tree__block-error {
+    color: var(--error-text-color);
+    font-size: 0.8125rem;
+    line-height: 1.3;
+    padding: 0.2rem 0.5rem;
+    position: relative;
+}
+
+/* плавное появление ошибок */
+.assistant-form-errors,
+.assistant-tree__block-errors {
+    transition: all 0.2s ease-in-out;
+}
+
+/* скролл для блока ошибок */
+.assistant-tree__block-errors::-webkit-scrollbar {
+    width: 6px;
+}
+
+.assistant-tree__block-errors::-webkit-scrollbar-thumb {
+    background-color: var(--error-color);
+    border-radius: 3px;
+}
+
+.assistant-tree__block-errors::-webkit-scrollbar-track {
+    background-color: var(--error-bg-color);
+}
+
+/* =============================================
+    Адаптация под мобильные
+   ============================================= */
+@media (max-width: 768px) {
+    .assistant-tree__block-errors {
+        max-height: 6rem;
+    }
+
+    .assistant-form-errors {
+        font-size: 0.8rem;
+    }
+}

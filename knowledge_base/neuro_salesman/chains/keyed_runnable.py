@@ -14,7 +14,7 @@ class KeyedRunnable(Runnable):
     def __init__(self, chain, output_key, prefix="[Chain]", debug_mode=False):
         self.chain = chain
         self.output_key = output_key
-        self.logger = ChainLogger(prefix=prefix, debug_mode=debug_mode)
+        self.logger = ChainLogger(prefix=prefix)
 
     def invoke(self, inputs, config=None, **kwargs):
         start_time = time.monotonic()

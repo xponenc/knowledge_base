@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
+from app_embeddings.services.multi_chain_factory import get_retriever_only
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "knowledge_base.settings")
 django.setup()
 
@@ -13,7 +15,7 @@ from app_api.models import ApiClient
 from app_embeddings.services.ensemble_chain_factory import get_cached_ensemble_retriever
 from app_embeddings.services.retrieval_engine import append_links_to_documents, append_url_source_to_documents
 
-ensemble_retriever_router = APIRouter()
+multi_retriever_router = APIRouter()
 
 
 class RetrieverRequest(BaseModel):
@@ -30,21 +32,20 @@ class RetrieverResponse(BaseModel):
     documents: List[SourceDocument]
 
 
-@ensemble_retriever_router.post("/search", response_model=RetrieverResponse)
+@multi_retriever_router.post("/search", response_model=RetrieverResponse)
 def search_with_retriever(
-        request: RetrieverRequest,
-        client: ApiClient = Depends(get_api_client)
+    request: RetrieverRequest,
+    client: ApiClient = Depends(get_api_client)
 ):
     """
     Поиск документов с помощью ensemble retriever.
     """
     kb = client.knowledge_base
-    retriever = get_cached_ensemble_retriever(kb_id=kb.id)
+    retriever = get_retriever_only(kb_id=kb.id)
 
-    # Получаем документы
-    results = retriever.invoke(request.query)
+    results = retriever.get_relevant_documents(request.query)
 
-    # Ограничиваем top_k
+    # Ограничиваем top_k # TODO вообще оно ограничватеся в самом ретривере, но не доделан механизм передачи настраиваемого параметра
     if request.top_k and request.top_k > 0:
         results = results[: request.top_k]
 
@@ -63,3 +64,6 @@ def search_with_retriever(
     ]
 
     return RetrieverResponse(documents=parsed_docs)
+
+
+

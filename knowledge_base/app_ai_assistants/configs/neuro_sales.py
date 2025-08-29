@@ -4,19 +4,17 @@ NS_ASSISTANT_CONFIG = {
   "type": "neuro_sales",
   "blocks": [
     {
-      "name": "greeting",
-      "block_type": "extractor"
-    },
-    {
       "name": "extractors",
       "block_type": "parallel",
       "children": [
+        {"name": "greeting", "block_type": "extractor"},
         {"name": "needs", "block_type": "extractor"},
         {"name": "benefits", "block_type": "extractor"},
         {"name": "objections", "block_type": "extractor"},
         {"name": "resolved_objections", "block_type": "extractor"},
         {"name": "tariffs", "block_type": "extractor"},
-        {"name": "topic_phrases", "block_type": "extractor"}
+        {"name": "topic_phrases", "block_type": "extractor"},
+        {"name": "reformulated_query", "block_type": "reformulator"}
       ]
     },
     {
@@ -24,10 +22,10 @@ NS_ASSISTANT_CONFIG = {
       "block_type": "parallel",
       "children": [
         {
-          "name": "summary_and_router",
+          "name": "report_and_router",
           "block_type": "sequential",
           "children": [
-            {"name": "summary", "block_type": "summary"},
+            {"name": "extractors_report", "block_type": "report"},
             {"name": "expert_router", "block_type": "router"}
           ]
         },
@@ -55,8 +53,18 @@ NS_ASSISTANT_CONFIG = {
       "block_type": "stylist"
     },
     {
-      "name": "remove_greeting",
-      "block_type": "extractor"
-    }
+      "name": "final",
+      "block_type": "parallel",
+      "children": [
+        {
+          "name": "remove_greeting",
+          "block_type": "extractor"
+        },
+        {
+          "name": "session_summary",
+          "block_type": "summary"
+        }
+      ]
+    },
   ]
 }

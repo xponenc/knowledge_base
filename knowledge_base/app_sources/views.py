@@ -23,7 +23,7 @@ from django.utils.timezone import make_aware
 from django.views import View
 from django.contrib import messages
 from django.views.generic import DetailView, ListView, CreateView, UpdateView, DeleteView
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 
 from app_chunks.models import Chunk, ChunkStatus
 from app_core.models import KnowledgeBase
@@ -575,7 +575,12 @@ class WebSiteDetailView(LoginRequiredMixin, StoragePermissionMixin, Hierarchical
 
         paginator = Paginator(urls, 3)
         page_number = request_get.get("page")
-        page_obj = paginator.get_page(page_number)
+        try:
+            page_obj = paginator.page(page_number)
+        except PageNotAnInteger:
+            page_obj = paginator.page(1)
+        except EmptyPage:
+            page_obj = paginator.page(paginator.num_pages)
 
         # Назначаем active_urlcontent
         for url in page_obj.object_list:

@@ -670,6 +670,7 @@ def trigram_similarity_answer_index(kb_id, system, query, verbose=False):
 
 
 def append_links_to_documents(docs: List[Document]) -> List[Document]:
+    """Добавляет к контенту документа полезные ссылки из метеданных документа"""
     def extract_links(metadata: dict) -> List[str]:
         links = []
         for key, value in metadata.items():
@@ -685,4 +686,14 @@ def append_links_to_documents(docs: List[Document]) -> List[Document]:
             links_text = "\n\nПолезные материалы:\n" + "\n".join(f"- {link}" for link in links)
             doc.page_content += links_text  # Модифицируем содержимое документа
 
+    return docs
+
+
+def append_url_source_to_documents(docs: List[Document]) -> List[Document]:
+    """Добавляет к контенту документа ссылку на источник документа"""
+
+    for doc in docs:
+        source_url = doc.metadata.get("url", "")
+        if source_url and source_url.startswith("http"):
+            doc.page_content += f"\n Сcылка на источник документа: {source_url}"
     return docs

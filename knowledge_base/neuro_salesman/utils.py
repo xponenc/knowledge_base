@@ -14,6 +14,7 @@ def debug_inputs(_inputs, stage_name=""):
     pprint(_inputs)
     return _inputs
 
+
 def unpack_original_inputs(_inputs):
     """
     Распаковывает original_inputs, удаляет его из inputs и объединяет с остальными данными.
@@ -29,7 +30,7 @@ def unpack_original_inputs(_inputs):
 
 
 # Функция для распаковки результатов sequential_chains
-def unpack_sequential(_inputs, debug_mode:bool = False):
+def unpack_sequential(_inputs, debug_mode: bool = False):
     if debug_mode:
         print(f"\n\n[Unpack Sequential] inputs:")
         pprint(_inputs)
@@ -47,3 +48,13 @@ def unpack_sequential(_inputs, debug_mode:bool = False):
 
     return new_inputs
 
+
+def print_dict_structure(d: dict, indent: int = 0):
+    """Рекурсивно печатает структуру словаря с типами значений."""
+    prefix = "  " * indent
+    for key, value in d.items():
+        if isinstance(value, dict):
+            print(f"{prefix}{key}/")  # "/" показываем как папку
+            print_dict_structure(value, indent + 1)
+        else:
+            print(f"{prefix}{key}: {type(value).__name__}")

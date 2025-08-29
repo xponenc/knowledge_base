@@ -1,0 +1,678 @@
+{% extends 'clear_base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+
+{% block extra_css %}
+    <link href="{% static 'libs/choices/choices.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/custom_choices.css' %}" rel="stylesheet">
+    <link href="{% static 'css/chat.css' %}" rel="stylesheet">
+    <link href="{% static 'css/assistant.css' %}" rel="stylesheet">
+
+{% endblock %}
+
+
+{% block nav %}
+    {% include "include/nav.html" %}
+{% endblock nav %}
+
+
+{% block title %}Системный чат с AI ассистентом{% endblock %}
+
+
+
+{% block breadcrumbs %}
+<nav aria-label="breadcrumb" class="breadcrumb-wrapper">
+    <ol class="breadcrumb" itemscope itemtype="https://schema.org/BreadcrumbList">
+        {% comment %} база знаний {% endcomment %}
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ kb.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">База знаний {{ kb.name }}</span>
+            </a>
+        <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ assistant.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">AI ассистент ({{ assistant.name }})</span>
+            </a>
+            <meta itemprop="position" content="2" />
+        </li>
+        <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
+            <span itemprop="name">Системный чат с AI ({{ assistant.name }})</span>
+            <meta itemprop="position" content="3" />
+        </li>
+    </ol>
+</nav>
+{% endblock %}
+
+
+{% block content %}
+<div class="page page--assistant">
+    <div class="page__top page__top--system-chat">
+        <!-- Левая колонка: Чат -->
+        <div class="chat">
+            <div class="chat__header">
+                <h3 class="chat__heading">{{ assistant.name }} ({{ assistant.get_type_display }})</h3>
+                <span class="text text--muted">Embedded by: <span class="text text--fat text--muted">{{ kb.engine.model_name }}</span></span>
+                <span class="text text--muted _mb">Answer by: <span class="text text--fat text--muted">OpenAI/gpt-4o-mini</span></span>
+            </div>
+            <div class="chat__history" id="chat-history">
+                {% for message in chat_history %}
+                    <div class="message {% if message.is_user %} message--user{% else %} message--ai{% endif %}" data-message-id="{{ message.id }}" data-url="{% url 'chat:message_score' message.id %}">
+                        {{ message.text|safe }}
+                        {% if not message.is_user %}
+                            <div class="rating" data-score="{{ message.score|default_if_none:'' }}">
+                                <div class="rating__stars">
+                                    {% for i in "2 1 0 -1 -2"|split:" " %}
+                                        {% with i_int=i|add:"0" %}
+                                            <label class="rating__star">
+                                                <input type="radio" class="rating__input" name="score-{{ message.id }}" value="{{ i_int }}" {% if message.score == i_int%} checked{% endif %}>
+                                            </label>
+                                        {% endwith %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="chat__footer">
+                <form action="{% url 'chat:clear_chat' kb.pk %}" method="post" class="clear-button">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn--reset btn--simple">Очистить чат</button>
+                </form>
+                <form id="chat-form" method="post" class="chat__form form" >
+                    {% csrf_token %}
+                    
+                    <div class="chat__input">
+                        <input type="text" name="message" id="message-input" class="form-control" placeholder="Введите ваше сообщение..." required>
+                        <button type="submit" class="btn btn--reset btn--simple btn--primary" id="submit-btn">
+                            Отправить
+                            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="loader"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <!-- Левая колонка: системная форма -->
+        <div class="page__info info-page info-page--content _jc-fs">
+            <span class="info-page__banner info-page__banner--medium">ретриверы</span>
+            <div class="info-page__header">
+                <h2 class="page__heading _ta-e"></h2>
+                <h3 class="info-page__heading"></h3>
+            </div>
+            <div class="info-page__body">
+                <div class="info-page__block">
+                    <label class="switch" title="При формировании ответа будет использована MultiRetrievalQAChain">
+                        <span class="switch__label">multichain</span>
+                        <div class="switch__wrapper">
+                            <input class="switch__input visually-hidden" type="radio" name="retriver_scheme" data-validate-field="retriver_scheme" id="id_multichain" checked="">
+                            <svg class="switch__icon switch__icon_off" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M16 8C16 12.4183 12.4183 16 8 16C3.58172 16 0 12.4183 0 8C0 3.58172 3.58172 0 8 0C12.4183 0 16 3.58172 16 8ZM2 8C2 11.3137 4.68629 14 8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8Z"></path>
+                            </svg>
+                            <div class="switch__body">
+                                <div class="switch__slider"></div>
+                            </div>
+                            <svg class="switch__icon switch__icon_on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 1 1 16 0zM2 8a6 6 0 1 0 12 0A6 6 0 1 0 2 8zm10 0a4 4 0 1 1-8 0 4 4 0 1 1 8 0z"></path>
+                            </svg>
+                        </div>
+                    </label>
+                    <label class="switch" title="При формировании ответа будет использован EnsembleRetriever">
+                        <span class="switch__label">ensemble</span>
+                        <div class="switch__wrapper">
+                            <input class="switch__input visually-hidden" type="radio" name="retriver_scheme" data-validate-field="retriver_scheme" id="id_ensemble">
+                            <svg class="switch__icon switch__icon_off" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M16 8C16 12.4183 12.4183 16 8 16C3.58172 16 0 12.4183 0 8C0 3.58172 3.58172 0 8 0C12.4183 0 16 3.58172 16 8ZM2 8C2 11.3137 4.68629 14 8 14C11.3137 14 14 11.3137 14 8C14 4.68629 11.3137 2 8 2C4.68629 2 2 4.68629 2 8Z"></path>
+                            </svg>
+                            <div class="switch__body">
+                                <div class="switch__slider"></div>
+                            </div>
+                            <svg class="switch__icon switch__icon_on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 1 1 16 0zM2 8a6 6 0 1 0 12 0A6 6 0 1 0 2 8zm10 0a4 4 0 1 1-8 0 4 4 0 1 1 8 0z"></path>
+                            </svg>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <div class="info-page__footer">
+            </div>
+        </div>
+    </div>
+    <div class="page__content">
+        <div class="page__info info-page info-page--border _mb">
+            <div class="info-page__header">
+                <h3 class="info-page__heading _ta-e">Структура цепочки ассистента</h3>
+            </div>
+            <div class="info-page__body">
+                <div class="assistant-tree">
+                    <div class="assistant-form"></div>
+                    <ul class="assistant-tree__list">
+                        {% for block in assistant_structure %}
+                            <li class="assistant-tree__item" data-item-id="{{ block.id }}">
+                                <div class="assistant-tree__header">
+                                    <p>
+                                        <span class="assistant-tree__name">{{ block.name }}</span>
+                                        <span class="assistant-tree__type assistant-tree__type--{{ block.block_type }}">
+                                            {{ block.block_type }}
+                                        </span>
+                                    </p>
+                                    <span class="assistant-tree__icon assistant-tree__icon--changed" title="Настройки блока изменены" aria-label="Настройки блока изменены">
+                                        <svg >
+                                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#bugs"></use>
+                                        </svg>
+                                    </span>
+                                    {% if block.config %}
+                                    <a href="{% url 'ai-assistants:block-config-update' block.id %}" class="btn btn--reset btn--round" title="Редактировать настройки блока" aria-label="Редактировать настройки блока">
+                                            <svg class="btn__icon">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                                            </svg>
+                                        </a>
+                                    {% endif %}
+                                </div>
+                                {% if block.function_source or block.config or block.runtime_form%}
+                                    <button class="assistant-tree__toggle-function">
+                                        Показать настройки блока
+                                    </button>
+                                {% endif %}
+                                
+                                {% if block.config %}
+                                    <div class="assistant-tree__config">
+                                        <span class="assistant-tree__subheading">конфигурация блока</span>
+                                        <ul>
+                                            {% for key, value in block.config.items %}
+                                                <li>
+                                                    <strong>{{ key }}</strong>:
+                                                    {% if value.items %}
+                                                        <ul>
+                                                        {% for k, v in value.items %}
+                                                            <li>{{ k }}: {{ v|linebreaksbr }}</li>
+                                                        {% endfor %}
+                                                        </ul>
+                                                    {% else %}
+                                                        {{ value|linebreaksbr }}
+                                                    {% endif %}
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                        
+                                    </div>
+                                {% endif %}
+
+                                {% if block.runtime_form %}
+                                    <div class="assistant-tree__config">
+                                        <span class="assistant-tree__subheading">форма настройки блока</span>
+                                        <div class="block" id="block-{{ block.id }}">
+                                            {% for key, field in block.runtime_form.items %}
+                                                <div class="field-container field-container_wide">
+                                                    <label class="custom-field" for="{{ field.id }}">
+                                                        {% if field.value|length > 100 %}
+                                                            <textarea class="custom-field__input custom-field__input_textarea custom-field__input_wide"
+                                                                    type="{{ field.type }}"
+                                                                    name="{{ field.name }}"
+                                                                    id="{{ field.id }}"
+                                                                    data-original="{{ field.value }}"
+                                                                    {% if field.required %} required {% endif %}
+                                                                    placeholder="">{{ field.value|default:"" }}</textarea>
+                                                        {% else %}
+                                                            <input class="custom-field__input custom-field__input_wide"
+                                                                type="{{ field.type }}"
+                                                                name="{{ field.name }}"
+                                                                id="{{ field.id }}"
+                                                                value="{{ field.value }}"
+                                                                data-original="{{ field.value }}"
+                                                                {% if field.required %} required {% endif %}
+                                                                placeholder=""/>
+                                                        {% endif %}
+                                                        <span class="custom-field__placeholder">{{ key }}</span>
+                                                        {% if field.errors %}
+                                                        <span class="custom-field__error-message" aria-live="polite">{{ field.errors }}</span>
+                                                        {% endif %}
+                                                    </label>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                            
+                                    </div>
+                                {% endif %}
+                                
+                                {% if block.function_source  %}
+                                    <div class="assistant-tree__config assistant-tree__function">
+                                        <span class="assistant-tree__subheading">Функция построения Langchain цепочки</span>
+                                        <div class="assistant-tree__code codehilite">
+                                            {{ block.function_source|safe }}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                                
+                                {% if block.children %}
+                                    {% include "app_ai_assistants/include/block_children.html" with blocks=block.children %}
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="page__info info-page info-page--border _mb">
+            <div class="info-page__header">
+                <h3 class="info-page__heading _ta-e">Расширеный лог по ответу цепочки</h3>
+            </div>
+            <div class="info-page__body" id="extended_log">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+
+{% block script %}
+<script src="{% static 'libs/choices/choices.min.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // отслеживание изменения настроек блоков от базового значения (сохраненного в системе)
+
+        function normalize(str) {
+            return str.replace(/\r\n/g, '\n')   // CRLF → LF
+                    .replace(/\s+$/g, '')    // удалить пробелы в конце
+                    .replace(/^\s+/g, '');   // удалить пробелы в начале
+        }
+        document.querySelectorAll(".block").forEach(block => {
+            const item = block.closest(".assistant-tree__item");
+            if (!item) return; // если item отсутствует, выходим
+            const icon = item.querySelector(".assistant-tree__icon--changed");
+            if (!icon) return; // если иконки нет, пропускаем
+
+            const fields = block.querySelectorAll(".custom-field__input");
+
+            // единая функция для блока
+            const checkChanged = () => {
+                let hasChanged = false;
+
+                fields.forEach(field => {
+                    const changed = normalize(field.value) !== normalize(field.dataset.original ?? "");
+                    if (changed) {
+                        field.classList.add("custom-field__input--changed");
+                        hasChanged = true;
+                    } else {
+                        field.classList.remove("custom-field__input--changed");
+                    }
+                });
+
+                if (hasChanged) {
+                    item.classList.add("assistant-tree__item--changed");
+                    icon.classList.add("assistant-tree__icon--active");
+                } else {
+                    item.classList.remove("assistant-tree__item--changed");
+                    icon.classList.remove("assistant-tree__icon--active");
+                }
+            };
+
+            // подписываем все поля на одну функцию
+            fields.forEach(field => {
+                field.addEventListener("input", checkChanged);
+                field.addEventListener("change", checkChanged);
+            });
+        });
+        // Раскрытие настроек блоков
+        document.querySelectorAll('.assistant-tree__toggle-function').forEach(button => {
+            button.addEventListener('click', () => {
+                button.classList.toggle('assistant-tree__toggle-function--open');
+                
+                const isOpen = button.classList.contains('assistant-tree__toggle-function--open');
+                button.textContent = isOpen ? 'Скрыть настройки блока' : 'Показать настройки блока';
+                
+                const parentItem = button.closest('.assistant-tree__item');
+                
+                const configDivs = parentItem.querySelectorAll('.assistant-tree__config');
+                
+                configDivs.forEach(configDiv => {
+                    configDiv.classList.toggle("assistant-tree__config--active");
+                    if (configDiv.style.maxHeight) {
+                        configDiv.style.maxHeight = null;
+                        configDiv.style.padding = '0 10px';
+                    } else {
+                        configDiv.style.maxHeight = configDiv.scrollHeight + 20 + 'px';
+                        configDiv.style.padding = '10px 10px';
+                    }
+                });
+            });
+        });
+        
+        // Обработка событий чата
+        const chatForm = document.querySelector("#chat-form");
+        const chatHistory = document.getElementById("chat-history");
+        const docsContainer = document.getElementById("current-docs");
+        const messageInput = document.getElementById("message-input");
+        const submitBtn = document.getElementById("submit-btn");
+        const loader = document.getElementById("loader");
+        const logContainer = document.querySelector("#extended_log");
+
+        const systemInstructionStandard = document.querySelector("#id_system_instruction");
+        const llm = document.querySelector("#id_llm");
+
+
+        // Инициализация choice.js для #id_llm
+        if (llm) {
+            const llmSelect = new Choices(llm, {
+                allowHTML: true,
+                classNames: {
+                    containerOuter: 'choices custom-choices custom-choices_transparent',
+                },
+                position: 'down',
+                itemSelectText: 'Выберите llm',
+                searchEnabled: true,
+                searchPlaceholderValue: 'поиск',
+                maxItemText: 'Выбрано максимально допустимое количество',
+                // removeItemButton: true,
+                noResultsText: 'Ничего не найдено',
+            });
+        }
+
+        if (chatHistory) {
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function generateStarsHtml(messageId, score) {
+            const stars = [];
+            for (let i = 2; i >= -2; i--) {
+                stars.push(`
+                    <label class="rating__star">
+                        <input type="radio" class="rating__input" name="score-${messageId}" value="${i}" data-message-id="${messageId}" ${score === i ? 'checked' : ''}>
+                    </label>
+                `);
+            }
+            return `<div class="rating__stars">${stars.join('')}</div>`;
+        }
+
+        chatHistory.addEventListener("change", function (event) {
+            const target = event.target;
+            if (!target.classList.contains("rating__input")) return;
+            const star = target;
+            const container = star.closest(".message");
+            const messageId = container?.dataset.messageId;
+            const requestUrl = container?.dataset.url;
+            if (!messageId || !requestUrl) return;
+
+            const score = parseInt(star.value);
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            fetch(requestUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-CSRFToken": csrfToken,
+                },
+                body: new URLSearchParams({ score: score })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error("Ошибка при отправке оценки.");
+                const ratingDiv = container.querySelector(".rating");
+                if (ratingDiv) {
+                    ratingDiv.dataset.score = score;
+                    ratingDiv.innerHTML = generateStarsHtml(messageId, score);
+                }
+                
+            })
+            .catch(err => {
+                console.error("Ошибка отправки:", err);
+                alert("Ошибка при отправке оценки.");
+            });
+        });
+
+        /**
+        * Рендер ошибок формы и блоков дерева
+        * @param {string[]} formErrors - массив общих ошибок формы
+        * @param {Object.<string, string[]>} blockErrors - ошибки по блокам (ключ = id блока)
+        */
+        function renderAssistantErrors(formErrors = [], blockErrors = {}) {
+            // 1. Очистка старых ошибок
+            document.querySelectorAll(".assistant-form-errors, .assistant-tree__block-errors")
+                .forEach(el => el.remove());
+
+            let firstErrorEl = null;
+
+            // 2. Общие ошибки формы
+            if (formErrors.length > 0) {
+                const ul = document.createElement("ul");
+                ul.className = "assistant-form-errors";
+
+                formErrors.forEach(err => {
+                    const li = document.createElement("li");
+                    li.className = "assistant-form-errors__item";
+                    li.innerHTML = err;
+                    ul.appendChild(li);
+                });
+
+                const form = document.querySelector(".assistant-form");
+                if (form) {
+                    form.prepend(ul);
+                    firstErrorEl = ul;
+                }
+            }
+
+            // 3. Ошибки по блокам
+            Object.entries(blockErrors).forEach(([itemId, errors]) => {
+                const item = document.querySelector(`.assistant-tree__item[data-item-id="${itemId}"]`);
+                console.log(item)
+                if (!item || errors.length === 0) return;
+
+                const ul = document.createElement("ul");
+                ul.className = "assistant-tree__block-errors";
+
+                errors.forEach(err => {
+                    const li = document.createElement("li");
+                    li.className = "assistant-tree__block-error";
+                    li.innerHTML = err;
+                    ul.appendChild(li);
+                });
+
+                item.prepend(ul);
+
+                if (!firstErrorEl) {
+                    firstErrorEl = ul;
+                }
+            });
+
+            // 4. Скролл к первой ошибке
+            console.log(firstErrorEl)
+            if (firstErrorEl) {
+                console.log("scroll")
+                firstErrorEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+        }
+
+        /**
+        * Рекурсивный рендер словаря/массива в HTML
+        */
+        function renderDict(data) {
+            if (data === null || data === undefined) {
+                return `<span class="json__null">null</span>`;
+            }
+
+            if (typeof data !== "object") {
+                return renderValue(data);
+            }
+
+            if (Array.isArray(data)) {
+                return `
+                    <span class="json__array">[
+                        <div class="json__indent">
+                            ${data.map((item, i) => `
+                                ${renderDict(item)}${i < data.length - 1 ? "," : ""}
+                            `).join("")}
+                        </div>
+                    ]</span>
+                `;
+            }
+
+            // объект (dict)
+            return `
+                {
+                <div class="json__indent">
+                    ${Object.entries(data).map(([key, value], i, arr) => `
+                        <div>
+                            <span class="json__key">"${key}"</span>: ${renderDict(value)}${i < arr.length - 1 ? "," : ""}
+                        </div>
+                    `).join("")}
+                </div>
+                }
+            `;
+        }
+
+        function renderValue(value) {
+            if (typeof value === "string") {
+                if (isUrl(value)) {
+                    return `<a href="${value}" class="json__string">${value}</a>`;
+                }
+                return `<span class="json__string">"${value}"</span>`;
+            }
+            if (typeof value === "number") {
+                return `<span class="json__number">${value}</span>`;
+            }
+            if (typeof value === "boolean") {
+                return `<span class="json__bool">${value}</span>`;
+            }
+            return `<span class="json__string">${value}</span>`;
+        }
+
+        function isUrl(str) {
+            try {
+                new URL(str);
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+
+        chatForm.addEventListener("submit", function (e) {
+            e.preventDefault();
+
+            // очистим старые ошибки
+            renderAssistantErrors();
+
+            logContainer.innerHTML = "";
+
+
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'Обработка... <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+            loader.classList.remove("d-none");
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            const multichainScheme = document.querySelector("#id_multichain").checked;
+            const ensembleScheme = document.querySelector("#id_ensemble").checked;
+
+            // 🔹 Собираем изменённые конфигурации блоков 
+            const runtimeConfig = {};
+            document.querySelectorAll(".assistant-tree__item--changed").forEach(item => {
+                const block = item.querySelector(".block");
+                if (!block) return;
+                const blockId = block.id.replace("block-", "");
+                const fields = block.querySelectorAll(".custom-field__input");
+
+                runtimeConfig[blockId] = {};
+                fields.forEach(f => {
+                    if (normalize(f.value) !== normalize(f.dataset.original ?? "")) {
+                        runtimeConfig[blockId][f.name] = f.value;
+                    }
+                });
+
+                if (Object.keys(runtimeConfig[blockId]).length === 0) {
+                    delete runtimeConfig[blockId];
+                }
+            });
+
+            // Временное сообщение пользователя и индикатор AI
+            messageInput.value = "";
+            const tempUserMsg = `<div class="message message--user">${message}</div>`;
+            const tempBotMsgId = `temp-bot-${Date.now()}`;
+            const tempBotMsg = `
+                <div class="message message--ai" id="${tempBotMsgId}">
+                    <div class="message__typing-indicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            `;
+            chatHistory.innerHTML += tempUserMsg + tempBotMsg;
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            fetch("", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-CSRFToken": csrfToken,
+                    "X-Requested-With": "XMLHttpRequest"
+                },
+                body: new URLSearchParams({
+                    message,
+                    is_multichain: multichainScheme.toString(),
+                    is_ensemble: ensembleScheme.toString(),
+                    runtime_config: JSON.stringify(runtimeConfig),
+                })
+            })
+            .then(response => response.json().then(data => ({ status: response.status, data })))
+            .then(({ status, data }) => {
+                if (status >= 400) {
+                    // ошибки runtime_config или формы
+                    if (data.details || data.form_errors) {
+                        renderAssistantErrors(data.form_errors || [], data.details || {});
+                        return false; // остановить дальнейшую обработку
+                    }
+
+                    // настоящие ошибки сервера
+                    renderAssistantErrors([data.error || "Ошибка сервера"], {});
+                    return false;
+                }
+
+                return data; // успешный ответ
+            })
+            .then(data => {
+                if (!data) return;
+                console.log(data)
+
+                const { ai_response, extended_log } = data;
+
+                // Заменяем временный ответ AI
+                const botMsgEl = document.getElementById(tempBotMsgId);
+                if (botMsgEl) {
+                    botMsgEl.outerHTML = `
+                        <div class="message message--ai" data-message-id="${ai_response.id}" data-url="${ai_response.request_url}">
+                            ${ai_response.text}
+                            <div class="rating" data-score="${ai_response.score ?? ''}">
+                                ${generateStarsHtml(ai_response.id, ai_response.score)}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+                console.log(logContainer)
+                console.log(extended_log)
+                // Рендер лога
+                if (logContainer) {
+                    logContainer.innerHTML = extended_log
+                        ? renderDict(extended_log)
+                        : "<p class='text-muted'>Нет лога.</p>";
+                }
+            })
+            .catch(error => {
+                console.error("Ошибка:", error);
+                //alert("Ошибка при отправке запроса."); // сетевые и непредвиденные ошибки.
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Отправить';
+                loader.classList.add("d-none");
+            });
+        });
+
+    });
+</script>
+
+{% endblock script %}
+

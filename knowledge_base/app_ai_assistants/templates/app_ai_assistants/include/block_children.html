@@ -1,48 +1,106 @@
+{% load static %}
 {% load json_extras %}
+
 
 <ul class="assistant-tree__list">
     {% for block in blocks %}
-        <li class="assistant-tree__item">
-        <span class="assistant-tree__name">{{ block.name }}</span>
-        <span class="assistant-tree__type assistant-tree__type--{{ block.block_type }}">
-            {{ block.block_type }}
-        </span>
-
-        {% if block.config %}
-            <div class="assistant-tree__config">
-                <ul>
-                    {% for key, value in block.config.items %}
-                        <li>
-                            <strong>{{ key }}</strong>:
-                            {% if value.items %}
-                                <ul>
-                                {% for k, v in value.items %}
-                                    <li>{{ k }}: {{ v|linebreaksbr }}</li>
-                                {% endfor %}
-                                </ul>
-                            {% else %}
-                                {{ value|linebreaksbr }}
-                            {% endif %}
-                        </li>
-                    {% endfor %}
-                </ul>
+        <li class="assistant-tree__item" data-item-id="{{ block.id }}">
+            <div class="assistant-tree__header">
+                <p>
+                    <span class="assistant-tree__name">{{ block.name }}</span>
+                    <span class="assistant-tree__type assistant-tree__type--{{ block.block_type }}">
+                        {{ block.block_type }}
+                    </span>
+                </p>
+                <span class="assistant-tree__icon assistant-tree__icon--changed" title="Настройки блока изменены" aria-label="Настройки блока изменены">
+                    <svg >
+                        <use xlink:href="{% static 'img/icons/sprite.svg' %}#bugs"></use>
+                    </svg>
+                </span>
+                {% if block.config %}
+                <a href="{% url 'ai-assistants:block-config-update' block.id %}" class="btn btn--reset btn--round" title="Редактировать настройки блока" aria-label="Редактировать настройки блока">
+                        <svg class="btn__icon">
+                            <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                        </svg>
+                    </a>
+                {% endif %}
             </div>
-        {% endif %}
+            {% if block.function_source or block.config or block.runtime_form%}
+                <button class="assistant-tree__toggle-function">
+                    Показать настройки блока
+                </button>
+            {% endif %}
 
-        {% if block.function_source %}
-            <button class="assistant-tree__toggle-function">
-                Показать/Скрыть исходник функции
-            </button>
-            <div class="assistant-tree__config assistant-tree__function">
-                <div class="assistant-tree__code codehilite">
-                    {{ block.function_source|safe }}
+            {% if block.config %}
+                <div class="assistant-tree__config">
+                    <span class="assistant-tree__subheading">конфигурация блока</span>
+                    <ul>
+                        {% for key, value in block.config.items %}
+                            <li>
+                                <strong>{{ key }}</strong>:
+                                {% if value.items %}
+                                    <ul>
+                                    {% for k, v in value.items %}
+                                        <li>{{ k }}: {{ v|linebreaksbr }}</li>
+                                    {% endfor %}
+                                    </ul>
+                                {% else %}
+                                    {{ value|linebreaksbr }}
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
                 </div>
-            </div>
-        {% endif %}
+            {% endif %}
+            {% if block.runtime_form %}
+                <div class="assistant-tree__config">
+                    <span class="assistant-tree__subheading">форма настройки блока</span>
+                    <div class="block" id="block-{{ block.id }}">
+                        {% for key, field in block.runtime_form.items %}
+                            <div class="field-container field-container_wide">
+                                <label class="custom-field" for="{{ field.id }}">
+                                    {% if field.value|length > 100 %}
+                                        <textarea class="custom-field__input custom-field__input_textarea custom-field__input_wide"
+                                                type="{{ field.type }}"
+                                                name="{{ field.name }}"
+                                                id="{{ field.id }}"
+                                                data-original="{{ field.value }}"
+                                                {% if field.required %} required {% endif %}
+                                                placeholder="">{{ field.value|default:"" }}</textarea>
+                                    {% else %}
+                                        <input class="custom-field__input custom-field__input_wide"
+                                            type="{{ field.type }}"
+                                            name="{{ field.name }}"
+                                            id="{{ field.id }}"
+                                            value="{{ field.value }}"
+                                            data-original="{{ field.value }}"
+                                            {% if field.required %} required {% endif %}
+                                            placeholder=""/>
+                                    {% endif %}
+                                    <span class="custom-field__placeholder">{{ key }}</span>
+                                    {% if field.errors %}
+                                    <span class="custom-field__error-message" aria-live="polite">{{ field.errors }}</span>
+                                    {% endif %}
+                                </label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                        
+                </div>
+            {% endif %}
 
-        {% if block.children %}
-            {% include "app_ai_assistants/include/block_children.html" with blocks=child.children %}
-        {% endif %}
+            {% if block.function_source %}
+                <div class="assistant-tree__config assistant-tree__function">
+                    <span class="assistant-tree__subheading">Функция построения Langchain цепочки</span>
+                    <div class="assistant-tree__code codehilite">
+                        {{ block.function_source|safe }}
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if block.children %}
+                {% include "app_ai_assistants/include/block_children.html" with blocks=child.children %}
+            {% endif %}
         </li>
     {% endfor %}
 </ul>

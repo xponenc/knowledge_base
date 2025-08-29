@@ -388,6 +388,10 @@
     font-size: 1.5em;
 }
 
+.custom-field__input--changed {
+    border-color: var(--warning-color);
+}
+
 
 .custom-field__input_disabled {
     opacity: 0.4;

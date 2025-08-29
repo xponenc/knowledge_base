@@ -95,7 +95,7 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
     reformulated_question = ""
 
     if is_reformulate_question and not created:
-        chat_history = telegram_session.limited_chat_history
+        chat_history = list(telegram_session.limited_chat_history)[::-1]
         if chat_history:
             history = [(msg.text, getattr(msg, "answer", None).text if getattr(msg, "answer", None) else "") for msg
                        in chat_history]

@@ -58,7 +58,22 @@
                     <dd class="description__defination">
                         {{ object.description|default:"—" }}
                     </dd>
-                    
+                    <dt class="description__term">тип</dt>
+                    <dd class="description__defination">
+                        {{ object.get_type_display }}
+                    </dd>
+                    <dt class="description__term">автор</dt>
+                    <dd class="description__defination">
+                        {{ object.author.get_full_namme|default:object.author }}
+                    </dd>
+                    <dt class="description__term">создан</dt>
+                    <dd class="description__defination">
+                        {{ object.created_at|date:"d.m.Y H:i" }}
+                    </dd>
+                    <dt class="description__term">изменен</dt>
+                    <dd class="description__defination">
+                        {{ object.updated_at|date:"d.m.Y H:i" }}
+                    </dd>
                 </dl>
             </div>
             <div class="info-page__footer">
@@ -75,7 +90,7 @@
                             </svg>
                             чат
                         </a>
-                        <a href="{% url 'ai-assistants:ai-assistant-chat' assistant.pk %}" class="btn btn--reset btn--simple btn--primary">
+                        <a href="{% url 'ai-assistants:ai-assistant-system-chat' assistant.pk %}" class="btn btn--reset btn--simple btn--primary">
                             <svg class="btn__icon">
                                 <use xlink:href="{% static 'img/icons/sprite.svg' %}#chat"></use>
                             </svg>
@@ -87,68 +102,98 @@
         </div>
     </div>
     <div class="page__content">
-        <h3>Структура цепочки ассистента</h3>
-    
-        <div class="assistant-tree">
-            <ul class="assistant-tree__list">
-                {% for block in assistant_structure %}
-                    <li class="assistant-tree__item">
-                    <span class="assistant-tree__name">{{ block.name }}</span>
-                    <span class="assistant-tree__type assistant-tree__type--{{ block.block_type }}">
-                        {{ block.block_type }}
-                    </span>
-    
-                    {% if block.config %}
-                        <div class="assistant-tree__config">
-                            <ul>
-                                {% for key, value in block.config.items %}
-                                    <li>
-                                        <strong>{{ key }}</strong>:
-                                        {% if value.items %}
-                                            <ul>
-                                            {% for k, v in value.items %}
-                                                <li>{{ k }}: {{ v|linebreaksbr }}</li>
+        <div class="page__info info-page info-page--border _mb">
+            <div class="info-page__header">
+                <h3 class="info-page__heading _ta-e">Структура цепочки ассистента</h3>
+            </div>
+            <div class="info-page__body">
+                <div class="assistant-tree">
+                    <ul class="assistant-tree__list">
+                        {% for block in assistant_structure %}
+                            <li class="assistant-tree__item">
+                                <div class="assistant-tree__header">
+                                    <p>
+                                        <span class="assistant-tree__name">{{ block.name }}</span>
+                                        <span class="assistant-tree__type assistant-tree__type--{{ block.block_type }}">
+                                            {{ block.block_type }}
+                                        </span>
+                                    </p>
+                                    {% if block.config %}
+                                    <a href="{% url 'ai-assistants:block-config-update' block.id %}" class="btn btn--reset btn--round" title="Редактировать настройки блока" aria-label="Редактировать настройки блока">
+                                            <svg class="btn__icon">
+                                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#edit-gear"></use>
+                                            </svg>
+                                        </a>
+                                    {% endif %}
+                                </div>
+                                {% if block.function_source or block.config %}
+                                    <button class="assistant-tree__toggle-function">
+                                        Показать настройки блока
+                                    </button>
+                                {% endif %}
+                                
+                                {% if block.config %}
+                                    <div class="assistant-tree__config">
+                                        <span class="assistant-tree__subheading">конфигурация блока</span>
+                                        <ul>
+                                            {% for key, value in block.config.items %}
+                                                <li>
+                                                    <strong>{{ key }}</strong>:
+                                                    {% if value.items %}
+                                                        <ul>
+                                                        {% for k, v in value.items %}
+                                                            <li>{{ k }}: {{ v|linebreaksbr }}</li>
+                                                        {% endfor %}
+                                                        </ul>
+                                                    {% else %}
+                                                        {{ value|linebreaksbr }}
+                                                    {% endif %}
+                                                </li>
                                             {% endfor %}
-                                            </ul>
-                                        {% else %}
-                                            {{ value|linebreaksbr }}
-                                        {% endif %}
-                                    </li>
-                                {% endfor %}
-                            </ul>
-    
-                        </div>
-                    {% endif %}
+                                        </ul>
                 
-                    {% if block.function_source %}
-                        <button class="assistant-tree__toggle-function">
-                            Показать/Скрыть исходник функции
-                        </button>
-                        <div class="assistant-tree__config assistant-tree__function">
-                            <div class="assistant-tree__code codehilite">
-                                {{ block.function_source|safe }}
-                            </div>
-                        </div>
-                    {% endif %}
-    
-                    {% if block.children %}
-                        {% include "app_ai_assistants/include/block_children.html" with blocks=block.children %}
-                    {% endif %}
-                    </li>
-                {% endfor %}
-            </ul>
+                                    </div>
+                                {% endif %}
+                            
+                                {% if block.function_source  %}
+                                    <div class="assistant-tree__config assistant-tree__function">
+                                        <span class="assistant-tree__subheading">Функция построения Langchain цепочки</span>
+
+                                        <div class="assistant-tree__code codehilite">
+                                            {{ block.function_source|safe }}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                
+                                {% if block.children %}
+                                    {% include "app_ai_assistants/include/block_children.html" with blocks=block.children %}
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
         </div>
-    
-        <h2>{{ assistant.name }}</h2>
-        <div class="mermaid">
-            {{ mermaid_code|safe }}
+        <div class="page__info info-page info-page--border _mb">
+            <div class="info-page__header">
+                <h3 class="info-page__heading _ta-e">Схема цепочки ассистента SVG</h3>
+            </div>
+            <div class="info-page__body">
+                <div class="mermaid">
+                    {{ mermaid_code|safe }}
+                </div>
+            </div>
         </div>
-    
-        <div id="cy" style="width:100%; height:600px; border:1px solid #ccc;"></div>
-        <button id="saveGraph" class="btn btn--reset btn--simple">Сохранить</button>
+        <div class="page__info info-page info-page--border _mb">
+            <div class="info-page__header">
+                <h3 class="info-page__heading _ta-e">Схема цепочки ассистента</h3>
+            </div>
+            <div class="info-page__body">
+                <div id="cy" style="width:100%; height:600px;"></div>
+                {% comment %} <button id="saveGraph" class="btn btn--reset btn--simple">Сохранить</button> {% endcomment %}
+            </div>
+        </div>
     </div>
-
-
 </div>
 {% endblock content %}
 
@@ -168,16 +213,24 @@
             document.querySelectorAll('.assistant-tree__toggle-function').forEach(button => {
                 button.addEventListener('click', () => {
                     button.classList.toggle('assistant-tree__toggle-function--open');
-                    const configDiv = button.nextElementSibling;
-                    console.log(configDiv)
-
-                    if (configDiv.style.maxHeight) {
-                        // Свернуть
-                        configDiv.style.maxHeight = null;
-                    } else {
-                        // Развернуть до реальной высоты содержимого
-                        configDiv.style.maxHeight = configDiv.scrollHeight + "px";
-                    }
+                    
+                    const isOpen = button.classList.contains('assistant-tree__toggle-function--open');
+                    button.textContent = isOpen ? 'Скрыть настройки блока' : 'Показать настройки блока';
+                    
+                    const parentItem = button.closest('.assistant-tree__item');
+                    
+                    const configDivs = parentItem.querySelectorAll('.assistant-tree__config');
+                    
+                    configDivs.forEach(configDiv => {
+                        configDiv.classList.toggle("assistant-tree__config--active");
+                        if (configDiv.style.maxHeight) {
+                            configDiv.style.maxHeight = null;
+                            configDiv.style.padding = '0 10px';
+                        } else {
+                            configDiv.style.maxHeight = configDiv.scrollHeight + 12 + 'px';
+                            configDiv.style.padding = '6px 10px';
+                        }
+                    });
                 });
             });
         });
@@ -266,7 +319,6 @@
             ]
         });
 
-        console.log("Edgehandles available:", typeof cy.edgehandles);
 
         if (!cy.edgehandles) {
             console.error("Cytoscape Edgehandles plugin is not loaded");
@@ -289,7 +341,7 @@
         });
 
         // === Кнопка сохранения графа ===
-        document.getElementById("saveGraph").addEventListener("click", function () {
+        {% comment %} document.getElementById("saveGraph").addEventListener("click", function () {
             const newNodes = cy.nodes().map(n => n.data());
             const newEdges = cy.edges().map(e => e.data());
 
@@ -310,7 +362,7 @@
                     alert("❌ Ошибка сохранения");
                 }
             });
-        });
+        }); {% endcomment %}
     });
     </script>
 

@@ -64,6 +64,28 @@
                             API ReDoc
                         </a>
                     </li>
+                    <li class="navbar__item">
+                        <form action="{% url 'logout' %}" method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="navbar__link btn btn--reset">
+                                <svg class="navbar__icon">
+                                    <use xlink:href="{% static 'img/icons/sprite.svg' %}#logout"></use>
+                                </svg>
+                                Logout
+                            </button>
+                        </form>
+                    </li>
+                    <li>
+                        <form id="logout-form" action="{% url 'logout' %}" method="post" style="display: none;">
+                            {% csrf_token %}
+                        </form>
+                        <a href="http://{{ request.get_host }}:8001/redoc" class="navbar__link" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+                            <svg class="navbar__icon">
+                                <use xlink:href="{% static 'img/icons/sprite.svg' %}#дщпщге"></use>
+                            </svg>
+                            Выйти
+                        </a>
+                    </li>
                 </ul>
             </div>
         </nav>

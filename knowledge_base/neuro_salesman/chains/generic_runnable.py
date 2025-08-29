@@ -2,6 +2,7 @@ import time
 from typing import Callable, Dict, Any
 from langchain_core.runnables import Runnable
 from .chain_logger import ChainLogger
+from ..config import EMPTY_MESSAGE
 
 
 class GenericRunnable(Runnable):
@@ -25,8 +26,7 @@ class GenericRunnable(Runnable):
             Если `output_mapping` переопределён — этот ключ можно игнорировать.
         prefix (str, optional):
             Префикс для логов (например, "Greeting Extractor").
-        debug_mode (bool, optional):
-            Если True — входы и выходы дополнительно печатаются в консоль.
+
         input_mapping (Callable[[Dict[str, Any]], Dict[str, Any]], optional):
             Функция для подготовки входных данных для `chain`.
             По умолчанию возвращает inputs как есть.
@@ -52,13 +52,12 @@ class GenericRunnable(Runnable):
         chain: Runnable,
         output_key: str,
         prefix: str = "[Chain]",
-        debug_mode: bool = False,
         input_mapping: Callable[[Dict[str, Any]], Dict[str, Any]] = None,
         output_mapping: Callable[[Any, Dict[str, Any]], Dict[str, Any]] = None,
     ):
         self.chain = chain
         self.output_key = output_key
-        self.logger = ChainLogger(prefix=prefix, debug_mode=debug_mode)
+        self.logger = ChainLogger(prefix=prefix)
         self.input_mapping = input_mapping or (lambda inputs: inputs)
         self.output_mapping = output_mapping or (lambda result, inputs: {**inputs, self.output_key: result})
 
@@ -74,17 +73,22 @@ class GenericRunnable(Runnable):
         Returns:
             Dict[str, Any]: Обновленный словарь входов с добавленным результатом.
         """
-        start_time = time.monotonic()
-        session_info = f"{inputs.get('session_type', 'n/a')}:{inputs.get('session_id', 'n/a')}"
 
+        start_time = time.monotonic()
+
+        for key in ("original_inputs", "report_and_router", "final_result"):
+            key_inputs = inputs.pop(key, None)
+            if key_inputs and isinstance(key_inputs, dict):
+                inputs.update(key_inputs)
+
+        session_info = f"{inputs.get('session_type', 'n/a')}:{inputs.get('session_id', 'n/a')}"
+        self.logger.log(session_info, "debug", f"inputs: {inputs}")
         try:
             # Подготовка входов
             mapped_inputs = self.input_mapping(inputs)
             self.logger.log(session_info, "debug", f"mapped_inputs={mapped_inputs}")
-
             # Вызов модели/цепочки
             result = self.chain.invoke(mapped_inputs, config=config, **kwargs)
-
             elapsed = time.monotonic() - start_time
             self.logger.log(session_info, "info", f"finished in {elapsed:.2f}s")
             self.logger.log(session_info, "debug", f"raw_result={result}")
@@ -95,4 +99,4 @@ class GenericRunnable(Runnable):
 
         except Exception as e:
             self.logger.log(session_info, "error", f"Ошибка: {str(e)}", exc=e)
-            return {**inputs, self.output_key: None}
+            return self.output_mapping(EMPTY_MESSAGE, inputs)

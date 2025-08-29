@@ -10,65 +10,12 @@ from app_ai_assistants.services.block_model_validation import validate_block_con
 from app_core.models import KnowledgeBase
 from neuro_salesman.context import search_with_retriever
 from neuro_salesman.expert import build_parallel_experts
-from neuro_salesman.summary import create_summary_exact
+# from neuro_salesman.summary import create_summary_exact
 from neuro_salesman.router import create_router_chain
 from neuro_salesman.senior import create_senior_chain
 from neuro_salesman.stylist import create_stylist_chain
 from neuro_salesman.extractor import build_parallel_extractors
 from neuro_salesman.chains.chain_logger import ChainLogger
-from neuro_salesman.greetings import create_extract_greeting_chain, create_remove_greeting_chain
-
-
-def TEST_create_assistant_from_config(config: dict, debug_mode: bool = False):
-    """
-    Создает цепочку ассистента на основе конфигурации.
-
-    Args:
-        config (dict): Конфигурация ассистента (например, NS_CONFIG).
-        debug_mode (bool): Включает отладочный режим.
-
-    Returns:
-        Runnable: Полная собранная цепочка ассистента.
-    """
-    logger = ChainLogger(prefix=f"[{config['name']}]", debug_mode=debug_mode)
-    start_time = time.monotonic()
-
-    block_type_to_factory = {
-        "greeting": lambda _: create_extract_greeting_chain(debug_mode=debug_mode),
-        "extractor": lambda _: build_parallel_extractors(debug_mode=debug_mode),
-        "summary": lambda _: RunnableLambda(partial(create_summary_exact, debug_mode=debug_mode)),
-        "router": lambda _: create_router_chain(debug_mode=debug_mode),
-        "retriever": lambda _: RunnableLambda(search_with_retriever),
-        "passthrough": lambda _: RunnablePassthrough(),
-        "expert": lambda _: build_parallel_experts(debug_mode=debug_mode),
-        "senior": lambda _: create_senior_chain(debug_mode=debug_mode),
-        "stylist": lambda _: create_stylist_chain(debug_mode=debug_mode),
-        "remove_greeting": lambda _: create_remove_greeting_chain(debug_mode=debug_mode),
-    }
-
-    def build_block(block_cfg: dict):
-        block_type = block_cfg["block_type"]
-        block_name = block_cfg["name"]
-        children = block_cfg.get("children")
-
-        logger.log("init", "info", f"Constructing block '{block_name}' ({block_type})")
-
-        if block_type == "parallel":
-            return RunnableParallel(
-                **{child["name"]: build_block(child) for child in children}
-            )
-        elif block_type == "sequential":
-            return RunnableSequence(
-                *[build_block(child) for child in children]
-            )
-        else:
-            return block_type_to_factory[block_type](block_cfg)
-
-    full_chain = RunnableSequence(*[build_block(block) for block in config["blocks"]])
-    elapsed = time.monotonic() - start_time
-    logger.log("init", "info", f"Assistant '{config['name']}' constructed in {elapsed:.2f}s")
-
-    return full_chain
 
 
 def create_assistant_from_config(
@@ -215,6 +162,8 @@ def _resolve_block_config(block_cfg, roles_config):
         "expert": roles_config.get("EXPERTS", {}),
         "senior": roles_config.get("SENIOR", {}),
         "stylist": roles_config.get("STYLIST", {}),
+        "summary": roles_config.get("SUMMARY", {}),
+        "reformulator": roles_config.get("REFORMULATE", {}),
     }
 
     default_config = mapping.get(block_type, {})
@@ -224,7 +173,7 @@ def _resolve_block_config(block_cfg, roles_config):
     # Экстракторы/эксперты/роутеры — отдельные словари
     if "name" in block_cfg and block_type in {"extractor", "expert", "router"}:
         default_config = default_config.get(block_cfg["name"])
-        print(default_config)
+    print(default_config)
     # if "name" in block_cfg and block_type in {"sequence", "parallel", }:
     #     default_config = default_config.get(block_cfg["name"])
 

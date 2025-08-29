@@ -1,5 +1,5 @@
 import time
-from typing import Dict
+from typing import Dict, Any
 
 from langchain_core.messages import AIMessage
 from langchain_openai import ChatOpenAI
@@ -9,163 +9,125 @@ from langchain_core.prompts import PromptTemplate, ChatPromptTemplate, SystemMes
 from langchain_core.runnables import RunnableParallel, Runnable, RunnablePassthrough
 
 from neuro_salesman.chains.chain_logger import ChainLogger
+from neuro_salesman.chains.generic_runnable import GenericRunnable
 from neuro_salesman.chains.keyed_runnable import KeyedRunnable
 from neuro_salesman.config import DEFAULT_LLM_MODEL, EMPTY_MESSAGE, LLM_MAX_RETRIES, LLM_TIMEOUT
-from neuro_salesman.llm_utils import VerboseLLMChain
-from neuro_salesman.roles_config import NEURO_SALER
-
-#
-# def make_bound_chain(chain, cfg, debug_mode=False):
-#     """
-#     Оборачивает цепочку, чтобы она выбирала текст из контекста.
-#     """
-#     class BoundChainRunnable(Runnable):
-#         def __init__(self, chain, cfg, debug_mode):
-#             self.chain = chain
-#             self.cfg = cfg
-#             self.debug_mode = debug_mode
-#             # self.output_key = chain.output_key
-#
-#         def invoke(self, inputs, config=None, **kwargs):
-#             text = inputs.get(self.cfg["target"])
-#
-#             if not text or not text.strip():
-#                 if self.debug_mode:
-#                     print(f"[{self.cfg.get('verbose_name', 'Extractor')}] Текст пуст — модель не вызывалась.")
-#                 return EMPTY_MESSAGE
-#             result = self.chain.invoke(
-#                 {
-#                     "text": text,
-#                     "system_prompt": self.cfg.get("system_prompt", ""),
-#                     "instructions": self.cfg.get("instructions", "")
-#                 },
-#                 config=config,
-#                 **kwargs
-#             )
-#             return result
-#
-#     return BoundChainRunnable(chain, cfg, debug_mode)
-
-
-# def make_extractor_chain(chain_config: Dict, debug_mode=False):
-#     """
-#     Создаёт цепочку-экстрактор на основе конфигурации.
-#     """
-#
-#     model_name = chain_config.get("model_name", DEFAULT_LLM_MODEL)
-#     model_temperature = chain_config.get("model_temperature", 0)
-#     system_prompt = chain_config.get("system_prompt", "")
-#     instructions = chain_config.get("instructions", "")
-#
-#     llm = ChatOpenAI(model=model_name, temperature=model_temperature)
-#
-#     # Промпт с подстановкой system_prompt и instructions
-#     # prompt_template = PromptTemplate(
-#     #     template="{system_prompt}\n{instructions}\n\nТекст для анализа:\n{text}\n\nОтвет:",
-#     #     input_variables=["system_prompt", "instructions", "text"]
-#     # )
-#
-#     # Use ChatPromptTemplate for proper message handling
-#     prompt_template = ChatPromptTemplate.from_messages([
-#         SystemMessagePromptTemplate.from_template("{system_prompt}\n{instructions}"),
-#         HumanMessagePromptTemplate.from_template("Текст для анализа:\n{text}\n\nОтвет:")
-#     ])
-#
-#     # Современная композиция вместо LLMChain
-#     chain = prompt_template | llm
-#
-#     return make_bound_chain(chain, chain_config, debug_mode=debug_mode)
-
-
-# def build_parallel_extractors(db_name: str, debug_mode: bool = False):
-#     chains = {}
-#     for extractor, extractor_config in EXTRACTOR_ROLES.items():
-#         chain_name = extractor_config.get("verbose_name", "Extractor")
-#         chain = make_extractor_chain(chain_name=extractor, chain_config=extractor_config, debug_mode=debug_mode)
-#         verbose_chain = VerboseLLMChain(chain, chain_name=chain_name, debug_mode=debug_mode)
-#         chains[extractor] = verbose_chain
-#     chains['original_inputs'] = RunnablePassthrough()
-#     return RunnableParallel(**chains)
 
 
 def make_extractor_chain(
-        chain_config: Dict,
-        debug_mode=False):
+        chain_name: str,
+        chain_config: Dict[str, Any],
+        session_info: str,
+) -> "GenericRunnable":
     """
-    Создаёт цепочку-экстрактор на основе конфигурации.
+    Универсальный билдер цепочек-«экстракторов» для анализа текста.
 
-    Пошагово:
-    1. Создает LLM-модель с параметрами из конфигурации.
-    2. Формирует промпт из system_prompt и instructions.
-    3. Оборачивает цепочку в BoundChainRunnable, которая:
-        - выбирает текст из inputs[target];
-        - вызывает модель;
-        - возвращает результат под ключом output_key в inputs;
-        - логирует вход и выход через ChainLogger в зависимости от debug_mode.
+    Экстрактор получает текст из поля `inputs[target]`, прогоняет через LLM
+    с заранее заданным системным промптом и инструкциями, и возвращает
+    результат под ключом `chain_name`.
 
     Args:
-        chain_name (str): Имя цепочки для логирования.
-        chain_config (Dict): Конфигурация цепочки (model_name, instructions, target и др.).
-        debug_mode (bool): Включает подробный вывод в консоль и debug-лог.
+        chain_name (str):
+            Имя цепочки (ключ для результата в выходном словаре).
+
+        chain_config (Dict[str, Any]):
+            Конфигурация экстрактора. Поддерживаемые ключи:
+              - "model_name" (str): название модели (по умолчанию DEFAULT_LLM_MODEL).
+              - "model_temperature" (float): температура генерации (по умолчанию 0).
+              - "system_prompt" (str): системный промпт для LLM.
+              - "instructions" (str): инструкции, добавляемые к промпту.
+              - "verbose_name" (str): человеко-читаемое имя цепочки (для логов).
+              - "target" (str): название поля во входных данных,
+                из которого брать текст для анализа (**обязательный параметр**).
+
+        session_info (str):
+            Идентификатор или описание сессии (используется в логгере).
 
     Returns:
-        KeyedRunnable: объект Runnable, который при вызове invoke возвращает inputs с добавленным output_key.
+        GenericRunnable:
+            Объект-обертка над LLM-цепочкой с маппингом входов и выходов.
+
+    Raises:
+        ValueError: если в конфиге отсутствует ключ "target".
     """
+    # --- Логгер для отладки и мониторинга ---
+    logger = ChainLogger(prefix=f"{chain_name} (extractor)")
+    logger.log(session_info, "info", "Chain started")
+
+    # --- Чтение параметров из конфигурации ---
     model_name = chain_config.get("model_name", DEFAULT_LLM_MODEL)
     model_temperature = chain_config.get("model_temperature", 0)
     system_prompt = chain_config.get("system_prompt", "")
     instructions = chain_config.get("instructions", "")
     verbose_name = chain_config.get("verbose_name", "Extractor")
+    target = chain_config.get("target")
 
-    logger = ChainLogger(prefix=f"[{verbose_name}]", debug_mode=debug_mode)
-    logger.log("init", "info", f"Chain started")
+    if not target:
+        raise ValueError(f"Extractor {chain_name} не имеет target в конфиге")
 
-    llm = ChatOpenAI(model=model_name,
-                     temperature=model_temperature,
-                     max_retries=LLM_MAX_RETRIES,
-                     timeout=LLM_TIMEOUT
-                     )
+    # --- Инициализация LLM ---
+    llm = ChatOpenAI(
+        model=model_name,
+        temperature=model_temperature,
+        max_retries=LLM_MAX_RETRIES,
+        timeout=LLM_TIMEOUT,
+    )
+    logger.log(
+        session_info,
+        "info",
+        f"Chain creation started (model={model_name}, temperature={model_temperature})"
+    )
 
+    # --- Шаблон промпта ---
+    # system_prompt + instructions → контекст
+    # text → текст для анализа
     prompt_template = ChatPromptTemplate.from_messages([
-        SystemMessagePromptTemplate.from_template("{system_prompt}\n{instructions}"),
-        HumanMessagePromptTemplate.from_template("Текст для анализа:\n{text}\n\nОтвет:")
+        SystemMessagePromptTemplate.from_template("{system_prompt}"),
+        HumanMessagePromptTemplate.from_template(
+            "{instructions}\n\nТекст для анализа:\n{text}\n\nОтвет:"
+        )
     ])
 
-    logger.log("init",
-               "info",
-               f"Chain creation started (model={model_name}, temperature={model_temperature})")
-
+    # Сам пайплайн: промпт → LLM
     chain = prompt_template | llm
 
-    target_key = chain_config.get("target", "")
+    # --- Маппинг входов ---
+    def input_mapping(inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Подготавливает словарь для промпта:
+        - забирает текст из inputs[target],
+        - добавляет system_prompt и instructions.
+        """
+        target = chain_config.get("target")
 
-    class BoundChainRunnable(KeyedRunnable):
-        def invoke(self, inputs, config=None, **kwargs):
-            start_time = time.monotonic()
-            text = inputs.get(target_key, "")
-            session_info = f"{inputs.get('session_type', 'n/a')}:{inputs.get('session_id', 'n/a')}"
-            if not text or not text.strip():
-                self.logger.log(session_info, "warning", "Текст пуст — модель не вызывалась")
-                return EMPTY_MESSAGE
-            try:
-                result = self.chain.invoke(
-                    {
-                        "text": text,
+        text = inputs.get(target, "")
+        if isinstance(text, AIMessage):
+            text = text.content
+        return {
+            "system_prompt": system_prompt,
+            "instructions": instructions,
+            "text": text,
+        }
 
-                     }, config=config, **kwargs)
-                elapsed = time.monotonic() - start_time
+    # --- Маппинг выходов ---
+    def output_mapping(result: Any, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Объединяет исходные inputs с результатом LLM.
+        Результат сохраняется под ключом `chain_name`.
+        """
+        return result
 
-                self.logger.log(session_info, "debug", f"input: {inputs}")
-                self.logger.log(session_info, "info", f"finished in {elapsed:.2f}s")
-                self.logger.log(session_info, "debug", f"output: {self.output_key}={result}")
-                return result
-            except Exception as e:
-                self.logger.log(session_info, "error", f"Ошибка: {str(e)}", exc=e)
-                return EMPTY_MESSAGE
+    # --- Возврат готовой обёртки ---
+    return GenericRunnable(
+        chain=chain,
+        output_key=chain_name,
+        prefix=verbose_name,
+        input_mapping=input_mapping,
+        output_mapping=output_mapping,
+    )
 
-    return BoundChainRunnable(chain, output_key="", prefix=verbose_name, debug_mode=debug_mode)
 
-def build_parallel_extractors(extractors:dict, debug_mode: bool = False):
+def build_parallel_extractors(extractors: dict, debug_mode: bool = False):
     """
     Создает параллельный runnable, который запускает все экстракторы одновременно.
 

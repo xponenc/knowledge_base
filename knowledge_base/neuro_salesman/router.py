@@ -1,5 +1,6 @@
 import json
-from typing import List, Dict
+from pprint import pprint
+from typing import List, Dict, Any
 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import AIMessage
@@ -7,7 +8,8 @@ from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTempla
 from langchain_core.runnables import Runnable
 
 from neuro_salesman.chains.chain_logger import ChainLogger
-from neuro_salesman.config import DEFAULT_LLM_MODEL
+from neuro_salesman.chains.generic_runnable import GenericRunnable
+from neuro_salesman.config import DEFAULT_LLM_MODEL, LLM_MAX_RETRIES, LLM_TIMEOUT
 from neuro_salesman.roles_config import NEURO_SALER
 
 #
@@ -144,7 +146,7 @@ Router Chain
 """
 
 # === Логгер цепочки ===
-logger = ChainLogger(prefix="[Router]", debug_mode=False)
+# logger = ChainLogger(prefix="[Router]")
 
 
 # === Вспомогательные функции ===
@@ -179,7 +181,7 @@ def parse_router_output(result_content: str) -> List[str]:
         return [s.strip() for s in result_content.split(",") if s.strip()]
 
 
-def build_system_prompt(needs: List[str]) -> str:
+def build_system_prompt(basic_system_prompt: str, needs: List[str]) -> str:
     """
     Собирает system-prompt для LLM в зависимости от количества выявленных потребностей.
 
@@ -189,9 +191,8 @@ def build_system_prompt(needs: List[str]) -> str:
     Returns:
         str: текст system-prompt.
     """
-    base_prompt = ROUTER_CONFIG.get("system_prompt", "")
     if len(needs) > 5:
-        base_prompt += '''
+        basic_system_prompt += '''
             ["Специалист по отработке возражений", "Специалист по презентациям", "Специалист по Zoom",
              “Специалист по завершению”]. 
             Ты знаешь, за что отвечает каждый специалист:
@@ -219,7 +220,7 @@ def build_system_prompt(needs: List[str]) -> str:
             "ладно" и прочие утвердительные выражения логически завершающие общение.
         '''
     else:
-        base_prompt += '''
+        basic_system_prompt += '''
             ["Специалист по выявлению потребностей", "Специалист по отработке возражений", 
             "Специалист по презентациям", "Специалист по Zoom", “Специалист по завершению”]. 
             #1 Специалист по выявлению потребностей: этот специалист всегда участвует в ответе;
@@ -243,92 +244,164 @@ def build_system_prompt(needs: List[str]) -> str:
             его задача отвечать когда пользователь дает понять, что завершает диалог и больше не намерен ничего 
             спрашивать, например: "спасибо","все понятно","хорошо", "ладно" и прочие утвердительные выражения 
             логически завершающие общение.'''
-    base_prompt += '''
+    basic_system_prompt += '''
         Твоя задача: определить по сообщению клиента, на основании Точного саммари и Хронологии предыдущих 
         сообщений диалога, каких специалистов из Перечня надо выбрать, чтобы они участвовали в ответе клиенту.
         Ты всегда строго следуешь требованиям к порядку отчета.
     '''
-    return base_prompt
+    return basic_system_prompt
+
+#
+# # === Основной Runnable для Router ===
+# class RouterRunnable(Runnable):
+#     """
+#     Runnable-обёртка для маршрутизатора диалога.
+#
+#     Отвечает за:
+#     - подготовку входных данных для LLM (system prompt, инструкции, история, саммари);
+#     - вызов LLM;
+#     - парсинг результата;
+#     - возврат результата в виде inputs + "router_output".
+#     """
+#
+#     def __init__(self, chain_name: str, chain):
+#         """
+#         Args:
+#             chain_name (str): имя цепочки (для логов).
+#             chain: связка PromptTemplate | LLM.
+#             debug_mode (bool): включать ли печать в консоль.
+#         """
+#         self.chain_name = chain_name
+#         self.chain = chain
+#
+#     def invoke(self, inputs: Dict, config=None, **kwargs) -> Dict:
+#         """
+#         Запускает цепочку маршрутизации.
+#
+#         Args:
+#             inputs (Dict): словарь входных данных (needs, histories, last_message_from_client, summary_exact).
+#             config: конфигурация выполнения.
+#             **kwargs: дополнительные параметры для LLM.
+#
+#         Returns:
+#             Dict: inputs + {"router_output": список специалистов}
+#         """
+#         needs = safe_split(inputs.get("needs", AIMessage(content="")))
+#         system_prompt = build_system_prompt(needs)
+#         summary_history = "\n".join(inputs.get("histories", []))
+#
+#         llm_inputs = {
+#             "system_prompt": system_prompt,
+#             "instructions": ROUTER_CONFIG.get("instructions", ""),
+#             "last_message_from_client": inputs.get("last_message_from_client", ""),
+#             "summary_history": summary_history,
+#             "summary_exact": inputs.get("summary_exact", "")
+#         }
+#
+#         logger.log("invoke", "info", f"[{self.chain_name}] inputs={llm_inputs}")
+#
+#         result = self.chain.invoke(llm_inputs, config=config, **kwargs)
+#
+#         logger.log("invoke", "info", f"[{self.chain_name}] outputs={result}")
+#
+#         output_router_list = parse_router_output(result.content)
+#         return {**inputs,
+#                 "routers": output_router_list,
+#                 "router_output": result}
+
+#
+# # === Фабрика цепочки ===
+# def create_router_chain(chain_name: str, chain_config: Dict) -> RouterRunnable:
+#     """
+#     Фабрика для создания RouterRunnable.
+#
+#     Args:
+#         router_name (str): имя роутера
+#         debug_mode (bool): включить ли debug-режим (печать + логгирование).
+#
+#     Returns:
+#         RouterRunnable: готовая цепочка для маршрутизации диалога.
+#     """
+#     chain_name = chain_config.get("verbose_name", "Router")
+#     model_name = chain_config.get("model_name", DEFAULT_LLM_MODEL)
+#     model_temperature = chain_config.get("model_temperature", 0)
+#
+#     llm = ChatOpenAI(model=model_name, temperature=model_temperature)
+#
+#     prompt_template = ChatPromptTemplate.from_messages([
+#         SystemMessagePromptTemplate.from_template("{system_prompt}"),
+#         HumanMessagePromptTemplate.from_template(
+#             "{instructions}\n\n"
+#             "Вопрос клиента: {last_message_from_client}\n\n"
+#             "Хронология предыдущих сообщений диалога: {summary_history}\n\n"
+#             "Саммари точное: {summary_exact}\n\n"
+#             "Ответ: "
+#         )
+#     ])
+#
+#     chain = prompt_template | llm
+#     return RouterRunnable(chain_name, chain)
 
 
-# === Основной Runnable для Router ===
-class RouterRunnable(Runnable):
+def create_router_chain(
+    chain_name: str,
+    chain_config: Dict[str, Any],
+    session_info: str,
+) -> "GenericRunnable":
     """
-    Runnable-обёртка для маршрутизатора диалога.
+    Универсальный билдер цепочки маршрутизатора для выбора обработчиков.
 
-    Отвечает за:
-    - подготовку входных данных для LLM (system prompt, инструкции, история, саммари);
-    - вызов LLM;
-    - парсинг результата;
-    - возврат результата в виде inputs + "router_output".
-    """
-
-    def __init__(self, chain_name: str, chain, debug_mode: bool = False):
-        """
-        Args:
-            chain_name (str): имя цепочки (для логов).
-            chain: связка PromptTemplate | LLM.
-            debug_mode (bool): включать ли печать в консоль.
-        """
-        self.chain_name = chain_name
-        self.chain = chain
-        self.debug_mode = debug_mode
-
-    def invoke(self, inputs: Dict, config=None, **kwargs) -> Dict:
-        """
-        Запускает цепочку маршрутизации.
-
-        Args:
-            inputs (Dict): словарь входных данных (needs, histories, last_message_from_client, summary_exact).
-            config: конфигурация выполнения.
-            **kwargs: дополнительные параметры для LLM.
-
-        Returns:
-            Dict: inputs + {"router_output": список специалистов}
-        """
-        needs = safe_split(inputs.get("needs", AIMessage(content="")))
-        system_prompt = build_system_prompt(needs)
-        summary_history = "\n".join(inputs.get("histories", []))
-
-        llm_inputs = {
-            "system_prompt": system_prompt,
-            "instructions": ROUTER_CONFIG.get("instructions", ""),
-            "last_message_from_client": inputs.get("last_message_from_client", ""),
-            "summary_history": summary_history,
-            "summary_exact": inputs.get("summary_exact", "")
-        }
-
-        logger.log("invoke", "info", f"[{self.chain_name}] inputs={llm_inputs}")
-
-        result = self.chain.invoke(llm_inputs, config=config, **kwargs)
-
-        logger.log("invoke", "info", f"[{self.chain_name}] outputs={result}")
-
-        output_router_list = parse_router_output(result.content)
-        return {**inputs,
-                "routers": output_router_list,
-                "router_output": result}
-
-
-# === Фабрика цепочки ===
-def create_router_chain(router_name: str, debug_mode: bool = False) -> RouterRunnable:
-    """
-    Фабрика для создания RouterRunnable.
+    Маршрутизатор получает входы (`needs`, `histories`, `last_message_from_client`,
+    `summary_exact`), подготавливает system_prompt, прогоняет их через LLM
+    и возвращает результат:
+        - `routers`: список выбранных специалистов;
+        - `router_output`: полный ответ LLM.
 
     Args:
-        router_name (str): имя роутера
-        debug_mode (bool): включить ли debug-режим (печать + логгирование).
+        chain_name (str):
+            Имя цепочки (используется для логов).
+
+        chain_config (Dict[str, Any]):
+            Конфигурация маршрутизатора. Поддерживаемые ключи:
+              - "model_name" (str): название модели (по умолчанию DEFAULT_LLM_MODEL).
+              - "model_temperature" (float): температура генерации (по умолчанию 0).
+              - "instructions" (str): инструкции для LLM.
+              - "verbose_name" (str): человеко-читаемое имя цепочки (для логов).
+
+        session_info (str):
+            Идентификатор или описание сессии (используется в логгере).
 
     Returns:
-        RouterRunnable: готовая цепочка для маршрутизации диалога.
+        GenericRunnable:
+            Объект-обертка над LLM-цепочкой с маппингом входов и выходов.
     """
-    router_config = NEURO_SALER.get("ROUTERS", {}).get(router_name)
-    chain_name = router_config.get("verbose_name", "Router")
-    model_name = router_config.get("model_name", DEFAULT_LLM_MODEL)
-    model_temperature = router_config.get("model_temperature", 0)
 
-    llm = ChatOpenAI(model=model_name, temperature=model_temperature)
+    # --- Чтение параметров из конфигурации ---
+    model_name = chain_config.get("model_name", DEFAULT_LLM_MODEL)
+    model_temperature = chain_config.get("model_temperature", 0)
+    basic_system_prompt = chain_config.get("system_prompt", "")
+    instructions = chain_config.get("instructions", "")
+    verbose_name = chain_config.get("verbose_name", "Router")
 
+    # --- Логгер ---
+    logger = ChainLogger(prefix=f"{chain_name} (router)")
+    logger.log(session_info, "info", "Router chain started")
+
+    # --- LLM ---
+    llm = ChatOpenAI(
+        model=model_name,
+        temperature=model_temperature,
+        max_retries=LLM_MAX_RETRIES,
+        timeout=LLM_TIMEOUT,
+    )
+
+    logger.log(
+        session_info,
+        "info",
+        f"Router chain creation (model={model_name}, temperature={model_temperature})"
+    )
+
+    # --- Prompt ---
     prompt_template = ChatPromptTemplate.from_messages([
         SystemMessagePromptTemplate.from_template("{system_prompt}"),
         HumanMessagePromptTemplate.from_template(
@@ -341,4 +414,46 @@ def create_router_chain(router_name: str, debug_mode: bool = False) -> RouterRun
     ])
 
     chain = prompt_template | llm
-    return RouterRunnable(chain_name, chain, debug_mode)
+
+    # --- input_mapping ---
+    def input_mapping(inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Формирует словарь для LLM:
+        - собирает system_prompt на основе needs,
+        - добавляет историю и саммари.
+        """
+
+        needs = safe_split(inputs.get("needs", AIMessage(content="")))
+        system_prompt = build_system_prompt(
+            basic_system_prompt=basic_system_prompt,
+            needs=needs)
+        summary_history = "\n".join(inputs.get("histories", []))
+
+        return {
+            "system_prompt": system_prompt,
+            "instructions": instructions,
+            "last_message_from_client": inputs.get("last_message_from_client", ""),
+            "summary_history": summary_history,
+            "summary_exact": inputs.get("summary_exact", ""),
+        }
+
+    # --- output_mapping ---
+    def output_mapping(result: Any, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Парсит результат LLM и добавляет его в общий словарь:
+        - routers: список выбранных специалистов;
+        - router_output: полный ответ LLM.
+        """
+        output_router_list = parse_router_output(result.content)
+        return {**inputs,
+                "routers": output_router_list,
+                "router_output": result}
+
+    # --- Возвращаем обёртку ---
+    return GenericRunnable(
+        chain=chain,
+        output_key="router_output",
+        prefix=verbose_name,
+        input_mapping=input_mapping,
+        output_mapping=output_mapping,
+    )

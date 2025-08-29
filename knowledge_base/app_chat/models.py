@@ -12,6 +12,7 @@ class ChatSession(models.Model):
                                    max_length=100, db_index=True)
     kb = models.ForeignKey(KnowledgeBase, verbose_name="база знаний", on_delete=models.CASCADE,
                            related_name='chat_sessions')
+    summary_text = models.TextField(default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -32,6 +33,7 @@ class TelegramSession(models.Model):
                              blank=True, null=True)
     kb = models.ForeignKey(KnowledgeBase, verbose_name="база знаний", on_delete=models.CASCADE,
                            related_name='telegram_sessions')
+    summary_text = models.TextField(default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

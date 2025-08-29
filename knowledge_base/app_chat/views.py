@@ -15,9 +15,11 @@ import markdown
 from collections import Counter
 
 import requests
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.db.models import Prefetch, Q, Func, F, Value, CharField, FloatField, OuterRef, Subquery
 from django.shortcuts import get_object_or_404, render, redirect
 from django.http import JsonResponse, Http404, HttpResponse
+from django.template.loader import render_to_string
 from django.views import View
 from django.utils import timezone
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -171,7 +173,6 @@ class ChatView(View):
             web_session=chat_session,
             is_user=True,
             text=user_message_text,
-            created_at=timezone.now()
         )
         if is_multichain:
 
@@ -577,7 +578,7 @@ class SystemChatView(LoginRequiredMixin, View):
         )
         reformulated_question = ""
         if is_reformulate_question and not created:
-            chat_history = chat_session.limited_chat_history
+            chat_history = list(chat_session.limited_chat_history)[::-1]
             if chat_history:
                 history = [(msg.text, getattr(msg, "answer", None).text if getattr(msg, "answer", None) else "") for msg
                            in chat_history]
@@ -588,6 +589,7 @@ class SystemChatView(LoginRequiredMixin, View):
                 #     current_question=user_message_text,
                 #     chat_history=history,
                 # )
+                print(chat_str)
                 reformulated_question, user_message_was_changed = reformulate_question(
                     current_question=user_message_text,
                     chat_history=chat_str,
@@ -600,68 +602,6 @@ class SystemChatView(LoginRequiredMixin, View):
                         История диалога:
                         {chat_str}
                     """
-
-        # embedding_engine = kb.engine
-        # embeddings_model_name = embedding_engine.model_name
-        # try:
-        #     # embeddings_model = load_embedding(embeddings_model_name)
-        #     embeddings_model = get_cached_model(
-        #         embeddings_model_name,
-        #         loader_func=load_embedding
-        #     )
-        # except Exception as e:
-        #     logger.error(f"Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
-        #     raise ValueError(f"Ошибка загрузки модели {embeddings_model_name}: {str(e)}")
-        #
-        # # Инициализация или загрузка FAISS индекса
-        # faiss_dir = os.path.join(BASE_DIR, "media", "kb", str(kb.pk), "embedding_store",
-        #                          f"{embedding_engine.name}_faiss_index_db")
-        #
-        # try:
-        #     # db_index = get_vectorstore(
-        #     #     path=faiss_dir,
-        #     #     embeddings=embeddings_model
-        #     # )
-        #     db_index = get_cached_index(
-        #         index_path=faiss_dir,
-        #         model_name=embeddings_model_name,
-        #         loader_func=get_vectorstore,
-        #         model_obj=embeddings_model
-        #     )
-        # except Exception as e:
-        #     logger.error(f"Ошибка векторная база {embeddings_model_name}: {str(e)}")
-        #     context = {
-        #         'kb': kb,
-        #         'chat_history': [],
-        #         'message': 'Не найдена готовая векторная база, необходимо выполнить векторизацию'
-        #     }
-        #     # Возвращаем JSON-ответ для AJAX
-        #     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        #         return JsonResponse({
-        #             'user_message': user_message,
-        #             'ai_response': '<p class="text text--alarm text--bold">Не найдена готовая векторная база, необходимо выполнить векторизацию</p>',
-        #             'current_docs': [],
-        #         })
-        #     return render(request, self.template_name, context)
-        #
-        #
-        # if use_metadata:
-        #     docs, ai_message_text = answer_index_with_metadata(
-        #         db_index,
-        #         system_metadata_instruction,
-        #         user_message_text,
-        #         verbose=False
-        #     )
-        # else:
-        #     docs, ai_message_text = answer_index(
-        #         db_index,
-        #         system_instruction,
-        #         user_message_text,
-        #         verbose=False)
-        # docs_serialized = [
-        #     {"score": float(doc_score), "metadata": doc.metadata, "content": doc.page_content, }
-        #     for doc, doc_score in docs]
-        llm = ChatOpenAI(model=llm_name, temperature=0)
 
         if is_multichain:
             retriever_scheme = "MultiRetrievalQAChain"
@@ -743,16 +683,6 @@ class SystemChatView(LoginRequiredMixin, View):
                                                      verbose=False)
             docs, ai_message_text = result
 
-        verbose = False
-        if verbose:
-            print("Source Documents:")
-            for doc in docs:
-                pprint(doc)
-            print("Answer:", ai_message_text)
-
-        # docs_serialized = [
-        #     {"metadata": doc.metadata, "content": doc.page_content, }
-        #     for doc in docs]
         end = time.monotonic()
         duration = end - start_time
         # Сохраняем ответ AI
@@ -845,17 +775,84 @@ class ClearChatView(LoginRequiredMixin, View):
         return redirect(reverse_lazy('chat:chat', kwargs={"kb_pk": kb_pk}))
 
 
+# class ChatReportView(LoginRequiredMixin, View):
+#     """Просмотровый отчет по диалогам с моделью"""
+#
+#     def get(self, request, kb_pk):
+#         kb = get_object_or_404(KnowledgeBase, pk=kb_pk)
+#         if not kb.is_owner_or_superuser(request.user):
+#             raise 404
+#
+#         session_type = request.GET.get("type")
+#         session_id = request.GET.get("session_id")
+#
+#         answer_prefetch = Prefetch(
+#             "answer",
+#             queryset=ChatMessage.objects.annotate(
+#                 llm=Func(
+#                     F("extended_log"),
+#                     Value("llm"),
+#                     function="jsonb_extract_path_text",
+#                     output_field=CharField(),
+#                 ),
+#                 retriever_scheme=Func(
+#                     F("extended_log"),
+#                     Value("retriever_scheme"),
+#                     function="jsonb_extract_path_text",
+#                     output_field=CharField(),
+#                 ),
+#                 processing_time=Func(
+#                     F("extended_log"),
+#                     Value("processing_time"),
+#                     function="jsonb_extract_path_text",
+#                     output_field=FloatField(),
+#                 ),
+#             ).defer("extended_log"),
+#         )
+#
+#         messages = (
+#             ChatMessage.objects
+#             .select_related("web_session", "t_session")
+#             .prefetch_related(answer_prefetch)
+#             .filter(Q(web_session__kb=kb) | Q(t_session__kb=kb), is_user=True)
+#             .order_by("-created_at", "web_session", "t_session")
+#             .defer("extended_log")
+#         )
+#         filter_heading = None
+#         if session_type and session_type in ("web_session", "t_session") and session_id:
+#             if session_type == "web_session":
+#                 messages = messages.filter(web_session__session_key=session_id)
+#                 filter_heading = f"Отфильтровано по web сессии {session_id}"
+#             elif session_type == "t_session":
+#                 messages = messages.filter(t_session__telegram_id=session_id)
+#                 filter_heading = f"Отфильтровано по telegram сессии {session_id}"
+#
+#         context = {
+#             "kb": kb,
+#             "filter_heading": filter_heading,
+#             "chat_messages": messages,
+#         }
+#         return render(request=request,
+#                       template_name="app_chat/chat_report.html",
+#                       context=context)
+
 class ChatReportView(LoginRequiredMixin, View):
-    """Просмотровый отчет по диалогам с моделью"""
+    """Отчет по диалогам: HTML и JSON (с фолбеком)"""
+
+    template_name = "app_chat/chat_report.html"
+    ajax_template_name = "app_chat/include/chat_messages_page.html"
 
     def get(self, request, kb_pk):
         kb = get_object_or_404(KnowledgeBase, pk=kb_pk)
         if not kb.is_owner_or_superuser(request.user):
-            raise 404
+            return JsonResponse({"error": "Not found"}, status=404)
 
         session_type = request.GET.get("type")
         session_id = request.GET.get("session_id")
+        page_number = request.GET.get("page", 1)
+        page_size = int(request.GET.get("page_size", 10))
 
+        # Prefetch с аннотациями
         answer_prefetch = Prefetch(
             "answer",
             queryset=ChatMessage.objects.annotate(
@@ -888,6 +885,7 @@ class ChatReportView(LoginRequiredMixin, View):
             .order_by("-created_at", "web_session", "t_session")
             .defer("extended_log")
         )
+
         filter_heading = None
         if session_type and session_type in ("web_session", "t_session") and session_id:
             if session_type == "web_session":
@@ -897,14 +895,37 @@ class ChatReportView(LoginRequiredMixin, View):
                 messages = messages.filter(t_session__telegram_id=session_id)
                 filter_heading = f"Отфильтровано по telegram сессии {session_id}"
 
+        # Пагинация
+        paginator = Paginator(messages, page_size)
+        try:
+            page_obj = paginator.page(page_number)
+        except PageNotAnInteger:
+            page_obj = paginator.page(1)
+        except EmptyPage:
+            page_obj = paginator.page(paginator.num_pages)
+
+        query_params = self.request.GET.copy()
+        query_params.pop("page", None)
+        paginator_query = query_params.urlencode()
+        if paginator_query:
+            paginator_query += "&"
+
         context = {
             "kb": kb,
             "filter_heading": filter_heading,
-            "chat_messages": messages,
+            "chat_messages": page_obj.object_list,
+            "page_obj": page_obj,
+            "paginator_query": paginator_query,
+            "paginator": paginator,
+            "is_paginated": page_obj.has_other_pages(),
         }
-        return render(request=request,
-                      template_name="app_chat/chat_report.html",
-                      context=context)
+
+        # Проверка на AJAX-запрос
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            html = render_to_string(self.ajax_template_name, context, request=request)
+            return JsonResponse({"html": html, })
+
+        return render(request, self.template_name, context)
 
 
 class CurrentTestChunksView(LoginRequiredMixin, View):

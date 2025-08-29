@@ -3,7 +3,6 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-print(sys.path)
 
 from utils.setup_logger import setup_logger
 
@@ -22,22 +21,18 @@ class ChainLogger:
         prefix (str): префикс для всех сообщений логгера (например, "[Greeting Extractor]").
         debug_mode (bool): если True — вывод сообщений в консоль помимо логгера.
     """
-    def __init__(self, prefix="[Chain]", debug_mode=False):
+    def __init__(self, prefix="Chain"):
         self.prefix = prefix
-        self.debug_mode = debug_mode
 
-    def log(self, session_info, level, message, exc: Exception = None):
-        formatted = f"[{self.prefix}][{session_info}] {message}"
-        if self.debug_mode:
-            print(formatted)
+    def log(self, session_info: str, level: str, message: str, exc: Exception = None) -> None:
+        """
+        Логирует сообщение на заданном уровне с включением префикса и session_info прямо в текст.
+        """
+        final_message = f"[{session_info}] [{self.prefix}] {message}"
 
-        # stacklevel=2 чтобы показывалось место вызова, а не chain_logger.py
-        kwargs = {"exc_info": exc, "stacklevel": 2}
-        if level == "info":
-            logger.info(formatted, **kwargs)
-        elif level == "debug":
-            logger.debug(formatted, **kwargs)
-        elif level == "warning":
-            logger.warning(formatted, **kwargs)
-        elif level == "error":
-            logger.error(formatted, **kwargs)
+        log_func = getattr(logger, level, None)
+        if log_func is None:
+            raise ValueError(f"Invalid log level: {level}")
+
+        log_func(final_message, exc_info=exc, stacklevel=2)
+

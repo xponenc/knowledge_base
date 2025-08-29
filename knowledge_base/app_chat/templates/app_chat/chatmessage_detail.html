@@ -20,11 +20,23 @@
             <a href="{{ kb.get_absolute_url }}" itemprop="item">
                 <span itemprop="name">База знаний {{ kb.name }}</span>
             </a>
-        <meta itemprop="position" content="1" />
+            <meta itemprop="position" content="1" />
+        </li>
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{% url 'chat:chat_report' kb.pk %}" itemprop="item">
+                <span itemprop="name">Отчет по чату</span>
+            </a>
+            <meta itemprop="position" content="2" />
+        </li>
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ kb.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">База знаний {{ kb.name }}</span>
+            </a>
+            <meta itemprop="position" content="1" />
         </li>
         <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
             <span itemprop="name">Сообщение</span>
-            <meta itemprop="position" content="2" />
+            <meta itemprop="position" content="3" />
         </li>
     </ol>
 </nav>
@@ -151,9 +163,15 @@
                             <dd class="description__defination">
                                 {% if object.t_session %}telegram {{ object.t_session.telegram_id|default:"" }}{% endif %}
                                 {% if object.web_session %}web {{ object.web_session.session_key|default:"" }}{% endif %}
-                                
-                                
                             </dd>
+                            {% if object.answer.extended_log.assistant_data %}
+                                <dt class="description__term">ai ассистент</dt>
+                                <dd class="description__defination">
+                                    <div class="json-container">
+                                        {% include 'widgets/_json_recursive.html' with data=object.answer.extended_log.assistant_data level=0 %}
+                                    </div>
+                                </dd>
+                            {% endif %}
                         </dl>
                     </div>
                 </div>

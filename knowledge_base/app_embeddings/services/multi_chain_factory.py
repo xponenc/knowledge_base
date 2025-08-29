@@ -353,3 +353,17 @@ def build_multi_chain(
         default_chain=default_chain,
         verbose=True
     )
+
+
+def get_retriever_only(kb_id: int) -> CustomRetriever:
+    """
+    Возвращает чистый ретривер (без LLM, без QA),
+    чтобы можно было напрямую искать документы.
+    """
+    cache = get_cached_retrievers(kb_id)
+    retriever: Optional[CustomRetriever] = cache["default"]
+
+    if retriever is None:
+        raise ValueError("Нет дефолтного ретривера для этой базы знаний")
+
+    return retriever

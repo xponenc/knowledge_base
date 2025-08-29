@@ -1,14 +1,17 @@
 import re
-from typing import Dict
+from typing import Dict, Any
 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain_core.runnables import Runnable, RunnableParallel, RunnablePassthrough
 
+from neuro_salesman.chains.chain_logger import ChainLogger
+from neuro_salesman.chains.generic_runnable import GenericRunnable
 from neuro_salesman.config import DEFAULT_LLM_MODEL
 from neuro_salesman.llm_utils import VerboseLLMChain
 from neuro_salesman.roles_config import NEURO_SALER
+from neuro_salesman.utils import print_dict_structure
 
 
 def make_bound_chain(chain, cfg, debug_mode=False):
@@ -72,61 +75,102 @@ def make_expert_chain(chain_name: str, expert_config: Dict, debug_mode: bool = F
     chain = prompt_template | llm
 
     return make_bound_chain(chain, expert_config, debug_mode=debug_mode)
-    #
-    # class ExpertRunnable(Runnable):
-    #     def __init__(self, chain, expert_name, expert_params, debug_mode):
-    #         self.chain = chain
-    #         self.expert_name = expert_name
-    #         self.expert_params = expert_params
-    #         self.debug_mode = debug_mode
-    #
-    #     def invoke(self, inputs, config=None, **kwargs):
-    #         if self.expert_name in ["Специалист по Zoom", "Специалист по завершению"]:
-    #             docs_content = ""
-    #         else:
-    #             search_index = self.expert_params.get("search_index")
-    #             base_topic_phrase = inputs.get("topic_phrases", AIMessage(content="")).content
-    #             knowledge_base = search_index.similarity_search(base_topic_phrase, k=self.expert_params.get("k", 5))
-    #             docs_content = re.sub(r'\n{2}', ' ', '\n '.join(
-    #                 [f'\n==================\n' + doc.page_content + '\n' for doc in knowledge_base]
-    #             ))
-    #
-    #         if self.debug_mode:
-    #             print(f"\n==================\n")
-    #             print(f"Вопрос клиента: {inputs.get('last_message_from_client')}")
-    #             print(f"Саммари диалога:\n==================\n{inputs.get('summary_history')}")
-    #             print(f"Саммари точное:\n==================\n{inputs.get('summary_exact')}")
-    #             print(f"База знаний:\n==================\n{docs_content}")
-    #
-    #         result = self.chain.invoke(
-    #             {
-    #                 "system": self.expert_params.get("system", ""),
-    #                 "instructions": self.expert_params.get("instructions", ""),
-    #                 "question": inputs.get("last_message_from_client", ""),
-    #                 "summary_history": "\n".join(inputs.get("histories", [])),
-    #                 "summary_exact": inputs.get("summary_exact", ""),
-    #                 "docs_content": docs_content
-    #             },
-    #             config=config,
-    #             **kwargs
-    #         )
-    #
-    #         answer = result.content
-    #         try:
-    #             answer = answer.split(": ")[1] + " "
-    #         except IndexError:
-    #             answer = answer.lstrip("#3")
-    #
-    #         if self.debug_mode:
-    #             print(f"\n==================\n")
-    #             print(f"{result.usage_metadata['total_tokens']} total tokens used (question-answer).")
-    #             print(f"\n==================\n")
-    #             print(f"Ответ {self.expert_name}:\n {answer}")
-    #
-    #         return f"{self.expert_name}: {answer}"
-    #
-    # return ExpertRunnable(chain=prompt_template | llm, expert_name=expert_name, expert_params=expert_params,
-    #                       debug_mode=debug_mode)
+
+
+def create_expert_chain(
+        chain_name: str,
+        chain_config: Dict[str, Any],
+        session_info: str
+    ) -> Runnable:
+    """
+    Создаёт цепочку-эксперта на основе конфигурации и оборачивает её в GenericRunnable.
+
+    Args:
+        chain_name (str): Название цепочки-эксперта.
+        expert_config (Dict): Конфигурация эксперта.
+            - model_name (str): имя модели LLM (по умолчанию DEFAULT_LLM_MODEL).
+            - model_temperature (float): температура модели (по умолчанию 0).
+            - system_prompt (str): системный промпт для LLM.
+            - instructions (str): инструкции для эксперта.
+            - context_search (bool): использовать ли поиск в базе знаний.
+        debug_mode (bool, optional): Режим отладки (по умолчанию False).
+
+    Returns:
+        Runnable: Готовая цепочка-эксперт, которая принимает словарь входных данных и
+                  возвращает результат вызова модели.
+    """
+    # Конфигурация модели
+    model_name = chain_config.get("model_name", DEFAULT_LLM_MODEL)
+    model_temperature = chain_config.get("model_temperature", 0)
+
+    # --- Логгер для отладки и мониторинга ---
+    logger = ChainLogger(prefix=f"{chain_name} (expert)")
+    logger.log(session_info, "info", "Chain started")
+
+    # Инициализация LLM
+    llm = ChatOpenAI(model=model_name, temperature=model_temperature)
+
+    # Шаблон промпта
+    prompt_template = ChatPromptTemplate.from_messages([
+        SystemMessagePromptTemplate.from_template("{system_prompt}"),
+        HumanMessagePromptTemplate.from_template(
+            "{instructions}\n\n"
+            "Вопрос клиента: {last_message}\n\n"
+            "Саммари всей переписки: {current_session_summary}"
+            "Хронология последних сообщений диалога: {last_history}\n\n"
+            "Отчеты экстракторов: {extractors_report}\n\n"
+            "CONTEXT:\n{docs_content}\n\n#Конец базы знаний\n\n"
+            "Ответ:"
+        )
+    ])
+
+    chain = prompt_template | llm
+
+    logger.log(
+        session_info,
+        "info",
+        f"Chain creation started (model={model_name}, temperature={model_temperature})"
+    )
+
+    # ---- Обертка через GenericRunnable ----
+    def input_mapping(inputs: Dict) -> Dict:
+        """
+        Преобразует входные данные в формат, который ожидает цепочка.
+        """
+
+        context_search = chain_config.get("context_search", False)
+
+        return {
+            "docs_content": (
+                f"База Знаний: \n{inputs.get('search_index', '')}"
+                if context_search else ""
+            ),
+            "system_prompt": chain_config.get("system_prompt", ""),
+            "instructions": chain_config.get("instructions", ""),
+            "last_message": inputs.get("last message from client", ""),
+            "last_history": "\n".join(inputs.get("histories", [])),
+            "extractors_report": inputs.get("extractors_report", ""),
+            "current_session_summary": inputs.get("current_session_summary", ""),
+        }
+
+    def output_mapping(result, inputs: Dict):
+        """
+        Оставляем результат LLM без изменений.
+        Можно добавить обогащение, если нужно.
+        """
+        # if chain_name == "Специалист по отработке возражений":
+        #     print("EXPERT ", chain_name)
+        #     print_dict_structure(inputs)
+        #     print("\n")
+        return result
+
+    return GenericRunnable(
+        chain=chain,
+        output_key=chain_name,  # ключ для результата
+        prefix=f"ExpertChain[{chain_name}]",  # используется в логах
+        input_mapping=input_mapping,
+        output_mapping=output_mapping,
+    )
 
 
 def build_parallel_experts(debug_mode: bool = False):

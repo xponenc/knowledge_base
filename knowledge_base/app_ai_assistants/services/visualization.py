@@ -13,6 +13,11 @@
 from collections import defaultdict
 from typing import List
 
+from pygments import highlight
+from pygments.lexers import PythonLexer
+from pygments.formatters import HtmlFormatter
+import inspect
+
 from django.db.models import Prefetch
 
 from app_ai_assistants.models import Assistant, Block, BlockConnection
@@ -20,10 +25,12 @@ from app_ai_assistants.models import Assistant, Block, BlockConnection
 from neuro_salesman.context import search_with_retriever
 from neuro_salesman.expert import make_expert_chain
 from neuro_salesman.extractor import make_extractor_chain
+from neuro_salesman.reformulate import make_reformulator_chain
+from neuro_salesman.retrivers import ensemble_retriever_search
 from neuro_salesman.router import create_router_chain
 from neuro_salesman.senior import create_senior_chain
 from neuro_salesman.stylist import create_stylist_chain
-from neuro_salesman.summary import create_summary_exact
+from neuro_salesman.summary import create_extractors_report, update_session_summary
 
 
 # ======================== Mermaid ============================
@@ -203,19 +210,17 @@ def build_assistant_structure(assistant: Assistant) -> list[dict]:
 
 BLOCK_FUNCTIONS = {
     "extractor": make_extractor_chain,
-    "summary": create_summary_exact,  # тут partial можно показать, но для исходника берем функцию
+    "report": create_extractors_report,  # тут partial можно показать, но для исходника берем функцию
     "router": create_router_chain,
     "expert": make_expert_chain,
     "senior": create_senior_chain,
     "stylist": create_stylist_chain,
+    "summary": update_session_summary,
     "passthrough": lambda x: x,
-    "retriever": search_with_retriever,
+    "retriever": ensemble_retriever_search,
+    "reformulator": make_reformulator_chain,
 }
 
-from pygments import highlight
-from pygments.lexers import PythonLexer
-from pygments.formatters import HtmlFormatter
-import inspect
 
 def get_function_source(btype: str):
     fn = BLOCK_FUNCTIONS.get(btype)

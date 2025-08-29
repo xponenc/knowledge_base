@@ -1,7 +1,7 @@
 from django.urls import path
 
 from app_ai_assistants.views import AssistantCreateView, AssistantDetailView, AssistantUpdateView, AssistantDeleteView, \
-    AssistantSaveGraphView, AssistantChatView
+    AssistantSaveGraphView, AssistantChatView, BlockConfigUpdateView, AssistantSystemChatView
 
 app_name = 'ai-assistants'
 
@@ -13,5 +13,8 @@ urlpatterns = [
 
     path("<int:pk>/", AssistantDetailView.as_view(), name="ai-assistant-detail"),
 
+    path("block/<int:pk>/config/update", BlockConfigUpdateView.as_view(), name="block-config-update"),
+
     path("<int:pk>/chat", AssistantChatView.as_view(), name="ai-assistant-chat"),
+    path("<int:pk>/system-chat", AssistantSystemChatView.as_view(), name="ai-assistant-system-chat"),
 ]

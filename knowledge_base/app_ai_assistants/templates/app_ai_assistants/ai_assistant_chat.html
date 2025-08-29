@@ -26,9 +26,15 @@
             </a>
         <meta itemprop="position" content="1" />
         </li>
+        <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+            <a href="{{ assistant.get_absolute_url }}" itemprop="item">
+                <span itemprop="name">AI ассистент ({{ assistant.name }})</span>
+            </a>
+            <meta itemprop="position" content="2" />
+        </li>
         <li class="breadcrumb-item active" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" aria-current="page">
             <span itemprop="name">Чат с AI ({{ assistant.name }})</span>
-            <meta itemprop="position" content="2" />
+            <meta itemprop="position" content="3" />
         </li>
     </ol>
 </nav>
@@ -41,7 +47,7 @@
         <!-- Правая колонка: Чат -->
         <div class="chat">
             <div class="chat__header">
-                <h3 class="chat__heading">🧠 Ask {{ kb.engine.name }}</h3>
+                <h3 class="chat__heading">{{ assistant.name }} ({{ assistant.get_type_display }})</h3>
                 <span class="text text--muted">Embedded by: <span class="text text--fat text--muted">{{ kb.engine.model_name }}</span></span>
                 <span class="text text--muted _mb">Answer by: <span class="text text--fat text--muted">{{ kb.get_llm_display }}</span></span>
             </div>
