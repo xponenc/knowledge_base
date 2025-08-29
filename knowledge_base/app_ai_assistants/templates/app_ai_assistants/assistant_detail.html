@@ -219,7 +219,8 @@
                     
                     const parentItem = button.closest('.assistant-tree__item');
                     
-                    const configDivs = parentItem.querySelectorAll('.assistant-tree__config');
+                    const configDivs = Array.from(parentItem.children)
+                            .filter(child => child.classList.contains('assistant-tree__config'));
                     
                     configDivs.forEach(configDiv => {
                         configDiv.classList.toggle("assistant-tree__config--active");
