@@ -94,11 +94,9 @@ class ConditionalExpert(Runnable):
                 inputs.update(key_inputs)
 
         active_experts = inputs.get("routers", [])
-        print(self.expert_name, active_experts)
         if self.expert_name not in active_experts:
             # Пропуск: просто возвращаем пустой слот
             return EMPTY_MESSAGE
-        print("Запуск")
         return self.runnable.invoke(inputs, config=config, **kwargs)
 
 

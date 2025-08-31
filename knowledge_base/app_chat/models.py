@@ -12,7 +12,8 @@ class ChatSession(models.Model):
                                    max_length=100, db_index=True)
     kb = models.ForeignKey(KnowledgeBase, verbose_name="база знаний", on_delete=models.CASCADE,
                            related_name='chat_sessions')
-    summary_text = models.TextField(default="")
+    assistants_data = models.JSONField(verbose_name="Служебные данные для диалогов с AI ассистентами", default=dict)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

@@ -379,7 +379,6 @@ class AssistantSystemChatView(View):
             })
 
         assistant_structure = build_assistant_runtime_forms(assistant)
-        print(f"{assistant_structure=}")
 
         context = {
             'assistant': assistant,
@@ -453,6 +452,11 @@ class AssistantSystemChatView(View):
                         history.append(f"Менеджер: {msg.answer.text}")
 
         # history.append(f"Клиент: {user_message_text}")
+        assistant_session_data = chat_session.assistants_data.get(str(assistant.id), {})
+        pprint(f"{chat_session.assistants_data=}")
+
+        extractors_history = assistant_session_data.get("extractors_history", {})
+        current_session_summary = assistant_session_data.get("summary_text", "")
 
         inputs = {
             "session_type": "web",
@@ -462,8 +466,13 @@ class AssistantSystemChatView(View):
             "last message from manager": last_message_from_manager,
             "last message from client": user_message_text,
             "last client-manager qa": f"Клиент: {last_message_from_client}\nМенеджер: {last_message_from_manager}",
-            "current_session_summary": chat_session.summary_text
+            "current_session_summary": current_session_summary,
+            **extractors_history,
         }
+
+        print("start")
+        pprint(inputs)
+        print("start")
 
         # ---- вот тут добавляем поддержку runtime-конфига ----
         runtime_configs = {}
@@ -528,11 +537,33 @@ class AssistantSystemChatView(View):
         ai_message = results.get("remove_greeting")
         ai_message_text = ai_message.content if ai_message else ""
 
+        # Сохранение текущей истории параметров беседы с AI ассистентом
         session_summary_text = results.get("session_summary")
-        if session_summary_text:
-            chat_session.summary_text = session_summary_text
-            chat_session.save()
+        extractors_names = Block.objects.filter(assistant=assistant).values_list("name", flat=True)
+        extractors_history = {}
+        for extractor in extractors_names:
+            extractor_history = results.get(f"{extractor}_history")
+            if extractor_history:
+                extractors_history[f"{extractor}_history"] = extractor_history
 
+        # assistants_data = chat_session.assistants_data
+        # assistants_data[assistant.pk] = {
+        #     "extractors_history": extractors_history,
+        #     "summary_text": session_summary_text,
+        # }
+
+        print(f"{session_summary_text=}")
+        print(f"{extractors_history=}")
+
+        chat_session.refresh_from_db()  # гарантированно свежие данные
+        ChatSession.objects.filter(pk=chat_session.pk).update(
+            assistants_data={assistant.pk: {
+                "extractors_history": extractors_history,
+                "summary_text": session_summary_text,
+            }}
+        )
+
+        assistant_report.update({"extractors_history": extractors_history})
         end_time = time.monotonic()
         duration = end_time - start_time
 

@@ -1,5 +1,5 @@
 import re
-from typing import Type
+from typing import Type, Literal
 
 from django.http import QueryDict
 from pydantic import BaseModel, Field, ValidationError, field_validator
@@ -31,6 +31,14 @@ class ExtractorBlockConfig(BaseBlockConfig):
     target: str = Field(
         ..., min_length=1,
         description="Название ключа в inputs, текст из которого будет анализировать блок"
+    )
+    accumulate_history: bool = Field(
+        False,
+        description="Флаг: если True — экстрактор будет накапливать историю результатов"
+    )
+    output_format: Literal["str", "list"] = Field(
+        "str",
+        description="Формат выходных данных: 'str' — одна строка, 'list' — список элементов"
     )
 
 

@@ -1,4 +1,5 @@
 import time
+from copy import copy
 from typing import Dict, Any
 
 from langchain_core.messages import AIMessage
@@ -12,6 +13,7 @@ from neuro_salesman.chains.chain_logger import ChainLogger
 from neuro_salesman.chains.generic_runnable import GenericRunnable
 from neuro_salesman.chains.keyed_runnable import KeyedRunnable
 from neuro_salesman.config import DEFAULT_LLM_MODEL, EMPTY_MESSAGE, LLM_MAX_RETRIES, LLM_TIMEOUT
+from neuro_salesman.utils import print_dict_structure, extract_list, merge_unique_lists
 
 
 def make_extractor_chain(
@@ -110,11 +112,53 @@ def make_extractor_chain(
         }
 
     # --- Маппинг выходов ---
-    def output_mapping(result: Any, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    def output_mapping(result: Any, inputs: Dict[str, Any]) -> Any:
         """
         Объединяет исходные inputs с результатом LLM.
         Результат сохраняется под ключом `chain_name`.
         """
+        # print("EXTRACTOR ", chain_name)
+        # print_dict_structure(copy(inputs))
+        # print("\n")
+        accumulate_history = chain_config.get("accumulate_history", False)
+        output_format = chain_config.get("output_format", "str")
+        print(f"{chain_name}: {accumulate_history=}")
+        print(f"{chain_name}: {output_format=}")
+
+        extractor_result = result.content if result and result.content else None
+
+        if extractor_result is None:
+            if output_format == "list":
+                extractor_result = []
+            else:
+                extractor_result = ""
+        else:
+            if output_format == "list":
+                extractor_result = extract_list(extractor_result)
+            else:
+                extractor_result = extractor_result.strip().strip('"')
+
+        print(f"{chain_name}: {extractor_result=}")
+        print(f"{chain_name}: {result=}")
+
+        if accumulate_history:
+            extractor_history = inputs.get(f"{chain_name}_history")
+            print(f"{chain_name}: {extractor_history=}")
+            if output_format == "list":
+                if extractor_history:
+                    output_extractor_result = merge_unique_lists(extractor_history, extractor_result)
+                else:
+                    output_extractor_result = extractor_result
+            else:
+                if extractor_history:
+                    output_extractor_result = f"{extractor_history}. {extractor_result}".strip(". ")
+                else:
+                    output_extractor_result = extractor_result
+        else:
+            output_extractor_result = extractor_result
+
+        print(f"{chain_name}: {output_extractor_result=}")
+        inputs.update({f"{chain_name}_history": output_extractor_result})
         return result
 
     # --- Возврат готовой обёртки ---

@@ -236,9 +236,9 @@ def create_senior_chain(
         - собирает историю сообщений,
         - формирует поля для промпта.
         """
-        # print("SENIOR ", chain_name)
-        # print_dict_structure(inputs)
-        # print("\n")
+        print("SENIOR ", chain_name)
+        print_dict_structure(inputs)
+        print("\n")
 
         experts = inputs.get("routers", [])
         experts_output = []

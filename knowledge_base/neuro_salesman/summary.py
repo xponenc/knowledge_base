@@ -9,30 +9,7 @@ from langchain_openai import ChatOpenAI
 from neuro_salesman.chains.chain_logger import ChainLogger
 from neuro_salesman.chains.generic_runnable import GenericRunnable
 from neuro_salesman.config import DEFAULT_LLM_MODEL, EMPTY_MESSAGE
-from neuro_salesman.utils import print_dict_structure
-
-
-def extract_list(inputs: Dict[str, Any], key: str) -> List[str]:
-    """
-    Извлекает список из AIMessage, проходя по вложенным словарям/спискам по ключу, пока не дойдёт до AIMessage.
-    """
-    msg = inputs.get(key)
-    # Спускаемся по вложенным словарям/спискам, пока не дойдём до AIMessage
-    while msg and not isinstance(msg, AIMessage):
-        if isinstance(msg, dict):
-            msg = msg.get(key)
-        elif isinstance(msg, list):
-            # Берём первый элемент списка
-            msg = msg[0] if msg else None
-        else:
-            # Не словарь, не список, и не AIMessage
-            msg = None
-
-    # Теперь msg либо AIMessage, либо None
-    if isinstance(msg, AIMessage) and msg.content:
-        return [x.strip() for x in msg.content.split(",") if x.strip()]
-
-    return []
+from neuro_salesman.utils import print_dict_structure, unpack_inputs
 
 
 def create_extractors_report(
@@ -56,13 +33,25 @@ def create_extractors_report(
         logger.log(session_info, "info", "Chain started")
 
         logger.log(session_info, "debug", f"inputs: {inputs}")
+        unpackable_keys = ("original_inputs", "report_and_router", "final_result")
+        inputs = unpack_inputs(inputs=inputs, keys=unpackable_keys)
+        print("REPORT ", chain_name)
+        print_dict_structure(inputs)
+        print("\n")
+        print("topic_phrases_history", inputs.get("topic_phrases_history"))
 
         summary_exact = []
         for extractor_name, extractor_verbose_name in extractors.items():
-            extractor_output = extract_list(inputs, extractor_name)
+            output = inputs.get(f"{extractor_name}_history")
 
+            if not output:
+                report_text = "не обнаружено"
+            elif isinstance(output, list):
+                report_text = ", ".join(output)
+            else:
+                report_text = str(output)
             summary_exact.append(
-                f"# {extractor_verbose_name}: {', '.join(extractor_output) if extractor_output else 'не обнаружено'}\n")
+                f"# {extractor_verbose_name}: {report_text}")
         # needs = extract_list(inputs, "needs"),
         # benefits = extract_list(inputs, "benefits")
         # objections = extract_list(inputs, "objections")
