@@ -289,12 +289,12 @@ fieldset {
 .container {
   max-width: calc(var(--container-max-width) + 180px);
   margin: 0 auto;
-  padding: 50px 90px;
+  padding: 68px 90px 50px;
   background-color: inherit;
 }
 
 .container:not(:has(.breadcrumb)) {
-  padding: 65px 90px 50px;
+  padding: 76px 90px 50px;
 }
 
 .visually-hidden {

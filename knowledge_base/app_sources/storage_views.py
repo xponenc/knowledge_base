@@ -39,13 +39,22 @@ class StoragePermissionMixin(UserPassesTestMixin):
     """
 
     def test_func(self):
+        # Если пользователь — суперпользователь, доступ разрешен
         if self.request.user.is_superuser:
             return True
+
+        # Получаем объект хранилища
         storage = self.get_object()
         if not storage:
             return False
-        kb = getattr(storage, "knowledge_base", None)
-        return kb and kb.owner == self.request.user
+
+        # Получаем связанную базу знаний
+        kb = getattr(storage, "kb", None)
+        if not kb:
+            return False
+
+        # Проверяем, является ли пользователь владельцем базы знаний
+        return kb.owners.filter(id=self.request.user.id).exists()
 
 
 class StorageTagsView(LoginRequiredMixin, StoragePermissionMixin, View):

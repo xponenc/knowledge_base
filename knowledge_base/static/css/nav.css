@@ -129,7 +129,7 @@
     left: 0;
     right: 0;
     z-index: 10000;
-    padding: 0.5rem 1rem;
+    padding: 1em 1em 1.5em;
     background-color: var(--navbar-bg-color);
     color: var(--navbar-text-color);
     box-shadow: 0 2px 0 var(--navbar-shadow-color);
@@ -137,6 +137,7 @@
 }
 
 .navbar__container {
+    position: relative;
     padding: 0 90px !important;
     display: flex;
     align-items: center;
@@ -154,6 +155,15 @@
 .navbar__logo * {
     height: 100%;
     width: fit-content;
+}
+
+.navbar__user {
+    position: absolute;
+    bottom: 0;
+    left: 90px;
+    font-size: 12px;
+    opacity: 0.65;
+    transform: translateY(130%);
 }
 
 .navbar__menu {

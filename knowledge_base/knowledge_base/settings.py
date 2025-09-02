@@ -1,5 +1,7 @@
 import os
 from pathlib import Path
+
+from django.urls import reverse_lazy
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -67,6 +69,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'django.template.context_processors.media',
+                'knowledge_base.context_processors.request_data',  # Кастомный процессор дополнительной информации о пользователе
             ],
         },
     },
@@ -138,6 +141,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
 
 TEMP_DIR = os.path.join(BASE_DIR, 'temp')  # директория для временных файлов
+
+LOGIN_REDIRECT_URL = reverse_lazy("core:knowledgebase_list")
 
 # CELERY_BROKER_URL = 'redis://localhost:6379/0'
 # CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'

@@ -31,6 +31,12 @@
                 <span class="navbar__burger-line"></span>
                 </label>
 
+                {% if user.is_authenticated %}
+                    <span class="navbar__user">Пользователь: {{ request.user.get_full_name|default:request.user.username }} ({{ client_ip }} {{ user_agent }})</span>
+                {% else %}
+                    <span class="navbar__user">Пользователь: {{ client_ip }} {{ user_agent }}</span>
+                {% endif %}
+
                 <ul class="navbar__menu">
                     <li class="navbar__item">
                         <a href="{% url 'embeddings:engine_list' %}" class="navbar__link">

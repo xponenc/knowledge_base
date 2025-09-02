@@ -25,18 +25,35 @@ class KnowledgeBaseListView(LoginRequiredMixin, ListView):
     """Список баз знаний (только доступные пользователю)"""
     model = KnowledgeBase
     paginate_by = 3
-    queryset = (KnowledgeBase.objects.prefetch_related("owners")
-                .annotate(
-        cloudstorage_counter=Count("cloudstorage", distinct=True),
-        localstorage_counter=Count("localstorage", distinct=True),
-        website_counter=Count("website", distinct=True),
-        urlbatch_counter=Count("urlbatch", distinct=True)
-    )).order_by("created_at")
+
+    def get_queryset(self):
+        """Возвращает отфильтрованный и аннотированный queryset"""
+        user = self.request.user
+        qs = KnowledgeBase.objects.prefetch_related("owners").annotate(
+            cloudstorage_counter=Count("cloudstorage", distinct=True),
+            localstorage_counter=Count("localstorage", distinct=True),
+            website_counter=Count("website", distinct=True),
+            urlbatch_counter=Count("urlbatch", distinct=True),
+        ).order_by("created_at")
+
+        if not user.is_superuser:
+            qs = qs.filter(owners=user)
+        return qs
+
+    def get(self, request, *args, **kwargs):
+        """Обрабатывает GET-запрос с учетом редиректа для пользователей с одной базой знаний"""
+        user = request.user
+        if not user.is_superuser:
+
+            owned = self.get_queryset()
+            if owned.count() == 1:
+                return redirect(owned.first().get_absolute_url())
+        return super().get(request, *args, **kwargs)
 
     def get_context_data(self, *args, **kwargs):
-        kb_counter = KnowledgeBase.objects.all().count()
-        context = super().get_context_data()
-        context["kb_counter"] = kb_counter
+        """Добавляет количество баз знаний в контекст"""
+        context = super().get_context_data(*args, **kwargs)
+        context["kb_counter"] = len(context["object_list"]) if context["object_list"] else self.get_queryset().count()
         return context
 
 

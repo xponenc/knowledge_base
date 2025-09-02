@@ -9,6 +9,7 @@ from pprint import pprint
 from dateutil.parser import parse
 from django import forms
 from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.files.base import ContentFile
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import Subquery, OuterRef, Max, F, Value, Prefetch, ForeignKey, Q, IntegerField, Count
@@ -36,7 +37,7 @@ from app_sources.forms import CloudStorageForm, ContentRecognizerForm, CleanedCo
 from app_sources.models import HierarchicalContextMixin
 from app_sources.report_models import CloudStorageUpdateReport, WebSiteUpdateReport, ReportStatus
 from app_sources.source_forms import NetworkDocumentStatusUpdateForm, NetworkDocumentForm
-from app_sources.source_models import NetworkDocument, URL, SourceStatus
+from app_sources.source_models import NetworkDocument, URL, SourceStatus, LocalDocument
 from app_sources.storage_models import CloudStorage, Storage, LocalStorage, WebSite, URLBatch
 from app_sources.storage_views import StoragePermissionMixin
 from app_sources.tasks import process_raw_content_task
@@ -48,19 +49,39 @@ logger = logging.getLogger(__name__)
 
 class DocumentPermissionMixin(UserPassesTestMixin):
     """
-    Mixin для проверки прав доступа к Документу:
+    Mixin для проверки прав доступа к объекту:
     доступ разрешён только владельцу связанной базы знаний (KnowledgeBase) или суперпользователю.
+    Поддерживает модели с полями storage, site или batch, связанными с KnowledgeBase.
     """
 
     def test_func(self):
+        """Проверяет права доступа к объекту"""
+        # Разрешаем доступ суперпользователю
         if self.request.user.is_superuser:
             return True
-        document = self.get_object()
-        storage = getattr(document, "storage", None)
-        if not storage:
+
+        # Проверяем аутентификацию
+        if not self.request.user.is_authenticated:
             return False
-        kb = getattr(storage, "knowledge_base", None)
-        return kb and kb.owner == self.request.user
+
+        # Получаем объект
+        document = self.get_object()
+        if not document:
+            return False
+
+        # Проверяем возможные связи (storage, site, batch)
+        kb = None
+        if hasattr(document, "storage") and document.storage:
+            kb = getattr(document.storage, "kb", None)
+        elif hasattr(document, "site") and document.site:
+            kb = getattr(document.site, "kb", None)
+        elif hasattr(document, "batch") and document.batch:
+            kb = getattr(document.batch, "kb", None)
+
+        # Проверяем наличие базы знаний и владельца
+        if not kb:
+            return False
+        return kb.owners.filter(id=self.request.user.id).exists()
 
 
 class CloudStorageUpdateReportDetailView(LoginRequiredMixin, DetailView):
@@ -1120,7 +1141,7 @@ class URLDetailView(LoginRequiredMixin, DocumentPermissionMixin, DetailView):
         ).defer("body"),
         to_attr="urlcontent_preview_set"
     )
-    queryset = (URL.objects.select_related("site", "site__kb", "report", )
+    queryset = (URL.objects.select_related("batch__kb", "site__kb", "report", )
                 .prefetch_related(urlcontent_preview_set, "tasks"))
 
 
