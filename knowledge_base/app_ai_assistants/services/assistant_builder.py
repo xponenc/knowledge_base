@@ -154,7 +154,6 @@ def _resolve_block_config(block_cfg, roles_config):
     Находит конфиг по умолчанию для блока из roles_config и объединяет его с block_cfg.
     """
     block_type = block_cfg["block_type"]
-    print(f"{block_type=}")
 
     mapping = {
         "extractor": roles_config.get("EXTRACTORS", {}),
@@ -168,12 +167,9 @@ def _resolve_block_config(block_cfg, roles_config):
 
     default_config = mapping.get(block_type, {})
 
-    print(f"{block_cfg=}")
-
     # Экстракторы/эксперты/роутеры — отдельные словари
     if "name" in block_cfg and block_type in {"extractor", "expert", "router"}:
         default_config = default_config.get(block_cfg["name"])
-    print(default_config)
     # if "name" in block_cfg and block_type in {"sequence", "parallel", }:
     #     default_config = default_config.get(block_cfg["name"])
 
