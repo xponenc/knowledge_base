@@ -44,8 +44,12 @@ def generate_mermaid_for_assistant(assistant: Assistant) -> str:
     Returns:
         str: код mermaid (flowchart TD).
     """
-    blocks = assistant.blocks.all()
-    connections = BlockConnection.objects.filter(from_block__assistant=assistant)
+    # blocks = assistant.blocks.all()
+    # connections = BlockConnection.objects.filter(from_block__assistant=assistant)
+
+    blocks = assistant.blocks.prefetch_related(
+        Prefetch("outgoing_connections", queryset=BlockConnection.objects.select_related("to_block"))
+    )
 
     lines = ["flowchart TD"]
 
@@ -59,9 +63,12 @@ def generate_mermaid_for_assistant(assistant: Assistant) -> str:
         lines.append(f'    {node_id}["{label}"]')
 
     # --- Связи ---
-    for conn in connections:
-        # print(f"[Debug Mermaid] Connection: from B{conn.from_block_id} to B{conn.to_block_id}, order={conn.order}")
-        lines.append(f"    B{conn.from_block_id} -->|{conn.order}| B{conn.to_block_id}")
+    for block in blocks:
+        for conn in block.outgoing_connections.all():
+            lines.append(f"    B{conn.from_block_id} -->|{conn.order}| B{conn.to_block_id}")
+    # for conn in connections:
+    #     # print(f"[Debug Mermaid] Connection: from B{conn.from_block_id} to B{conn.to_block_id}, order={conn.order}")
+    #     lines.append(f"    B{conn.from_block_id} -->|{conn.order}| B{conn.to_block_id}")
 
     # --- Привязка классов ---
     for block in blocks:
@@ -160,9 +167,7 @@ def build_assistant_structure(assistant: Assistant) -> list[dict]:
     # 1. Подтягиваем блоки и соединения одним запросом
     blocks = {
         b.id: b
-        for b in assistant.blocks.all().prefetch_related(
-            Prefetch("outgoing_connections", queryset=BlockConnection.objects.all())
-        )
+        for b in assistant.blocks.all().prefetch_related("incoming_connections", "outgoing_connections")
     }
 
     # 2. Разделяем карты для детей и цепочки

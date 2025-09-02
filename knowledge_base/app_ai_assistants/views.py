@@ -260,7 +260,7 @@ class AssistantChatView(View):
             "last message from manager": last_message_from_manager,
             "last message from client": user_message_text,
             "last client-manager qa": f"Клиент: {last_message_from_client}\nМенеджер: {last_message_from_manager}",
-            "current_session_summary": chat_session.summary_text
+            "current_session_summary": chat_session.summary_text if chat_session else None
         }
 
         # ---- вот тут добавляем поддержку runtime-конфига ----
