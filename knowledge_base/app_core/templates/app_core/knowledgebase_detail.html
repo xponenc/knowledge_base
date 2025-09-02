@@ -74,7 +74,7 @@
                     </a>
                     {% if knowledgebase.assistant_set.all|length > 0 %}
                         {% for assistant in knowledgebase.assistant_set.all %}
-                            <a href="{% url 'ai-assistants:ai-assistant-detail' assistant.id %}" class="btn btn--reset btn--round btn--primary" title="assistant.name" aria-label=""assistant.name>
+                            <a href="{% url 'ai-assistants:ai-assistant-detail' assistant.id %}" class="btn btn--reset btn--round btn--primary" title="{{ assistant.name }}" aria-label="{{ assistant.name }}">
                                 <svg class="btn__icon">
                                     <use xlink:href="{% static 'img/icons/sprite.svg' %}#ai"></use>
                                 </svg>
