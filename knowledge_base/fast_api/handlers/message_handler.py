@@ -4,6 +4,7 @@ from django.db.models import Prefetch
 from fastapi import Depends, APIRouter, HTTPException
 from asgiref.sync import sync_to_async
 from langchain_community.chat_models import ChatOpenAI
+from pydantic import BaseModel
 
 from app_api.models import ApiClient
 from app_chat.models import ChatSession, TelegramSession, ChatMessage
@@ -17,6 +18,10 @@ from utils.setup_logger import setup_logger
 message_router = APIRouter()
 
 logger = setup_logger(name=__file__, log_dir="logs/fast_api", log_file="fast_api.log")
+
+class SourceDocument(BaseModel):
+    metadata: dict
+    content: str
 
 
 @message_router.post("", response_model=MessageOut, summary="Обработка сообщения пользователя")
@@ -142,6 +147,15 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
         "retriever_scheme": retriever_scheme,
         "processing_time": duration,
     }
+    if kb.debug_mode:
+        docs = result.get("context", [])
+        parsed_docs = [
+            SourceDocument(
+                metadata=doc.metadata,
+                content=doc.page_content
+            ) for doc in docs
+        ]
+        extended_log["source_documents"] = [doc.model_dump() for doc in parsed_docs]
 
     ai_message = await sync_to_async(ChatMessage.objects.create)(
         t_session=telegram_session,
