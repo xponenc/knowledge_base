@@ -22,7 +22,6 @@ from sympy import content
 from app_ai_assistants.configs.neuro_sales import NS_ASSISTANT_CONFIG
 from app_ai_assistants.forms import AssistantTypeForm, BlockConfigForm
 from app_ai_assistants.models import Assistant, BlockConnection, Block
-from app_ai_assistants.services.assistant_builder import create_assistant_from_config
 from app_ai_assistants.services.block_model_validation import validate_block_config, parse_form_keys
 from app_ai_assistants.services.chain_builder import build_assistant_chain, RuntimeConfigError
 from app_ai_assistants.services.process_chain_report import process_chain_results
@@ -87,6 +86,8 @@ class AssistantCreateView(LoginRequiredMixin, View):
 
         assistant_type = form.cleaned_data.get("type")
         if assistant_type == "neuro_sales":
+            from app_ai_assistants.services.assistant_builder import create_assistant_from_config
+
             assistant, errors = create_assistant_from_config(
                 kb=knowledge_base,
                 author_id=request.user.pk,

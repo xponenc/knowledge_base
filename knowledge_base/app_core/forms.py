@@ -8,7 +8,8 @@ class KnowledgeBaseForm(forms.ModelForm):
     """Форма создания/редактирования KnowledgeBase"""
     class Meta:
         model = KnowledgeBase
-        fields = ['name', 'engine', 'llm', 'retriever_scheme', 'description', 'owners', 'logo', 'system_instruction', ]
+        fields = ['name', 'engine', 'llm', 'retriever_scheme', 'description', 'owners', 'logo', 'system_instruction',
+                  'debug_mode']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -44,4 +45,7 @@ class KnowledgeBaseForm(forms.ModelForm):
         self.fields['logo'].widget.attrs.update({
             'class': 'custom-field__input custom-field__input_wide',
             'placeholder': ' ',
+        })
+        self.fields['debug_mode'].widget.attrs.update({
+            'class': 'switch',
         })

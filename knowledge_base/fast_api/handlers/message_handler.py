@@ -57,10 +57,12 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
     """
 
     start_time = time.monotonic()
-    logger.info(f"Processing message for telegram_id={data.telegram_id}, text='{data.text}'")
+    logger.info(f"[telegram:{data.telegram_id}] Processing message: {data.text}")
 
     history_deep = 5
     is_reformulate_question = True
+
+    logger.info(f"[telegram:{data.telegram_id}] Rephrasing and chat history depth are used: {history_deep=}")
 
     kb = client.knowledge_base
     model_name = kb.llm
@@ -89,8 +91,7 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
         is_user=True,
         text=user_message_text,
     )
-
-    logger.debug(f"User message saved: ID={user_message.pk}")
+    logger.info(f"[telegram:{data.telegram_id}] User message saved: ID={user_message.pk}")
 
     reformulated_question = ""
 
@@ -111,25 +112,14 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
                 chat_history=chat_str,
                 model="gpt-4.1"
             )
+            logger.info(f"[telegram:{data.telegram_id}] Reworded user message: {reformulated_question}")
             if user_message_was_changed:
                 system_instruction = client.knowledge_base.system_instruction or ""
-                # system_instruction += f"""\n
-                # Документы ниже были найдены по переформулированному запросу:
-                # "{reformulated_question}"
-                #
-                # Однако пользователь изначально спросил:
-                # "{user_message_text}"
-                #
-                # История диалога:
-                # {chat_str}
-                #
-                # Ответь как можно точнее на ИСХОДНЫЙ вопрос, опираясь на документы."""
-                system_instruction += f"""\n
-                             История диалога:
-                             {chat_str}
-                """
+                system_instruction += f"""\n\nИстория диалога:\n{chat_str}"""
     try:
         retriever_scheme = "EnsembleRetriever"
+        logger.info(f"[telegram:{data.telegram_id}] Call chain: {retriever_scheme}")
+
         chain = await sync_to_async(build_ensemble_chain)(
             kb_id=kb.id,
             llm=llm,
@@ -139,9 +129,9 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
             "system_prompt": system_prompt,
         })
         ai_text = result.get("answer", "")
-        logger.debug(f"Raw AI response: {ai_text}")
+        logger.info(f"[telegram:{data.telegram_id}] Call chain answer: {ai_text}")
     except Exception as e:
-        logger.error(f"AI processing error: {str(e)}")
+        logger.info(f"[telegram:{data.telegram_id}] Call chain error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Chain error: {str(e)}")
 
 
@@ -160,8 +150,8 @@ async def receive_message(data: MessageIn, client: ApiClient = Depends(get_api_c
         text=ai_text,
         extended_log=extended_log,
     )
-    logger.debug(f"AI message saved: ID={ai_message.pk}")
-
+    logger.info(f"[telegram:{data.telegram_id}] AI message saved: ID={ai_message.pk}")
+    logger.info(f"[telegram:{data.telegram_id}] Chain finished")
     return MessageOut(
         user_message_id=user_message.pk,
         ai_message_id=ai_message.pk,

@@ -129,6 +129,14 @@
                     <dd class="description__defination">
                         {{ object.get_retriever_scheme_display }}
                     </dd> 
+                    <dt class="description__term">Режим отладки</dt>
+                    <dd class="description__defination">
+                        {% if object.debug_mode %}
+                            Включен режим расширенного сохранения логов по ответам llm
+                        {% else %}
+                            Выключен режим расширенного сохранения логов по ответам llm
+                        {% endif %}
+                    </dd> 
                     <dt class="description__term">системная инструкция</dt>
                     <dd class="description__defination">
                         {{ object.system_instruction|linebreaks }}

@@ -129,7 +129,7 @@
                                 </svg>
                             </div>
                         </label>
-                        <label class="switch" title="При формировании ответа будет использован TrigramSimilarity PostgreSQL">
+                        {% comment %} <label class="switch" title="При формировании ответа будет использован TrigramSimilarity PostgreSQL">
                             <span class="switch__label">TrigramSimilarity</span>
                             <div class="switch__wrapper">
                                 <input class="switch__input visually-hidden" type="radio" name="retriver_scheme" data-validate-field="retriver_scheme" id="id_trigram">
@@ -143,7 +143,7 @@
                                     <path d="M16 8A8 8 0 1 1 0 8a8 8 0 1 1 16 0zM2 8a6 6 0 1 0 12 0A6 6 0 1 0 2 8zm10 0a4 4 0 1 1-8 0 4 4 0 1 1 8 0z"></path>
                                 </svg>
                             </div>
-                        </label>
+                        </label> {% endcomment %}
                     </div>
                     <div class="info-page__block">
                         <label class="switch" title="При формировании ответа использовать историю с корректировкой запроса">
@@ -285,7 +285,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const llm_name = llm.value;
         const multichainScheme = document.querySelector("#id_multichain").checked;
         const ensembleScheme = document.querySelector("#id_ensemble").checked;
-        const trigramScheme = document.querySelector("#id_trigram").checked;
+        //const trigramScheme = document.querySelector("#id_trigram").checked;
         const reformulateQuestion = document.querySelector("#id_reformulate_question").checked;
         const historyDeep = document.querySelector("#id_history_deep").value;
 
@@ -317,7 +317,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 llm: llm_name,
                 is_multichain: multichainScheme.toString(),
                 is_ensemble: ensembleScheme.toString(),
-                is_trigram: trigramScheme.toString(),
+                //is_trigram: trigramScheme.toString(),
                 is_reformulate_question: reformulateQuestion.toString(),
                 history_deep: historyDeep.toString(),
             })

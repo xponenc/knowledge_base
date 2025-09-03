@@ -21,8 +21,6 @@ import inspect
 from django.db.models import Prefetch
 
 from app_ai_assistants.models import Assistant, Block, BlockConnection
-# from app_ai_assistants.services.chain_builder import create_extractor_chain
-from neuro_salesman.context import search_with_retriever
 from neuro_salesman.expert import make_expert_chain
 from neuro_salesman.extractor import make_extractor_chain
 from neuro_salesman.reformulate import make_reformulator_chain

@@ -7,7 +7,6 @@ from langchain_core.runnables import RunnableSequence, RunnableParallel, Runnabl
 from app_ai_assistants.models import Assistant
 from app_ai_assistants.services.block_model_validation import validate_block_config
 from app_ai_assistants.services.visualization import build_assistant_structure
-from neuro_salesman.context import search_with_retriever
 from neuro_salesman.expert import make_expert_chain, create_expert_chain
 from neuro_salesman.extractor import make_extractor_chain
 from neuro_salesman.reformulate import make_reformulator_chain

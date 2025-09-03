@@ -44,6 +44,9 @@ class KnowledgeBase(TrackableModel):
     logo = models.FileField(verbose_name="логотип", blank=True, null=True, upload_to=logo_upload_path)
     system_instruction = models.CharField(verbose_name="системная инструкция", max_length=10000, blank=True, null=True)
 
+    debug_mode = models.BooleanField(verbose_name="Режим отладки", default=True,
+                                     help_text="Включает режим расширенного сохранения логов по ответам llm")
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

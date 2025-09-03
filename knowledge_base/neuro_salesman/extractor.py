@@ -122,8 +122,6 @@ def make_extractor_chain(
         # print("\n")
         accumulate_history = chain_config.get("accumulate_history", False)
         output_format = chain_config.get("output_format", "str")
-        print(f"{chain_name}: {accumulate_history=}")
-        print(f"{chain_name}: {output_format=}")
 
         extractor_result = result.content if result and result.content else None
 
@@ -138,12 +136,8 @@ def make_extractor_chain(
             else:
                 extractor_result = extractor_result.strip().strip('"')
 
-        print(f"{chain_name}: {extractor_result=}")
-        print(f"{chain_name}: {result=}")
-
         if accumulate_history:
             extractor_history = inputs.get(f"{chain_name}_history")
-            print(f"{chain_name}: {extractor_history=}")
             if output_format == "list":
                 if extractor_history:
                     output_extractor_result = merge_unique_lists(extractor_history, extractor_result)
@@ -157,7 +151,6 @@ def make_extractor_chain(
         else:
             output_extractor_result = extractor_result
 
-        print(f"{chain_name}: {output_extractor_result=}")
         inputs.update({f"{chain_name}_history": output_extractor_result})
         return result
 

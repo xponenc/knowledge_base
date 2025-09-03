@@ -44,9 +44,10 @@ from threading import Lock
 from app_sources.content_models import URLContent, RawContent, ContentStatus, CleanedContent
 from app_sources.source_models import URL, SourceStatus, NetworkDocument, OutputDataType
 from app_sources.storage_models import WebSite, CloudStorage
+from knowledge_base.context_processors import get_client_ip
 from knowledge_base.settings import BASE_DIR
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 _model_cache = {}
 _index_cache = {}
@@ -167,6 +168,8 @@ class ChatView(View):
         user_message_text = request.POST.get('message', '').strip()
         if not user_message_text:
             return JsonResponse({"error": "Empty message"}, status=400)
+        client_ip = get_client_ip(request)
+        logger.info(f"[web:{chat_session.session_key}] [{client_ip}] Входящее чат сообщение: {user_message_text}")
 
         # Сохраняем сообщение пользователя
         user_message = ChatMessage.objects.create(
@@ -175,8 +178,10 @@ class ChatView(View):
             text=user_message_text,
         )
         if is_multichain:
-
             retriever_scheme = "MultiRetrievalQAChain"
+            logger.info(
+                f"[web:{chat_session.session_key}] [{client_ip}] Вызов цепочки: {retriever_scheme}")
+
             response = requests.post(
                 "http://localhost:8001/api/multi-chain/invoke",
                 json={
@@ -189,11 +194,11 @@ class ChatView(View):
                 timeout=60,
             )
 
-            response.raise_for_status()
-            result = response.json()
-            ai_message_text = result["result"]
+
         else:
             retriever_scheme = "EnsembleRetriever"
+            logger.info(
+                f"[web:{chat_session.session_key}] [{client_ip}] Вызов цепочки: {retriever_scheme}")
 
             response = requests.post(
                 "http://localhost:8001/api/ensemble-chain/invoke",
@@ -206,20 +211,29 @@ class ChatView(View):
                 },
                 timeout=60,
             )
+        logger.info(
+            f"[web:{chat_session.session_key}] [{client_ip}] Статус ответа цепочки: {response.status_code}")
+        response.raise_for_status()
+        result = response.json()
 
-            response.raise_for_status()
-            result = response.json()
-
-            ai_message_text = result["result"]
+        ai_message_text = result["result"]
+        logger.info(
+            f"[web:{chat_session.session_key}] [{client_ip}] Ответ цепочки: {ai_message_text}")
+        docs = result.get("source_documents", [])
 
         # Сохраняем ответ AI
         end_time = time.monotonic()
         duration = end_time - start_time
+
+        # Сохраняем ответ AI
         extended_log = {
             "llm": llm_name,
             "retriever_scheme": retriever_scheme,
             "processing_time": duration,
         }
+
+        if kb.debug_mode:
+            extended_log["source_documents"] = docs
 
         scheme = request.scheme
         host = request.get_host()
@@ -235,6 +249,8 @@ class ChatView(View):
         ai_message_text = markdown.markdown(ai_message_text)
 
         # Возвращаем JSON-ответ для AJAX
+        logger.info(
+            f"[web:{chat_session.session_key}] [{client_ip}] Цепочка завершена")
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
                 'user_message': user_message_text,
@@ -321,7 +337,7 @@ class ChatCreateClustersView(LoginRequiredMixin, View):
         return HttpResponse(f"Начата кластеризация {len(user_questions)} вопросов для базы знаний {kb.name}")
 
 class QwenChatView(View):
-    """Базовый чат с AI"""
+    """ТЕСТ QWEN Базовый чат с AI"""
     template_name = "app_chat/ai_chat.html"
 
     def get(self, request, kb_pk, *args, **kwargs):
@@ -576,8 +592,14 @@ class SystemChatView(LoginRequiredMixin, View):
             is_user=True,
             text=user_message_text,
         )
+
+        client_ip = get_client_ip(request)
+        logger.info(f"[web:{chat_session.session_key}] [{client_ip}] Входящее чат сообщение: {user_message_text}")
+
         reformulated_question = ""
         if is_reformulate_question and not created:
+            logger.info(
+                f"[web:{chat_session.session_key}] [{client_ip}] Используется переформулировка и история чата: {history_deep=}")
             chat_history = list(chat_session.limited_chat_history)[::-1]
             if chat_history:
                 history = [(msg.text, getattr(msg, "answer", None).text if getattr(msg, "answer", None) else "") for msg
@@ -589,12 +611,13 @@ class SystemChatView(LoginRequiredMixin, View):
                 #     current_question=user_message_text,
                 #     chat_history=history,
                 # )
-                print(chat_str)
                 reformulated_question, user_message_was_changed = reformulate_question(
                     current_question=user_message_text,
                     chat_history=chat_str,
                     model="gpt-4.1"
                 )
+                logger.info(
+                    f"[web:{chat_session.session_key}] [{client_ip}] Переформулированное сообщение: {reformulated_question}")
                 if user_message_was_changed:
                     system_instruction = kb.system_instruction or ""
 
@@ -605,6 +628,8 @@ class SystemChatView(LoginRequiredMixin, View):
 
         if is_multichain:
             retriever_scheme = "MultiRetrievalQAChain"
+            logger.info(
+                f"[web:{chat_session.session_key}] [{client_ip}] Вызов цепочки: {retriever_scheme}")
             # multi_chain = get_cached_multi_chain(kb.pk)
             # multi_chain = build_multi_chain(kb.pk, llm)
             # result = multi_chain.invoke({
@@ -624,18 +649,10 @@ class SystemChatView(LoginRequiredMixin, View):
                 timeout=60,
             )
 
-            response.raise_for_status()
-            result = response.json()
-
-            docs = result.get("source_documents", [])
-            ai_message_text = result["result"]
-            # print(result)
-            # docs = [
-            #     {"metadata": doc.metadata, "content": doc.page_content, }
-            #     for doc in docs]
-        elif is_ensemble:
+        else:
             retriever_scheme = "EnsembleRetriever"
-
+            logger.info(
+                f"[web:{chat_session.session_key}] [{client_ip}] Вызов цепочки: {retriever_scheme}")
             # qa_chain = get_cached_ensemble_chain(kb.pk)
             # result = qa_chain.invoke({
             #     "input": user_message_text,
@@ -662,26 +679,25 @@ class SystemChatView(LoginRequiredMixin, View):
                 timeout=60,
             )
 
-            response.raise_for_status()
-            result = response.json()
+        # else:
+        #     retriever_scheme = "PostgreSQL TrigramSimilarity"
+        #
+        #     result = trigram_similarity_answer_index(kb.pk,
+        #                                              system=system_instruction or kb.system_instruction,
+        #                                              query=user_message_text,
+        #                                              verbose=False)
+        #     docs, ai_message_text = result
 
-            # ai_message_text = result["answer"]
-            # docs = result.get("context", [])
+        logger.info(
+            f"[web:{chat_session.session_key}] [{client_ip}] Статус ответа цепочки: {response.status_code}")
+        response.raise_for_status()
+        result = response.json()
 
-            docs = result.get("source_documents", [])
-            ai_message_text = result["result"]
+        docs = result.get("source_documents", [])
+        ai_message_text = result["result"]
 
-            # docs = [
-            #     {"metadata": doc.metadata, "content": doc.page_content, }
-            #     for doc in docs]
-        else:
-            retriever_scheme = "PostgreSQL TrigramSimilarity"
-
-            result = trigram_similarity_answer_index(kb.pk,
-                                                     system=system_instruction or kb.system_instruction,
-                                                     query=user_message_text,
-                                                     verbose=False)
-            docs, ai_message_text = result
+        logger.info(
+            f"[web:{chat_session.session_key}] [{client_ip}] Ответ цепочки: {ai_message_text}")
 
         end = time.monotonic()
         duration = end - start_time
@@ -714,6 +730,8 @@ class SystemChatView(LoginRequiredMixin, View):
         ai_message_text = markdown.markdown(ai_message_text)
 
         # Возвращаем JSON-ответ для AJAX
+        logger.info(
+            f"[web:{chat_session.session_key}] [{client_ip}] Цепочка завершена")
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
                 'user_message': user_message_text,
